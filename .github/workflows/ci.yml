@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, dev]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      SUPABASE_SERVICE_ROLE_KEY: ssssssssssssssssssssssssssssssssssssssss
+      APP_BASE_URL: http://127.0.0.1:3000
+      DEFAULT_RUN_BUDGET_USD: "25"
+      WORKER_POLL_INTERVAL_MS: "2000"
+      WORKER_HEALTH_PORT: "3001"
+      LOG_LEVEL: info
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:e2e
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm supabase:start
+      - run: pnpm supabase:test
+      - if: always()
+        run: pnpm supabase:stop --no-backup

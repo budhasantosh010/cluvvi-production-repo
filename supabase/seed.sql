@@ -1,0 +1,2 @@
+-- Phase 0 intentionally has no shared tenant data.
+-- Use `pnpm e2e:local` to create an isolated test user, workspace, mission, and run.

@@ -1,0 +1,46 @@
+{
+  "name": "cluvvi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cluvvi V0 — evidence-backed buyer discovery",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @cluvvi/web --filter @cluvvi/worker dev",
+    "dev:web": "pnpm --filter @cluvvi/web dev",
+    "dev:worker": "pnpm --filter @cluvvi/worker dev",
+    "build": "pnpm -r --if-present run build",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "smoke": "tsx scripts/smoke-phase0.ts",
+    "supabase": "supabase",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:reset": "supabase db reset",
+    "supabase:test": "supabase test db",
+    "e2e:local": "tsx scripts/e2e-local-supabase.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0",
+    "@types/node": "26.1.2",
+    "@vitest/coverage-v8": "4.0.18",
+    "dotenv": "17.4.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.12",
+    "prettier": "3.9.6",
+    "supabase": "2.110.0",
+    "tsup": "8.5.1",
+    "tsx": "4.23.1",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}
