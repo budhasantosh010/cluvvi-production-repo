@@ -1,0 +1,22 @@
+{
+  "name": "@cluvvi/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsup src/index.ts --format esm --platform node --target node24 --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@cluvvi/core": "workspace:*",
+    "@cluvvi/engine": "workspace:*",
+    "@cluvvi/storage": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.2",
+    "tsup": "8.5.1",
+    "tsx": "4.23.1",
+    "typescript": "5.9.3"
+  }
+}

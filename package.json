@@ -8,6 +8,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "cluvvi": "tsx --tsconfig apps/cli/tsconfig.json apps/cli/src/index.ts",
     "dev": "pnpm --parallel --filter @cluvvi/web --filter @cluvvi/worker dev",
     "dev:web": "pnpm --filter @cluvvi/web dev",
     "dev:worker": "pnpm --filter @cluvvi/worker dev",

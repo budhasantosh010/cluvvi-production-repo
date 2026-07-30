@@ -12,7 +12,11 @@ coverage/
 .env.*.local
 !.env.example
 
-# Supabase local state
+# Active local Cluvvi state
+.cluvvi/
+.cluvvi-test/
+
+# Parked Supabase local state
 supabase/.branches/
 supabase/.temp/
 

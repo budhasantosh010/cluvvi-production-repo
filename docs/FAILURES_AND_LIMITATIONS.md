@@ -272,15 +272,197 @@ This document records every meaningful failure encountered while building Cluvvi
 
 **One-line solution:** Use an explicit async entry function for portable command-line scripts.
 
-# Remaining limitation
+# Historical Phase 0 limitation
 
-The repository contains the complete Supabase migration, pgTAP schema/flow/RLS tests, and a real local end-to-end script, but those database-backed checks were not executed because local Supabase requires Docker-managed files outside the requested project folder.
+The parked Supabase implementation still contains migrations and database-backed tests that were not executed because its local runtime requires Docker-managed files outside the requested project folder. C0 no longer depends on that runtime.
 
-The verified in-repository checks are:
+# C0 failures and decisions
 
-- Formatting: passed.
-- ESLint: passed with zero warnings.
-- Strict TypeScript: passed across all packages and apps.
-- Unit/integration tests: 16 passed.
-- Contract smoke test: passed, including duplicate-delivery behavior.
-- Production build: passed for shared packages, worker, and Next.js web app.
+## 16. Native SQLite package installation was approval-gated
+
+**What failed:** Installing the initially selected `better-sqlite3` dependency could not proceed automatically.
+
+**Where:** C0 storage-package setup.
+
+**When:** Immediately before the first C0 typecheck.
+
+**Why:** The Harness requires operator approval for package installation, and C0 needed to stay on the fastest single implementation track.
+
+**How it appeared:** `pnpm install --frozen-lockfile=false` returned an approval-required response instead of installing the package.
+
+**What was tried:** The storage boundary was preserved while the adapter was changed to Node 24's built-in `node:sqlite`, removing the new external dependency.
+
+**Current status:** Resolved for C0; no package installation is required.
+
+**One-line solution:** Use built-in `node:sqlite` for C0 and reassess a stable external adapter only when measured limitations justify it.
+
+## 17. Local run contracts collided with parked Phase 0 export names
+
+**What failed:** Strict TypeScript reported duplicate exports for run status and run-event contracts.
+
+**Where:** `packages/core/src/index.ts` exports from the parked Phase 0 and active C0 contract modules.
+
+**When:** First C0 typecheck.
+
+**Why:** Both generations initially exported generic names such as `RunStatusSchema` and `RunEventSchema`.
+
+**How it appeared:** TypeScript `TS2308` duplicate-export errors.
+
+**What was tried:** Active C0 contracts were renamed explicitly to `LocalRunStatusSchema`, `LocalRunEventSchema`, and `LocalRunEvent`.
+
+**Current status:** Resolved; both generations can coexist without ambiguous public contracts.
+
+**One-line solution:** Prefix active local contracts with `Local` while parked cloud contracts remain preserved.
+
+## 18. Node SQLite rows required explicit boundary casting
+
+**What failed:** Strict TypeScript rejected direct casts from generic SQLite output records to typed adapter rows.
+
+**Where:** `packages/storage/src/sqlite/sqlite-store.ts` list queries.
+
+**When:** Second C0 typecheck.
+
+**Why:** `node:sqlite` correctly types query output as generic records and cannot infer the adapter's SQL column shape.
+
+**How it appeared:** Five `TS2352` conversion errors on `.all()` results.
+
+**What was tried:** Casts were isolated at the storage boundary through `unknown`, followed by Zod validation when rows become domain objects.
+
+**Current status:** Resolved; no cast escapes the SQLite adapter.
+
+**One-line solution:** Keep unavoidable SQL row casts inside the adapter and validate mapped domain records immediately.
+
+## 19. Engine package had an unnecessary direct Zod dependency
+
+**What failed:** The engine package could not resolve its direct `zod` import without creating new workspace links.
+
+**Where:** `packages/engine/src/stage.ts` and `packages/engine/src/placeholder-stages.ts`.
+
+**When:** Third C0 typecheck.
+
+**Why:** The engine only needed a runtime `parse()` contract, not ownership of the validation library.
+
+**How it appeared:** TypeScript `TS2307` module-resolution errors.
+
+**What was tried:** Replaced the direct import with a minimal `RuntimeSchema<T>` interface and consumed schemas exported by `@cluvvi/core`.
+
+**Current status:** Resolved; validation ownership is clearer and the engine has one fewer dependency.
+
+**One-line solution:** Depend on schema behavior through `parse()` rather than coupling the engine to Zod directly.
+
+## 20. Node SQLite emits an experimental-feature warning
+
+**What happened:** Successful CLI and test commands print an experimental warning for `node:sqlite`.
+
+**Where:** Every process that opens the C0 SQLite database.
+
+**When:** Tests and real CLI execution under Node.js 24.14.1.
+
+**Why:** Node currently labels the built-in SQLite API experimental even though the required C0 behavior works.
+
+**How it appears:** `ExperimentalWarning: SQLite is an experimental feature and might change at any time`.
+
+**What was tried:** The warning was left visible rather than hidden because it does not affect correctness and replacing the adapter now would require unnecessary dependency work.
+
+**Current status:** Known limitation; all C0 storage tests and CLI flows pass.
+
+**One-line solution:** Keep SQLite isolated behind `CluvviStore` so the adapter can be replaced without changing the engine if Node's API becomes unsuitable.
+
+## 21. Harness and DevSpace connectors became temporarily unreachable
+
+**What failed:** Final verification and commit commands could not be executed through either local coding connector.
+
+**Where:** ChatGPT Harness command execution and the DevSpace fallback.
+
+**When:** After the last lint fix and before the final consolidated gate.
+
+**Why:** The Harness Tailscale endpoint returned connection failures, while DevSpace returned an OAuth `503 Service Unavailable` response.
+
+**How it appeared:** Repeated tool calls returned `mcp_network_error: Connection failed`; the fallback could not authenticate.
+
+**What was tried:** Retried the primary connector, attempted the available DevSpace fallback, stopped without making unverified claims, and resumed once the primary connector recovered.
+
+**Current status:** Resolved externally; the final gate subsequently completed successfully.
+
+**One-line solution:** Restore the local connector service, reopen the same task and workspace, then rerun the unchanged final gate.
+
+## 22. PowerShell rejected the Bash-style command separator
+
+**What failed:** The first resumed final-gate command did not start formatting or checks.
+
+**Where:** Windows PowerShell command execution.
+
+**When:** Immediately after the Harness connector recovered.
+
+**Why:** That PowerShell version does not accept `&&` as a statement separator.
+
+**How it appeared:** Parser error: `The token '&&' is not a valid statement separator in this version.`
+
+**What was tried:** Replaced `&&` with PowerShell-safe sequencing and an explicit `$LASTEXITCODE` guard.
+
+**Current status:** Resolved; the complete gate passed.
+
+**One-line solution:** Use `; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE };` for fail-fast sequencing in this PowerShell environment.
+
+## 23. New ledger text failed the formatting check
+
+**What failed:** The first post-edit formatting check rejected this Markdown file.
+
+**Where:** `docs/FAILURES_AND_LIMITATIONS.md`.
+
+**When:** After documenting the recovered connector and PowerShell failures.
+
+**Why:** The new Markdown had not yet been normalized by the repository's Prettier configuration.
+
+**How it appeared:** `pnpm format:check` named this file and exited with code 1 before the scope search ran.
+
+**What was tried:** Ran Prettier only on the changed ledger file, then reran the formatting and scope checks.
+
+**Current status:** Resolved.
+
+**One-line solution:** Format the edited Markdown file before rerunning the repository formatting gate.
+
+## 24. Harness rejected a skipped task-state transition
+
+**What failed:** The first task-closure call tried to move directly from `new` to `review_ready` and was rejected.
+
+**Where:** Harness task lifecycle management for `T-907799ff70ef266e51f1dd67`.
+
+**When:** After the C0 commit and clean-tree verification.
+
+**Why:** The Harness requires every lifecycle transition to proceed in sequence.
+
+**How it appeared:** `Illegal transition new → review_ready.`
+
+**What was tried:** Advanced through `discovering`, `planning`, `implementing`, and `validating` before entering `review_ready`.
+
+**Current status:** Resolved; the task reached `review_ready`.
+
+**One-line solution:** Advance Harness tasks through each required lifecycle state instead of skipping directly to review-ready.
+
+## 25. Harness refused task completion before turn publication
+
+**What failed:** The first `finish_task` call was rejected even though the task was review-ready and fully verified.
+
+**Where:** Harness task completion for `T-907799ff70ef266e51f1dd67`.
+
+**When:** After all six task steps were marked complete.
+
+**Why:** The Harness requires observed tool calls to be published to the task turn ledger before completion.
+
+**How it appeared:** `[TURN_UNPUBLISHED] 153 observed tool calls have not been published.`
+
+**What was tried:** Prepared the final result and evidence, published the completed work to the turn ledger, then retried task completion.
+
+**Current status:** Resolved by following the required publication order.
+
+**One-line solution:** Call `publish_turn` before `finish_task` whenever the current task has unpublished observed tool calls.
+
+# Current C0 verification status
+
+- No Docker, Supabase, or authentication is required by the active path.
+- Strict TypeScript passes across all nine workspace projects.
+- Unit and integration tests pass, including SQLite migrations, complete fixture execution, failure/resume, and fingerprint idempotency.
+- The real CLI fixture run completes all eleven stages.
+- A simulated investigation failure resumes from persisted state and reuses the first five completed stages.
+- All C0 output is visibly marked as fixture data and is never presented as real customer discovery.

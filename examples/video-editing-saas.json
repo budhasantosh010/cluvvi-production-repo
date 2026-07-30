@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "name": "Video editing SaaS customer discovery",
+  "description": "AI-assisted video editing software that creates rough cuts for long-form talking-head videos and reduces manual editing time.",
+  "customerOutcome": "Publish long-form videos faster with less manual editing work.",
+  "price": {
+    "minimum": 100,
+    "maximum": 500,
+    "currency": "USD",
+    "billingPeriod": "monthly"
+  },
+  "geographies": ["United States", "Canada", "United Kingdom", "Australia"],
+  "desiredOpportunities": 20,
+  "exclusions": [
+    "inactive creators",
+    "short-form-only creators",
+    "hobby creators",
+    "companies without recurring video production"
+  ],
+  "goodCustomerExamples": [],
+  "badCustomerExamples": [],
+  "additionalContext": "Customer zero for Cluvvi. C0 must use fixture stages only and must not claim these are real opportunities."
+}

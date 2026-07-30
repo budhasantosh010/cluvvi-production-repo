@@ -1,5 +1,5 @@
 {
-  "name": "@cluvvi/core",
+  "name": "@cluvvi/storage",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "zod": "4.4.3"
+    "@cluvvi/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.1.2",
