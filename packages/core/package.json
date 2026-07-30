@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./mission": {
+      "types": "./src/local/mission.ts",
+      "default": "./src/local/mission.ts"
     }
   },
   "scripts": {

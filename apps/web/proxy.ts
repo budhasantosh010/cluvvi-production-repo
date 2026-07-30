@@ -3,7 +3,29 @@ import type { Database } from "@cluvvi/database";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const LOCAL_BROWSER_PATHS = [
+  "/",
+  "/runs",
+  "/settings/local",
+  "/api/health",
+  "/api/capabilities",
+  "/api/runs",
+];
+
+function isLocalBrowserPath(pathname: string): boolean {
+  return LOCAL_BROWSER_PATHS.some(
+    (path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)),
+  );
+}
+
 export async function proxy(request: NextRequest) {
+  if (
+    process.env["CLUVVI_ENGINE_MODE"] === "fixture" &&
+    isLocalBrowserPath(request.nextUrl.pathname)
+  ) {
+    return NextResponse.next({ request });
+  }
+
   const environment = parsePublicEnvironment(process.env);
   let response = NextResponse.next({ request });
   const client = createServerClient<Database>(

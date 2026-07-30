@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@cluvvi/core": ["../core/src/index.ts"],
+      "@cluvvi/engine": ["../engine/src/index.ts"],
+      "@cluvvi/storage": ["../storage/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

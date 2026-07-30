@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppHeader } from "@/components/app-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -6,13 +7,16 @@ export const metadata: Metadata = {
     default: "Cluvvi",
     template: "%s · Cluvvi",
   },
-  description: "Find the real buyers worth contacting—and see the evidence.",
+  description: "Find who needs what you sell—and inspect the evidence behind every result.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AppHeader />
+        {children}
+      </body>
     </html>
   );
 }

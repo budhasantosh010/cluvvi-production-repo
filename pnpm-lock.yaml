@@ -72,6 +72,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@cluvvi/application':
+        specifier: workspace:*
+        version: link:../../packages/application
       '@cluvvi/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -81,6 +84,9 @@ importers:
       '@cluvvi/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@cluvvi/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@supabase/ssr':
         specifier: 0.12.4
         version: 0.12.4(@supabase/supabase-js@2.111.0)
@@ -121,6 +127,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@cluvvi/application':
+        specifier: workspace:*
+        version: link:../../packages/application
       '@cluvvi/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -130,6 +139,12 @@ importers:
       '@cluvvi/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@cluvvi/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@cluvvi/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
     devDependencies:
       '@types/node':
         specifier: 26.1.2
@@ -144,34 +159,18 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/engine:
+  packages/application:
     dependencies:
       '@cluvvi/core':
         specifier: workspace:*
         version: link:../core
+      '@cluvvi/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@cluvvi/storage':
         specifier: workspace:*
         version: link:../storage
     devDependencies:
-      '@types/node':
-        specifier: 26.1.2
-        version: 26.1.2
-      tsup:
-        specifier: 8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(tsx@4.23.1)(typescript@5.9.3)
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-
-  packages/storage:
-    dependencies:
-      '@cluvvi/core':
-        specifier: workspace:*
-        version: link:../core
-    devDependencies:
-      '@types/node':
-        specifier: 26.1.2
-        version: 26.1.2
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(tsx@4.23.1)(typescript@5.9.3)
@@ -223,6 +222,41 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
     devDependencies:
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(tsx@4.23.1)(typescript@5.9.3)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/engine:
+    dependencies:
+      '@cluvvi/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cluvvi/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.2
+        version: 26.1.2
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(tsx@4.23.1)(typescript@5.9.3)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/storage:
+    dependencies:
+      '@cluvvi/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.2
+        version: 26.1.2
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(tsx@4.23.1)(typescript@5.9.3)

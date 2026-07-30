@@ -1,4 +1,5 @@
 export * from "./cluvvi-store";
+export * from "./local-paths";
 export * from "./sqlite/connection";
 export * from "./sqlite/migrations";
 export * from "./sqlite/sqlite-store";

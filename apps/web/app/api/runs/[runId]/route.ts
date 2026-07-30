@@ -1,22 +1,24 @@
+import { apiError } from "@/lib/server/api-response";
+import { getWebLocalRuntime } from "@/lib/server/local-runtime";
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ runId: string }> }) {
-  const { runId } = await params;
-  const client = await createServerSupabaseClient();
-  const { data: run, error } = await client.from("runs").select("*").eq("id", runId).single();
-  if (error) {
-    return NextResponse.json({ error: "Run not found" }, { status: 404 });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(_request: Request, context: { params: Promise<{ runId: string }> }) {
+  try {
+    const { runId } = await context.params;
+    const { service } = await getWebLocalRuntime();
+    const view = await service.getRun(runId);
+    if (view === null) {
+      return NextResponse.json(
+        { error: { code: "RUN_NOT_FOUND", message: "Run not found.", retryable: false } },
+        { status: 404 },
+      );
+    }
+    const diagnostics = await service.getDiagnostics();
+    return NextResponse.json({ ...view, runner: diagnostics.runner });
+  } catch (error) {
+    return apiError(error);
   }
-
-  const { data: events, error: eventError } = await client
-    .from("run_events")
-    .select("*")
-    .eq("run_id", runId)
-    .order("created_at");
-  if (eventError) {
-    return NextResponse.json({ error: eventError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ data: { run, events } });
 }

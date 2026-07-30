@@ -8,9 +8,14 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
+      "@cluvvi/application": ["../../packages/application/src/index.ts"],
+      "@cluvvi/application/contracts": ["../../packages/application/src/contracts.ts"],
       "@cluvvi/config": ["../../packages/config/src/index.ts"],
       "@cluvvi/core": ["../../packages/core/src/index.ts"],
-      "@cluvvi/database": ["../../packages/database/src/index.ts"]
+      "@cluvvi/core/mission": ["../../packages/core/src/local/mission.ts"],
+      "@cluvvi/database": ["../../packages/database/src/index.ts"],
+      "@cluvvi/engine": ["../../packages/engine/src/index.ts"],
+      "@cluvvi/storage": ["../../packages/storage/src/index.ts"]
     }
   },
   "include": [

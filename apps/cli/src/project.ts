@@ -1,5 +1,8 @@
-import { existsSync } from "node:fs";
-import { dirname, parse, resolve } from "node:path";
+import {
+  findCluvviProjectRoot,
+  resolveLocalCluvviPaths,
+  type LocalCluvviPaths,
+} from "@cluvvi/storage";
 
 export interface LocalProjectPaths {
   root: string;
@@ -8,36 +11,16 @@ export interface LocalProjectPaths {
   runsDirectory: string;
 }
 
-function hasProjectMarkers(directory: string): boolean {
-  return (
-    existsSync(resolve(directory, "pnpm-workspace.yaml")) &&
-    existsSync(resolve(directory, "package.json"))
-  );
-}
-
 export function findProjectRoot(startDirectory = process.cwd()): string {
-  let current = resolve(startDirectory);
-  const filesystemRoot = parse(current).root;
-
-  while (current !== filesystemRoot) {
-    if (hasProjectMarkers(current)) {
-      return current;
-    }
-    current = dirname(current);
-  }
-
-  if (hasProjectMarkers(filesystemRoot)) {
-    return filesystemRoot;
-  }
-  throw new Error("Cluvvi project root was not found. Run this command inside the repository.");
+  return findCluvviProjectRoot(startDirectory);
 }
 
 export function localProjectPaths(root = findProjectRoot()): LocalProjectPaths {
-  const stateDirectory = resolve(root, ".cluvvi");
+  const paths: LocalCluvviPaths = resolveLocalCluvviPaths({ startDirectory: root });
   return {
-    root,
-    stateDirectory,
-    databasePath: resolve(stateDirectory, "cluvvi.sqlite"),
-    runsDirectory: resolve(stateDirectory, "runs"),
+    root: paths.projectRoot,
+    stateDirectory: paths.cluvviDirectory,
+    databasePath: paths.databasePath,
+    runsDirectory: paths.runsDirectory,
   };
 }

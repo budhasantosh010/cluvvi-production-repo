@@ -7,7 +7,7 @@ const publicEnvironmentSchema = z.object({
 
 const serverEnvironmentSchema = publicEnvironmentSchema.extend({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
-  APP_BASE_URL: z.url().default("http://localhost:3000"),
+  APP_BASE_URL: z.url().default("http://localhost:3100"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   DEFAULT_RUN_BUDGET_USD: z.coerce.number().positive().max(100_000).default(25),
 });

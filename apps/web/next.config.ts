@@ -6,13 +6,19 @@ const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  typedRoutes: true,
   poweredByHeader: false,
   outputFileTracingRoot: workspaceRoot,
   turbopack: {
     root: workspaceRoot,
   },
-  transpilePackages: ["@cluvvi/config", "@cluvvi/core", "@cluvvi/database"],
+  transpilePackages: [
+    "@cluvvi/application",
+    "@cluvvi/config",
+    "@cluvvi/core",
+    "@cluvvi/database",
+    "@cluvvi/engine",
+    "@cluvvi/storage",
+  ],
 };
 
 export default nextConfig;

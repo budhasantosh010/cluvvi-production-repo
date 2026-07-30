@@ -149,6 +149,7 @@ export const LocalRunEventSchema = z
       "stage_completed",
       "stage_failed",
       "run_completed",
+      "run_cancelled",
       "run_failed",
       "budget_warning",
       "budget_exhausted",

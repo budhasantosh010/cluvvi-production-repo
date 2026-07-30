@@ -5,15 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:local": "tsx watch src/local.ts",
     "start": "node dist/index.js",
+    "start:local": "tsx src/local.ts",
+    "start:local:once": "tsx src/local.ts --once",
     "start:once": "tsx src/index.ts --once",
-    "build": "tsup src/index.ts --format esm --platform node --target node24 --clean",
+    "build": "tsup src/index.ts src/local.ts --format esm --platform node --target node24 --clean",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@cluvvi/application": "workspace:*",
     "@cluvvi/config": "workspace:*",
     "@cluvvi/core": "workspace:*",
-    "@cluvvi/database": "workspace:*"
+    "@cluvvi/database": "workspace:*",
+    "@cluvvi/engine": "workspace:*",
+    "@cluvvi/storage": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.1.2",

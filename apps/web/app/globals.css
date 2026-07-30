@@ -2,11 +2,11 @@
 
 :root {
   color-scheme: light;
-  --background: #f7f7f5;
+  --background: #f6f7f3;
   --surface: #ffffff;
   --ink: #171717;
   --muted: #666660;
-  --line: #e8e8e3;
+  --line: #e7e8e1;
   --accent: #d9ff57;
 }
 
@@ -15,14 +15,17 @@
 }
 
 html {
+  min-width: 320px;
   background: var(--background);
 }
 
 body {
   min-height: 100vh;
   margin: 0;
+  overflow-x: hidden;
   background:
-    radial-gradient(circle at 10% 0%, rgb(217 255 87 / 16%), transparent 30rem), var(--background);
+    radial-gradient(circle at 8% 0%, rgb(217 255 87 / 18%), transparent 30rem),
+    radial-gradient(circle at 95% 22%, rgb(196 181 253 / 13%), transparent 28rem), var(--background);
   color: var(--ink);
   font-family:
     Inter,
@@ -37,13 +40,27 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
 button,
-a {
+a,
+summary {
   -webkit-tap-highlight-color: transparent;
+}
+
+code,
+pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+code {
+  border-radius: 0.4rem;
+  background: rgb(23 23 23 / 7%);
+  padding: 0.15rem 0.35rem;
+  font-size: 0.88em;
 }
 
 ::selection {
@@ -57,11 +74,11 @@ a {
   }
 
   .button-secondary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-neutral-200 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-800 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-neutral-200 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-800 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-wait disabled:opacity-60;
   }
 
   .surface-card {
-    @apply rounded-3xl border border-neutral-200/80 bg-white shadow-[0_18px_60px_-36px_rgba(0,0,0,0.28)];
+    @apply rounded-3xl border border-neutral-200/90 bg-white shadow-[0_24px_70px_-44px_rgba(0,0,0,0.32)];
   }
 
   .eyebrow {
@@ -84,19 +101,114 @@ a {
     @apply mt-2 block text-xs leading-5 text-neutral-500;
   }
 
-  .form-section {
-    @apply grid gap-7 rounded-3xl border border-neutral-200/80 bg-white p-6 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.25)] md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.5fr)] md:p-8;
+  .field-error {
+    @apply mt-2 block text-xs leading-5 text-red-700;
   }
 
-  .step-number {
-    @apply mb-4 grid size-8 place-items-center rounded-full bg-neutral-950 text-sm font-semibold text-lime-300;
+  .fixture-badge {
+    @apply items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-800;
   }
 
-  .section-title {
-    @apply text-xl font-semibold tracking-tight text-neutral-950;
+  .fixture-banner {
+    @apply flex flex-col gap-1 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-4 text-sm leading-6 text-violet-950 sm:flex-row sm:items-center sm:gap-3;
   }
 
-  .section-copy {
-    @apply mt-2 max-w-sm text-sm leading-6 text-neutral-600;
+  .metric-card {
+    @apply rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm;
+  }
+
+  .metric-card > span,
+  .metric-card > dt {
+    @apply block text-xs font-medium text-neutral-500;
+  }
+
+  .metric-card > strong,
+  .metric-card > dd {
+    @apply mt-1 block text-sm font-semibold text-neutral-950;
+  }
+
+  .status-pill {
+    @apply inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize tracking-wide;
+  }
+
+  .status-created,
+  .status-paused {
+    @apply border-neutral-200 bg-neutral-100 text-neutral-700;
+  }
+
+  .status-running {
+    @apply border-blue-200 bg-blue-50 text-blue-800;
+  }
+
+  .status-completed {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-800;
+  }
+
+  .status-failed,
+  .status-budget_exhausted {
+    @apply border-red-200 bg-red-50 text-red-800;
+  }
+
+  .status-cancelled {
+    @apply border-amber-200 bg-amber-50 text-amber-800;
+  }
+
+  .run-list-row {
+    @apply grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-6 py-5 transition hover:bg-neutral-50 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:px-8;
+  }
+
+  .stage-row {
+    @apply flex min-h-16 items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5;
+  }
+
+  .stage-icon {
+    @apply grid size-8 shrink-0 place-items-center rounded-full border border-neutral-200 bg-neutral-50 text-xs font-semibold text-neutral-500;
+  }
+
+  .stage-running {
+    @apply border-blue-200 bg-blue-50;
+  }
+
+  .stage-running .stage-icon {
+    @apply border-blue-600 bg-blue-600 text-white;
+  }
+
+  .stage-completed .stage-icon,
+  .stage-reused .stage-icon {
+    @apply border-emerald-600 bg-emerald-600 text-white;
+  }
+
+  .stage-failed {
+    @apply border-red-200 bg-red-50;
+  }
+
+  .stage-failed .stage-icon {
+    @apply border-red-600 bg-red-600 text-white;
+  }
+
+  .artifact-tab {
+    @apply flex min-w-40 items-center justify-between gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-sm text-neutral-600 transition hover:bg-white hover:text-neutral-950 md:min-w-0;
+  }
+
+  .artifact-tab small {
+    @apply text-[10px] text-neutral-400;
+  }
+
+  .artifact-tab-active {
+    @apply border-neutral-200 bg-white font-semibold text-neutral-950 shadow-sm;
+  }
+
+  .json-viewer {
+    @apply max-h-[620px] max-w-full overflow-auto rounded-2xl bg-neutral-950 p-5 text-xs leading-6 text-neutral-200 shadow-inner;
+    scrollbar-color: #525252 #171717;
+  }
+}
+
+@media (max-width: 640px) {
+  .json-viewer {
+    max-height: 480px;
+    padding: 1rem;
+    font-size: 0.7rem;
+    line-height: 1.35rem;
   }
 }

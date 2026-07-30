@@ -1,24 +1,36 @@
 import {
   ArtifactRecordSchema,
   LocalMissionSchema,
-  LocalRunSchema,
   LocalRunEventSchema,
+  LocalRunSchema,
+  RunRequestSchema,
+  RunnerHeartbeatSchema,
   StageExecutionSchema,
   ToolCallRecordSchema,
   type ArtifactRecord,
   type ArtifactType,
   type LocalMission,
   type LocalRun,
-  type LocalRunPhase,
   type LocalRunEvent,
+  type LocalRunPhase,
+  type RunFailure,
+  type RunRequest,
+  type RunnerHeartbeat,
   type StageExecution,
   type ToolCallRecord,
 } from "@cluvvi/core";
+import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type {
+  AcquireRunnerLeadershipInput,
+  ClaimRunRequestInput,
   CluvviStore,
   CompleteStagePersistence,
+  CreateQueuedRunPersistence,
   FailStagePersistence,
+  RunRequestRepository,
+  RunnerHeartbeatRepository,
+  RunnerLeadershipRepository,
   StartStagePersistence,
 } from "../cluvvi-store";
 import { openSqliteDatabase } from "./connection";
@@ -75,6 +87,31 @@ interface ArtifactRow {
   file_name: string;
   data_json: string;
   created_at: string;
+}
+
+interface RunRequestRow {
+  id: string;
+  run_id: string;
+  action: string;
+  status: string;
+  idempotency_key: string;
+  claimed_by: string | null;
+  claimed_at: string | null;
+  lease_expires_at: string | null;
+  attempt: number;
+  failure_json: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+interface RunnerHeartbeatRow {
+  runner_id: string;
+  hostname: string;
+  process_id: number;
+  started_at: string;
+  last_seen_at: string;
+  metadata_json: string;
 }
 
 interface ToolCallRow {
@@ -164,6 +201,35 @@ function artifactFromRow(row: ArtifactRow): ArtifactRecord {
   });
 }
 
+function runRequestFromRow(row: RunRequestRow): RunRequest {
+  return RunRequestSchema.parse({
+    id: row.id,
+    runId: row.run_id,
+    action: row.action,
+    status: row.status,
+    idempotencyKey: row.idempotency_key,
+    ...(row.claimed_by === null ? {} : { claimedBy: row.claimed_by }),
+    ...(row.claimed_at === null ? {} : { claimedAt: row.claimed_at }),
+    ...(row.lease_expires_at === null ? {} : { leaseExpiresAt: row.lease_expires_at }),
+    attempt: row.attempt,
+    ...(row.failure_json === null ? {} : { failure: parseJson(row.failure_json) }),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...(row.completed_at === null ? {} : { completedAt: row.completed_at }),
+  });
+}
+
+function heartbeatFromRow(row: RunnerHeartbeatRow): RunnerHeartbeat {
+  return RunnerHeartbeatSchema.parse({
+    runnerId: row.runner_id,
+    hostname: row.hostname,
+    processId: row.process_id,
+    startedAt: row.started_at,
+    lastSeenAt: row.last_seen_at,
+    metadata: parseJson(row.metadata_json),
+  });
+}
+
 function toolCallFromRow(row: ToolCallRow): ToolCallRecord {
   return ToolCallRecordSchema.parse({
     id: row.id,
@@ -187,7 +253,13 @@ function toolCallFromRow(row: ToolCallRow): ToolCallRecord {
   });
 }
 
-export class SqliteCluvviStore implements CluvviStore {
+export class SqliteCluvviStore
+  implements
+    CluvviStore,
+    RunRequestRepository,
+    RunnerLeadershipRepository,
+    RunnerHeartbeatRepository
+{
   readonly databasePath: string;
   readonly #migrationsDirectory: string | undefined;
   #database: DatabaseSync | null = null;
@@ -203,6 +275,15 @@ export class SqliteCluvviStore implements CluvviStore {
     }
     this.#database = openSqliteDatabase(this.databasePath);
     applySqliteMigrations(this.#database, this.#migrationsDirectory);
+    this.#database
+      .prepare(
+        `
+        INSERT INTO local_runtime_metadata(key, value, updated_at)
+        VALUES ('database_instance_id', ?, ?)
+        ON CONFLICT(key) DO NOTHING
+      `,
+      )
+      .run(randomUUID(), new Date().toISOString());
   }
 
   async close(): Promise<void> {
@@ -213,34 +294,276 @@ export class SqliteCluvviStore implements CluvviStore {
   async createRun(run: LocalRun, mission: LocalMission, event: LocalRunEvent): Promise<void> {
     const database = this.#getDatabase();
     sqliteTransaction(database, () => {
-      database
-        .prepare(
-          `
-          INSERT INTO runs(
-            id, mission_id, mission_name, status, phase, input_json, source_file,
-            config_json, budget_json, usage_json, failure_json,
-            started_at, updated_at, completed_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-        )
-        .run(
-          run.id,
-          run.missionId,
-          run.missionName,
-          run.status,
-          run.phase,
-          serialize(mission.input),
-          mission.sourceFile,
-          serialize(run.config),
-          serialize(run.budget),
-          serialize(run.usage),
-          run.failure === undefined ? null : serialize(run.failure),
-          run.startedAt,
-          run.updatedAt,
-          run.completedAt ?? null,
-        );
+      this.#insertRun(run, mission);
       this.#insertEvent(event);
     });
+  }
+
+  async createQueuedRun(input: CreateQueuedRunPersistence): Promise<{
+    run: LocalRun;
+    request: RunRequest;
+    created: boolean;
+  }> {
+    const database = this.#getDatabase();
+    return sqliteTransaction(database, () => {
+      const existingRequestRow = database
+        .prepare("SELECT * FROM run_requests WHERE idempotency_key = ?")
+        .get(input.request.idempotencyKey) as RunRequestRow | undefined;
+      if (existingRequestRow !== undefined) {
+        const existingRunRow = database
+          .prepare("SELECT * FROM runs WHERE id = ?")
+          .get(existingRequestRow.run_id) as RunRow | undefined;
+        if (existingRunRow === undefined) {
+          throw new Error(`Run ${existingRequestRow.run_id} referenced by request was not found.`);
+        }
+        return {
+          run: runFromRow(existingRunRow),
+          request: runRequestFromRow(existingRequestRow),
+          created: false,
+        };
+      }
+
+      this.#insertRun(input.run, input.mission);
+      this.#insertEvent(input.event);
+      this.#insertRunRequest(input.request);
+      return { run: input.run, request: input.request, created: true };
+    });
+  }
+
+  async enqueueRunRequest(request: RunRequest): Promise<RunRequest> {
+    const database = this.#getDatabase();
+    return sqliteTransaction(database, () => {
+      const existing = database
+        .prepare("SELECT * FROM run_requests WHERE idempotency_key = ?")
+        .get(request.idempotencyKey) as RunRequestRow | undefined;
+      if (existing !== undefined) {
+        return runRequestFromRow(existing);
+      }
+      this.#insertRunRequest(request);
+      return request;
+    });
+  }
+
+  async getRunRequestByIdempotencyKey(idempotencyKey: string): Promise<RunRequest | null> {
+    const row = this.#getDatabase()
+      .prepare("SELECT * FROM run_requests WHERE idempotency_key = ?")
+      .get(idempotencyKey) as RunRequestRow | undefined;
+    return row === undefined ? null : runRequestFromRow(row);
+  }
+
+  async listRunRequests(runId: string): Promise<RunRequest[]> {
+    const rows = this.#getDatabase()
+      .prepare("SELECT * FROM run_requests WHERE run_id = ? ORDER BY created_at, id")
+      .all(runId) as unknown as RunRequestRow[];
+    return rows.map(runRequestFromRow);
+  }
+
+  async claimNextRunRequest(input: ClaimRunRequestInput): Promise<RunRequest | null> {
+    const database = this.#getDatabase();
+    return sqliteTransaction(database, () => {
+      const candidate = database
+        .prepare(
+          `
+          SELECT * FROM run_requests
+          WHERE status = 'pending'
+             OR (status = 'claimed' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?)
+          ORDER BY created_at, id
+          LIMIT 1
+        `,
+        )
+        .get(input.now) as RunRequestRow | undefined;
+      if (candidate === undefined) {
+        return null;
+      }
+
+      const result = database
+        .prepare(
+          `
+          UPDATE run_requests
+          SET status = 'claimed', claimed_by = ?, claimed_at = ?, lease_expires_at = ?,
+              attempt = attempt + 1, failure_json = NULL, updated_at = ?
+          WHERE id = ?
+            AND (status = 'pending'
+              OR (status = 'claimed' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?))
+        `,
+        )
+        .run(input.runnerId, input.now, input.leaseExpiresAt, input.now, candidate.id, input.now);
+      if (Number(result.changes) !== 1) {
+        return null;
+      }
+      const claimed = database
+        .prepare("SELECT * FROM run_requests WHERE id = ?")
+        .get(candidate.id) as unknown as RunRequestRow;
+      return runRequestFromRow(claimed);
+    });
+  }
+
+  async renewRunRequestLease(
+    requestId: string,
+    runnerId: string,
+    now: string,
+    leaseExpiresAt: string,
+  ): Promise<boolean> {
+    const result = this.#getDatabase()
+      .prepare(
+        `
+        UPDATE run_requests SET lease_expires_at = ?, updated_at = ?
+        WHERE id = ? AND status = 'claimed' AND claimed_by = ?
+      `,
+      )
+      .run(leaseExpiresAt, now, requestId, runnerId);
+    return Number(result.changes) === 1;
+  }
+
+  async completeRunRequest(
+    requestId: string,
+    runnerId: string,
+    completedAt: string,
+  ): Promise<void> {
+    const result = this.#getDatabase()
+      .prepare(
+        `
+        UPDATE run_requests
+        SET status = 'completed', lease_expires_at = NULL, updated_at = ?, completed_at = ?
+        WHERE id = ? AND status = 'claimed' AND claimed_by = ?
+      `,
+      )
+      .run(completedAt, completedAt, requestId, runnerId);
+    if (Number(result.changes) !== 1) {
+      throw new Error(`Run request ${requestId} is not actively claimed by ${runnerId}.`);
+    }
+  }
+
+  async failRunRequest(
+    requestId: string,
+    runnerId: string,
+    failure: RunFailure,
+    failedAt: string,
+  ): Promise<void> {
+    const result = this.#getDatabase()
+      .prepare(
+        `
+        UPDATE run_requests
+        SET status = 'failed', lease_expires_at = NULL, failure_json = ?,
+            updated_at = ?, completed_at = ?
+        WHERE id = ? AND status = 'claimed' AND claimed_by = ?
+      `,
+      )
+      .run(serialize(failure), failedAt, failedAt, requestId, runnerId);
+    if (Number(result.changes) !== 1) {
+      throw new Error(`Run request ${requestId} is not actively claimed by ${runnerId}.`);
+    }
+  }
+
+  async hasPendingCancellation(runId: string): Promise<boolean> {
+    const row = this.#getDatabase()
+      .prepare(
+        `
+        SELECT id FROM run_requests
+        WHERE run_id = ? AND action = 'cancel' AND status IN ('pending', 'claimed')
+        LIMIT 1
+      `,
+      )
+      .get(runId) as { id: string } | undefined;
+    return row !== undefined;
+  }
+
+  async acquireRunnerLeadership(input: AcquireRunnerLeadershipInput): Promise<boolean> {
+    const result = this.#getDatabase()
+      .prepare(
+        `
+        INSERT INTO runner_leadership(
+          singleton_id, runner_id, acquired_at, lease_expires_at, updated_at
+        ) VALUES (1, ?, ?, ?, ?)
+        ON CONFLICT(singleton_id) DO UPDATE SET
+          runner_id = excluded.runner_id,
+          acquired_at = CASE
+            WHEN runner_leadership.runner_id = excluded.runner_id
+              THEN runner_leadership.acquired_at
+            ELSE excluded.acquired_at
+          END,
+          lease_expires_at = excluded.lease_expires_at,
+          updated_at = excluded.updated_at
+        WHERE runner_leadership.runner_id = excluded.runner_id
+           OR runner_leadership.lease_expires_at <= excluded.updated_at
+      `,
+      )
+      .run(input.runnerId, input.now, input.leaseExpiresAt, input.now);
+    return Number(result.changes) === 1;
+  }
+
+  async renewRunnerLeadership(input: AcquireRunnerLeadershipInput): Promise<boolean> {
+    const result = this.#getDatabase()
+      .prepare(
+        `
+        UPDATE runner_leadership
+        SET lease_expires_at = ?, updated_at = ?
+        WHERE singleton_id = 1
+          AND runner_id = ?
+          AND lease_expires_at > ?
+      `,
+      )
+      .run(input.leaseExpiresAt, input.now, input.runnerId, input.now);
+    return Number(result.changes) === 1;
+  }
+
+  async releaseRunnerLeadership(runnerId: string): Promise<void> {
+    this.#getDatabase()
+      .prepare("DELETE FROM runner_leadership WHERE singleton_id = 1 AND runner_id = ?")
+      .run(runnerId);
+  }
+
+  async upsertRunnerHeartbeat(heartbeat: RunnerHeartbeat): Promise<void> {
+    this.#getDatabase()
+      .prepare(
+        `
+        INSERT INTO runner_heartbeats(
+          runner_id, hostname, process_id, started_at, last_seen_at, metadata_json
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(runner_id) DO UPDATE SET
+          hostname = excluded.hostname,
+          process_id = excluded.process_id,
+          started_at = excluded.started_at,
+          last_seen_at = excluded.last_seen_at,
+          metadata_json = excluded.metadata_json
+      `,
+      )
+      .run(
+        heartbeat.runnerId,
+        heartbeat.hostname,
+        heartbeat.processId,
+        heartbeat.startedAt,
+        heartbeat.lastSeenAt,
+        serialize(heartbeat.metadata),
+      );
+  }
+
+  async removeRunnerHeartbeat(runnerId: string): Promise<void> {
+    this.#getDatabase().prepare("DELETE FROM runner_heartbeats WHERE runner_id = ?").run(runnerId);
+  }
+
+  async getLatestRunnerHeartbeat(): Promise<RunnerHeartbeat | null> {
+    const row = this.#getDatabase()
+      .prepare("SELECT * FROM runner_heartbeats ORDER BY last_seen_at DESC LIMIT 1")
+      .get() as RunnerHeartbeatRow | undefined;
+    return row === undefined ? null : heartbeatFromRow(row);
+  }
+
+  async getMigrationVersion(): Promise<string | null> {
+    const row = this.#getDatabase()
+      .prepare("SELECT id FROM schema_migrations ORDER BY id DESC LIMIT 1")
+      .get() as { id: string } | undefined;
+    return row?.id ?? null;
+  }
+
+  async getDatabaseInstanceId(): Promise<string> {
+    const row = this.#getDatabase()
+      .prepare("SELECT value FROM local_runtime_metadata WHERE key = 'database_instance_id'")
+      .get() as { value: string } | undefined;
+    if (row === undefined) {
+      throw new Error("SQLite database instance identifier is missing.");
+    }
+    return row.value;
   }
 
   async getRun(runId: string): Promise<LocalRun | null> {
@@ -477,6 +800,62 @@ export class SqliteCluvviStore implements CluvviStore {
       throw new Error("SQLite store has not been initialized.");
     }
     return this.#database;
+  }
+
+  #insertRun(run: LocalRun, mission: LocalMission): void {
+    this.#getDatabase()
+      .prepare(
+        `
+        INSERT INTO runs(
+          id, mission_id, mission_name, status, phase, input_json, source_file,
+          config_json, budget_json, usage_json, failure_json,
+          started_at, updated_at, completed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      )
+      .run(
+        run.id,
+        run.missionId,
+        run.missionName,
+        run.status,
+        run.phase,
+        serialize(mission.input),
+        mission.sourceFile,
+        serialize(run.config),
+        serialize(run.budget),
+        serialize(run.usage),
+        run.failure === undefined ? null : serialize(run.failure),
+        run.startedAt,
+        run.updatedAt,
+        run.completedAt ?? null,
+      );
+  }
+
+  #insertRunRequest(request: RunRequest): void {
+    this.#getDatabase()
+      .prepare(
+        `
+        INSERT INTO run_requests(
+          id, run_id, action, status, idempotency_key, claimed_by, claimed_at,
+          lease_expires_at, attempt, failure_json, created_at, updated_at, completed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      )
+      .run(
+        request.id,
+        request.runId,
+        request.action,
+        request.status,
+        request.idempotencyKey,
+        request.claimedBy ?? null,
+        request.claimedAt ?? null,
+        request.leaseExpiresAt ?? null,
+        request.attempt,
+        request.failure === undefined ? null : serialize(request.failure),
+        request.createdAt,
+        request.updatedAt,
+        request.completedAt ?? null,
+      );
   }
 
   #updateRun(run: LocalRun): void {

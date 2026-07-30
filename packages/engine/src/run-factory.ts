@@ -1,0 +1,56 @@
+import {
+  DEFAULT_RUN_BUDGET,
+  EMPTY_RUN_USAGE,
+  LocalMissionSchema,
+  LocalRunEventSchema,
+  LocalRunSchema,
+  createOpaqueId,
+  type LocalMission,
+  type LocalRun,
+  type LocalRunEvent,
+  type MissionInputV1,
+  type RunBudget,
+} from "@cluvvi/core";
+import { LOCAL_ENGINE_VERSION } from "./version";
+
+export interface RunCreationRecords {
+  mission: LocalMission;
+  run: LocalRun;
+  event: LocalRunEvent;
+}
+
+export function createRunCreationRecords(input: {
+  mission: MissionInputV1;
+  sourceFile: string;
+  now?: string;
+  budget?: RunBudget;
+}): RunCreationRecords {
+  const now = input.now ?? new Date().toISOString();
+  const mission = LocalMissionSchema.parse({
+    id: createOpaqueId("mission"),
+    input: input.mission,
+    sourceFile: input.sourceFile,
+    createdAt: now,
+  });
+  const run = LocalRunSchema.parse({
+    id: createOpaqueId("run"),
+    missionId: mission.id,
+    missionName: mission.input.name,
+    status: "created",
+    phase: "mission",
+    config: { engineVersion: LOCAL_ENGINE_VERSION, fixtureMode: true },
+    budget: input.budget ?? DEFAULT_RUN_BUDGET,
+    usage: EMPTY_RUN_USAGE,
+    startedAt: now,
+    updatedAt: now,
+  });
+  const event = LocalRunEventSchema.parse({
+    id: createOpaqueId("event"),
+    runId: run.id,
+    eventType: "run_created",
+    phase: run.phase,
+    data: { sourceFile: input.sourceFile },
+    createdAt: now,
+  });
+  return { mission, run, event };
+}

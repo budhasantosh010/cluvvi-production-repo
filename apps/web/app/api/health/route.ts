@@ -1,20 +1,28 @@
-import { environmentCapabilities } from "@cluvvi/config";
+import { apiError } from "@/lib/server/api-response";
+import { getWebLocalRuntime } from "@/lib/server/local-runtime";
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export function GET() {
-  const capabilities = environmentCapabilities(process.env);
-  const ready = capabilities.supabaseConfigured;
-
-  return NextResponse.json(
-    {
-      service: "cluvvi-web",
-      status: ready ? "ready" : "degraded",
-      version: "0.0.0",
-      capabilities,
-      checkedAt: new Date().toISOString(),
-    },
-    { status: ready ? 200 : 503 },
-  );
+export async function GET() {
+  try {
+    const { service } = await getWebLocalRuntime();
+    const diagnostics = await service.getDiagnostics();
+    return NextResponse.json({
+      status: "ok",
+      web: "ok",
+      database: "ok",
+      runner: diagnostics.runner.available ? "ok" : "offline",
+      mode: diagnostics.mode,
+      databaseInstanceId: diagnostics.databaseInstanceId,
+      runnerDatabaseInstanceId:
+        typeof diagnostics.runner.heartbeat?.metadata["databaseInstanceId"] === "string"
+          ? diagnostics.runner.heartbeat.metadata["databaseInstanceId"]
+          : null,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return apiError(error);
+  }
 }

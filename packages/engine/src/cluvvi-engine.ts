@@ -1,12 +1,9 @@
 import {
   ArtifactRecordSchema,
   CluvviError,
-  DEFAULT_RUN_BUDGET,
-  EMPTY_RUN_USAGE,
-  LocalMissionSchema,
+  LocalRunEventSchema,
   LocalRunSchema,
   ORDERED_RUN_PHASES,
-  LocalRunEventSchema,
   StageExecutionSchema,
   ToolCallRecordSchema,
   classifyError,
@@ -16,23 +13,29 @@ import {
   type ArtifactType,
   type LocalMission,
   type LocalRun,
+  type LocalRunEvent,
   type LocalRunPhase,
   type MissionInputV1,
   type RunBudget,
-  type LocalRunEvent,
 } from "@cluvvi/core";
 import type { CluvviStore } from "@cluvvi/storage";
-import { BudgetController } from "./budget-controller";
+import { setTimeout as delay } from "node:timers/promises";
 import type { LocalArtifactWriter } from "./artifact-writer";
+import { BudgetController } from "./budget-controller";
 import { createPlaceholderStages } from "./placeholder-stages";
+import { createRunCreationRecords } from "./run-factory";
 import type { EngineStage, StageContext } from "./stage";
 import { StageRegistry } from "./stage";
-
-export const LOCAL_ENGINE_VERSION = "0.1.0-c0";
+import { LOCAL_ENGINE_VERSION } from "./version";
 
 export interface RunResult {
   run: LocalRun;
   artifacts: ArtifactRecord[];
+}
+
+export interface RunExecutionOptions {
+  shouldCancel?: () => Promise<boolean>;
+  failStage?: LocalRunPhase;
 }
 
 export class RunExecutionError extends Error {
@@ -56,6 +59,7 @@ export class CluvviEngine {
   readonly #budgetController: BudgetController;
   readonly #eventSink: EngineEventSink;
   readonly #now: () => string;
+  readonly #stageDelayMs: number;
 
   constructor(input: {
     store: CluvviStore;
@@ -64,6 +68,7 @@ export class CluvviEngine {
     budgetController?: BudgetController;
     eventSink?: EngineEventSink;
     now?: () => string;
+    stageDelayMs?: number;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -71,6 +76,7 @@ export class CluvviEngine {
     this.#budgetController = input.budgetController ?? new BudgetController();
     this.#eventSink = input.eventSink ?? { emit() {} };
     this.#now = input.now ?? (() => new Date().toISOString());
+    this.#stageDelayMs = input.stageDelayMs ?? 0;
   }
 
   async start(input: {
@@ -80,26 +86,12 @@ export class CluvviEngine {
     failStage?: LocalRunPhase;
   }): Promise<RunResult> {
     await this.#store.initialize();
-    const now = this.#now();
-    const mission = LocalMissionSchema.parse({
-      id: createOpaqueId("mission"),
-      input: input.mission,
+    const { mission, run, event } = createRunCreationRecords({
+      mission: input.mission,
       sourceFile: input.sourceFile,
-      createdAt: now,
+      now: this.#now(),
+      ...(input.budget === undefined ? {} : { budget: input.budget }),
     });
-    const run = LocalRunSchema.parse({
-      id: createOpaqueId("run"),
-      missionId: mission.id,
-      missionName: mission.input.name,
-      status: "created",
-      phase: "mission",
-      config: { engineVersion: LOCAL_ENGINE_VERSION, fixtureMode: true },
-      budget: input.budget ?? DEFAULT_RUN_BUDGET,
-      usage: EMPTY_RUN_USAGE,
-      startedAt: now,
-      updatedAt: now,
-    });
-    const event = this.#event(run, "run_created", { sourceFile: input.sourceFile });
     await this.#artifactWriter.ensureRunDirectory(run.id);
     await this.#store.createRun(run, mission, event);
     this.#eventSink.emit(event);
@@ -113,23 +105,23 @@ export class CluvviEngine {
     }
   }
 
-  async run(runId: string): Promise<RunResult> {
-    return this.#execute(runId, { resumed: false });
+  async run(runId: string, options: RunExecutionOptions = {}): Promise<RunResult> {
+    return this.#execute(runId, { resumed: false, ...options });
   }
 
-  async resume(runId: string): Promise<RunResult> {
-    return this.#execute(runId, { resumed: true });
+  async resume(runId: string, options: RunExecutionOptions = {}): Promise<RunResult> {
+    return this.#execute(runId, { resumed: true, ...options });
   }
 
   async #execute(
     runId: string,
-    options: { resumed: boolean; failStage?: LocalRunPhase },
+    options: RunExecutionOptions & { resumed: boolean },
   ): Promise<RunResult> {
     await this.#store.initialize();
     let run = await this.#requireRun(runId);
     const mission = await this.#requireMission(runId);
 
-    if (run.status === "completed") {
+    if (run.status === "completed" || run.status === "cancelled") {
       return { run, artifacts: await this.#store.listArtifacts(run.id) };
     }
 
@@ -138,6 +130,7 @@ export class CluvviEngine {
       ...run,
       status: "running",
       updatedAt: startTime,
+      completedAt: undefined,
       failure: undefined,
     });
     const startedEvent = this.#event(run, options.resumed ? "run_resumed" : "run_started", {});
@@ -145,6 +138,21 @@ export class CluvviEngine {
     this.#eventSink.emit(startedEvent);
 
     for (const stage of this.#stages.stages) {
+      if (options.shouldCancel !== undefined && (await options.shouldCancel())) {
+        const cancelledAt = this.#now();
+        run = LocalRunSchema.parse({
+          ...run,
+          status: "cancelled",
+          updatedAt: cancelledAt,
+          completedAt: cancelledAt,
+          failure: undefined,
+        });
+        const cancelledEvent = this.#event(run, "run_cancelled", {});
+        await this.#store.persistRunAndEvent(run, cancelledEvent);
+        this.#eventSink.emit(cancelledEvent);
+        return { run, artifacts: await this.#store.listArtifacts(run.id) };
+      }
+
       this.#budgetController.assertRunCanContinue(run);
       const context = this.#context(run, mission, stage);
       const untrustedInput = await stage.loadInput(context);
@@ -197,10 +205,13 @@ export class CluvviEngine {
           throw new CluvviError({
             code: "SIMULATED_STAGE_FAILURE",
             category: "internal",
-            message: `Simulated C0 failure at ${stage.name}.`,
+            message: `Simulated C0.5 fixture failure at ${stage.name}.`,
             retryable: true,
             stage: stage.name,
           });
+        }
+        if (this.#stageDelayMs > 0) {
+          await delay(this.#stageDelayMs);
         }
         const output = await stage.execute(validatedInput, context);
         const validatedOutput = stage.outputSchema.parse(output);
