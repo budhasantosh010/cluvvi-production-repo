@@ -782,6 +782,60 @@ The parked Supabase implementation still contains migrations and database-backed
 
 **One-line solution:** Each public application-service operation must establish its own required persistence readiness.
 
+## 44. Initial GitHub push timed out during remote interaction
+
+**What failed:** The first combined G0 audit-and-push command exceeded the Harness command timeout before reporting which network step had completed.
+
+**Where:** The Git remote setup and push sequence for `cluvvi-production-repo`.
+
+**When:** During the first public baseline publication attempt.
+
+**Why:** The command combined history scanning, remote inspection, branch rename, push, and verification into one bounded shell execution.
+
+**How it appeared:** Harness returned a timeout with no final push result.
+
+**What was tried:** Queried branch, local SHA, remotes, remote SHA, and status independently before issuing any further write.
+
+**Current status:** Resolved diagnostically; the branch rename and remote configuration had completed, while the remote branch still held its earlier commit.
+
+**One-line solution:** Separate remote inspection, remote mutation, and SHA verification into independently observable commands.
+
+## 45. GitHub repository was not actually empty
+
+**What failed:** The G0 assumption that the public repository had no commits was false.
+
+**Where:** `origin/main` at `https://github.com/budhasantosh010/cluvvi-production-repo.git`.
+
+**When:** Before the baseline push.
+
+**Why:** GitHub already contained an unrelated initial commit with a one-line placeholder `README.md`.
+
+**How it appeared:** `git ls-remote` returned `e3776a86…`; fetching showed one unrelated commit and no merge base with the verified Cluvvi history.
+
+**What was tried:** Inspected the complete remote tree and commit, confirmed it contained only the placeholder, and attempted a pinned `--force-with-lease` replacement.
+
+**Current status:** Resolved without destructive history replacement by connecting the placeholder commit as an unrelated parent using Git's `ours` merge strategy, preserving the verified Cluvvi tree and baseline commit unchanged in history.
+
+**One-line solution:** Inspect unexpected remote history, then preserve it with a no-content merge when force replacement is unavailable or unnecessary.
+
+## 46. Harness refused the pinned force-with-lease push
+
+**What failed:** The exact-SHA remote replacement command did not execute.
+
+**Where:** Harness destructive-command guard.
+
+**When:** After confirming the remote contained only a placeholder commit.
+
+**Why:** The guard rejects every `git push` command containing a force option, including a branch-specific lease pinned to the observed remote SHA.
+
+**How it appeared:** Harness returned a refusal before Git ran.
+
+**What was tried:** Searched for a dedicated safe push action; none was available. Used a non-destructive unrelated-history merge instead.
+
+**Current status:** Resolved operationally. The verified baseline commit remains a direct parent in public history, while local and remote `main` can advance normally without bypassing the safety guard.
+
+**One-line solution:** Prefer a preserving merge for a harmless placeholder history when the execution environment prohibits remote history replacement.
+
 # Current C0.5 verification status
 
 - `pnpm dev` starts Next.js and the local runner on `http://localhost:3100` without Docker, Supabase, authentication, or provider keys.
