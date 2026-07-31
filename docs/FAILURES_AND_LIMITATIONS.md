@@ -1466,6 +1466,24 @@ The parked Supabase implementation still contains migrations and database-backed
 
 **One-line solution:** Normalize generated declaration files for the formatter, then prove and exclude any line-ending-only status noise from the commit.
 
+## 82. Stopping the Harness process left a confirmed Cluvvi child tree alive
+
+**What failed:** The first final hygiene check found localhost:3100 still listening after the Harness reported the background `pnpm dev` process stopped.
+
+**Where:** Post-push C0.9 cleanup.
+
+**When:** After local and GitHub commit SHAs already matched and the working tree was clean.
+
+**Why:** Terminating the outer tracked process did not propagate to the Windows `start-local-dev.mjs → start-web.mjs → Next.js` child tree and its local runner sibling.
+
+**How it appeared:** The final verification printed `port3100Free=False`; process inspection traced PID 5108 through `next dev --port 3100`, `scripts/start-web.mjs`, and `scripts/start-local-dev.mjs` in this exact checkout.
+
+**What was tried:** Inspected the complete parent chain, confirmed every process belonged to Cluvvi, terminated only the root Cluvvi supervisor tree with its children, and rechecked the listener.
+
+**Current status:** Resolved; localhost:3100 is free and no C0.9 web or runner process remains.
+
+**One-line solution:** When wrapper termination does not propagate on Windows, identify and stop only the confirmed project supervisor tree before final hygiene verification.
+
 # Current C0.9 + C1-A verification status
 
 - `pnpm dev` served C0.9 + C1-A at `http://localhost:3100` with one local runner, one engine, and one SQLite database during browser verification; the environment was stopped afterward.
