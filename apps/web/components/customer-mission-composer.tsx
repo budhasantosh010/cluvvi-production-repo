@@ -9,6 +9,14 @@ interface CustomerMissionComposerProps {
   runnerAvailable: boolean;
 }
 
+type SubmitStep = "idle" | "creating" | "opening";
+
+function submitLabel(step: SubmitStep): string {
+  if (step === "creating") return "Starting run…";
+  if (step === "opening") return "Opening run…";
+  return "Start finding customers →";
+}
+
 type FieldErrors = Record<string, string[]>;
 type OptionalField =
   | "website"
@@ -114,10 +122,11 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [visibleFields, setVisibleFields] = useState<Set<OptionalField>>(new Set());
   const [hiddenFields, setHiddenFields] = useState<Set<OptionalField>>(new Set());
-  const [submitting, setSubmitting] = useState(false);
+  const [submitStep, setSubmitStep] = useState<SubmitStep>("idle");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [requestError, setRequestError] = useState<string | null>(null);
   const promptAnalysis = useMemo(() => analyzeMissionPrompt(prompt), [prompt]);
+  const submitting = submitStep !== "idle";
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -242,7 +251,7 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
     setErrors({});
     setRequestError(null);
     submissionInFlight.current = true;
-    setSubmitting(true);
+    setSubmitStep("creating");
     idempotencyKey.current ??= `web_${crypto.randomUUID()}`;
     try {
       const response = await fetch("/api/runs", {
@@ -261,14 +270,17 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
       if (!response.ok || body.run === undefined || body.links === undefined) {
         setErrors(body.error?.fieldErrors ?? {});
         setRequestError(body.error?.message ?? "Cluvvi could not create this run.");
+        submissionInFlight.current = false;
+        setSubmitStep("idle");
         return;
       }
-      router.push(body.links.page);
+      const runPage = body.links.page;
+      setSubmitStep("opening");
+      requestAnimationFrame(() => router.push(runPage));
     } catch {
       setRequestError("The local web server could not be reached. Your values are still here.");
-    } finally {
       submissionInFlight.current = false;
-      setSubmitting(false);
+      setSubmitStep("idle");
     }
   }
 
@@ -491,14 +503,12 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
             <button
               className="composer-submit"
               type="submit"
-              aria-label="Start finding customers"
+              aria-busy={submitting}
               disabled={submitting}
               data-testid="composer-submit"
             >
-              <span className="hidden sm:inline">
-                {submitting ? "Starting…" : "Start finding customers"}
-              </span>
-              <span aria-hidden="true">→</span>
+              {submitting && <span className="loading-dot" aria-hidden="true" />}
+              <span aria-live="polite">{submitLabel(submitStep)}</span>
             </button>
           </div>
 

@@ -9,6 +9,11 @@
   --line: #deded7;
   --subtle-line: #ecece6;
   --accent: #d9ff57;
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-press: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-medium: 180ms;
+  --duration-slow: 240ms;
 }
 
 * {
@@ -157,11 +162,16 @@ code {
   }
 
   .command-composer {
-    @apply overflow-visible rounded-[20px] border border-neutral-300/90 bg-white shadow-[0_18px_52px_-34px_rgba(0,0,0,0.30)] transition;
+    @apply overflow-visible rounded-[20px] border border-neutral-300/90 bg-white shadow-[0_18px_52px_-34px_rgba(0,0,0,0.30)];
+    transition:
+      border-color var(--duration-medium) var(--ease-smooth),
+      box-shadow var(--duration-medium) var(--ease-smooth),
+      transform var(--duration-medium) var(--ease-smooth);
   }
 
   .command-composer:focus-within {
-    @apply border-neutral-400 shadow-[0_22px_60px_-34px_rgba(0,0,0,0.36)];
+    @apply border-neutral-400 shadow-[0_24px_64px_-34px_rgba(0,0,0,0.38)];
+    transform: translateY(-1px);
   }
 
   .command-textarea {
@@ -185,11 +195,15 @@ code {
   }
 
   .composer-submit {
-    @apply ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-wait disabled:opacity-60;
+    @apply ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-wait disabled:opacity-60;
+    width: 13.5rem;
+    min-width: 13.5rem;
   }
 
   .composer-menu {
     @apply absolute bottom-[calc(100%+0.6rem)] left-0 z-30 w-[min(19rem,calc(100vw-2.5rem))] rounded-xl border border-neutral-200 bg-white p-1.5 shadow-xl;
+    transform-origin: bottom left;
+    animation: composer-menu-in var(--duration-medium) var(--ease-smooth);
   }
 
   .example-chip {
@@ -209,17 +223,24 @@ code {
   }
 
   .fixture-popover {
-    @apply invisible absolute left-1/2 top-[calc(100%+0.6rem)] z-40 block w-[min(22rem,calc(100vw-2.5rem))] -translate-x-1/2 rounded-xl border border-violet-200 bg-white p-4 text-left text-sm font-normal leading-6 text-violet-950 opacity-0 shadow-xl transition;
+    @apply invisible absolute left-1/2 top-[calc(100%+0.6rem)] z-40 block w-[min(22rem,calc(100vw-2.5rem))] rounded-xl border border-violet-200 bg-white p-4 text-left text-sm font-normal leading-6 text-violet-950 opacity-0 shadow-xl;
+    transform: translate(-50%, 4px) scale(0.98);
+    transition:
+      opacity var(--duration-medium) var(--ease-smooth),
+      transform var(--duration-medium) var(--ease-smooth),
+      visibility var(--duration-medium) var(--ease-smooth);
   }
 
   .fixture-disclosure:hover .fixture-popover,
   .fixture-disclosure:focus-within .fixture-popover,
   .fixture-disclosure details[open] + .fixture-popover {
     @apply visible opacity-100;
+    transform: translate(-50%, 0) scale(1);
   }
 
   .recent-run-row {
     @apply grid min-h-16 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-4 transition hover:bg-white/70 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto];
+    border-radius: 0.9rem;
   }
 
   .stage-row {
@@ -236,6 +257,7 @@ code {
 
   .stage-running .stage-icon {
     @apply border-blue-600 bg-blue-600 text-white;
+    position: relative;
   }
 
   .stage-completed .stage-icon,
@@ -269,9 +291,156 @@ code {
   }
 }
 
+.pressable,
+.button-primary,
+.button-secondary,
+.composer-submit,
+.composer-control,
+.example-chip,
+.fixture-trigger,
+.recent-run-row,
+.artifact-tab {
+  transition:
+    transform var(--duration-fast) var(--ease-press),
+    box-shadow var(--duration-medium) var(--ease-smooth),
+    background-color var(--duration-medium) var(--ease-smooth),
+    border-color var(--duration-medium) var(--ease-smooth),
+    color var(--duration-medium) var(--ease-smooth),
+    opacity var(--duration-medium) var(--ease-smooth);
+}
+
+.smooth-panel {
+  transition:
+    border-color var(--duration-medium) var(--ease-smooth),
+    box-shadow var(--duration-medium) var(--ease-smooth),
+    background-color var(--duration-medium) var(--ease-smooth),
+    opacity var(--duration-medium) var(--ease-smooth);
+}
+
+.loading-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: loading-dot-pulse 900ms var(--ease-smooth) infinite;
+}
+
+.stage-running .stage-icon::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgb(37 99 235 / 28%);
+  border-radius: inherit;
+  animation: stage-pulse 1100ms var(--ease-smooth) infinite;
+}
+
+.skeleton-line {
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    rgb(245 245 244) 0%,
+    rgb(229 229 229) 50%,
+    rgb(245 245 244) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shift 1200ms var(--ease-smooth) infinite;
+}
+
+@media (hover: hover) {
+  .pressable:hover,
+  .button-primary:hover,
+  .button-secondary:hover,
+  .composer-submit:hover,
+  .composer-control:hover,
+  .example-chip:hover,
+  .fixture-trigger:hover,
+  .recent-run-row:hover,
+  .artifact-tab:hover {
+    transform: translateY(-1px);
+  }
+
+  .recent-run-row:hover {
+    background: rgb(255 255 255 / 82%);
+    box-shadow: 0 12px 36px -28px rgb(0 0 0 / 35%);
+  }
+}
+
+.pressable:active,
+.button-primary:active,
+.button-secondary:active,
+.composer-submit:active,
+.composer-control:active,
+.example-chip:active,
+.fixture-trigger:active,
+.recent-run-row:active,
+.artifact-tab:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.pressable:disabled,
+.pressable[aria-disabled="true"],
+.button-primary:disabled,
+.button-secondary:disabled,
+.composer-submit:disabled,
+.composer-control:disabled,
+.example-chip:disabled,
+.fixture-trigger[aria-disabled="true"],
+.recent-run-row[aria-disabled="true"],
+.artifact-tab:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
+
+@keyframes loading-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes composer-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes stage-pulse {
+  from {
+    opacity: 0.7;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.22);
+  }
+}
+
+@keyframes skeleton-shift {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 @media (max-width: 640px) {
   .composer-submit {
     margin-left: 0;
+    width: 100%;
+    min-width: 0;
   }
 
   .composer-select {
@@ -298,5 +467,30 @@ code {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .pressable,
+  .smooth-panel,
+  .button-primary,
+  .button-secondary,
+  .composer-submit,
+  .composer-control,
+  .example-chip,
+  .fixture-trigger,
+  .recent-run-row,
+  .artifact-tab,
+  .loading-dot,
+  .command-composer,
+  .composer-menu,
+  .stage-running .stage-icon::after,
+  .skeleton-line {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .fixture-popover {
+    transition: none !important;
+    transform: translate(-50%, 0) !important;
   }
 }

@@ -14,7 +14,7 @@ Read these before changing active engine or browser-runtime code:
 
 ## Current product boundary
 
-C0.7 + C1-A present the existing local engine through a smaller command composer and generate a typed deterministic Mission Understanding V1 artifact at `http://localhost:3100`.
+C0.8 presents the existing C0.7 + C1-A local engine through a smaller command composer with CSS-first tactile interaction polish at `http://localhost:3100`.
 
 ```text
 Command composer or CLI
@@ -24,7 +24,7 @@ Command composer or CLI
 → remaining deterministic fixture artifacts
 ```
 
-C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. It must not ingest websites, execute searches, call external models/providers, discover candidates, enrich contacts, score opportunities, automate LinkedIn, send outreach, activate authentication/billing/deployment, or add a database migration. Query planning is real local logic; market evidence remains absent until a later approved phase.
+C0.8 may change interaction CSS, client-side submit labels, accessibility state, and browser tests only. C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. Neither phase may add animation libraries, fake delays, website ingestion, executed searches, external models/providers, candidate discovery, enrichment, scoring, LinkedIn automation, outreach, authentication, billing, deployment, or a database migration. Query planning is real local logic; market evidence remains absent until a later approved phase.
 
 ## Active and parked paths
 

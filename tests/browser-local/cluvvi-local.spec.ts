@@ -15,7 +15,11 @@ async function waitForCompletedFixtureRun(page: Page) {
   await expect(
     page.getByText("Search queries are generated but not executed yet.", { exact: false }),
   ).toBeVisible();
-  await expect(page.getByText("podcast agency struggling with editing turnaround")).toBeVisible();
+  await expect(
+    page
+      .getByTestId("mission-search-queries")
+      .getByText("podcast agency struggling with editing turnaround"),
+  ).toBeVisible();
   await expect(page.locator('[data-testid="artifact-json"]')).toContainText('"fixture": true');
   return page.url();
 }
@@ -53,7 +57,17 @@ test("command-first home submits a text-only mission and preserves it in recent 
   expect(geometry.width).toBeLessThanOrEqual(722);
   expect(geometry.left).toBeGreaterThanOrEqual(0);
   expect(geometry.right).toBeLessThanOrEqual(1440);
-  await page.screenshot({ path: resolve(output, "c07-home-desktop.png"), fullPage: true });
+  const idleSubmit = page.getByTestId("composer-submit");
+  const tactileStyles = await idleSubmit.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      minWidth: Number.parseFloat(style.minWidth),
+      transitionProperty: style.transitionProperty,
+    };
+  });
+  expect(tactileStyles.minWidth).toBeGreaterThanOrEqual(180);
+  expect(tactileStyles.transitionProperty).toContain("transform");
+  await page.screenshot({ path: resolve(output, "c08-home-desktop.png"), fullPage: true });
 
   const prompt = page.getByLabel("Describe what you sell or paste your website");
   const promptGeometry = await prompt.evaluate((element) => {
@@ -67,7 +81,7 @@ test("command-first home submits a text-only mission and preserves it in recent 
   expect(promptGeometry.maxHeight).toBe("256px");
   await prompt.focus();
   await page.screenshot({
-    path: resolve(output, "c07-composer-focused-desktop.png"),
+    path: resolve(output, "c08-composer-focused-desktop.png"),
     fullPage: false,
   });
   await page.getByRole("button", { name: "Find companies currently hiring video editors" }).click();
@@ -78,8 +92,19 @@ test("command-first home submits a text-only mission and preserves it in recent 
 
   await page.getByRole("button", { name: "Start finding customers" }).click();
   const runUrl = await waitForCompletedFixtureRun(page);
+  const firstStage = page.locator('[data-stage-status="completed"]').first();
+  await firstStage.evaluate((element) => element.classList.add("stage-running"));
+  const pulseAnimation = await firstStage
+    .locator(".stage-icon")
+    .evaluate((element) => getComputedStyle(element, "::after").animationName);
+  expect(pulseAnimation).toBe("stage-pulse");
+  const artifactTransition = await page
+    .locator(".artifact-tab")
+    .first()
+    .evaluate((element) => getComputedStyle(element).transitionProperty);
+  expect(artifactTransition).toContain("transform");
   await page.screenshot({
-    path: resolve(output, "c1a-understanding-desktop.png"),
+    path: resolve(output, "c08-run-desktop.png"),
     fullPage: true,
   });
   await page.reload({ waitUntil: "networkidle" });
@@ -93,6 +118,14 @@ test("command-first home submits a text-only mission and preserves it in recent 
   await expect(
     page.getByText(/We sell AI-assisted software that creates rough cuts/).first(),
   ).toBeVisible();
+  const recentRow = page.locator(".recent-run-row").first();
+  const recentRadius = await recentRow.evaluate(
+    (element) => getComputedStyle(element).borderRadius,
+  );
+  expect(Number.parseFloat(recentRadius)).toBeGreaterThan(0);
+  await recentRow.hover();
+  const recentShadow = await recentRow.evaluate((element) => getComputedStyle(element).boxShadow);
+  expect(recentShadow).not.toBe("none");
   expect(runUrl).toContain("/runs/run_");
   expect(pageErrors).toEqual([]);
 });
@@ -126,7 +159,7 @@ test("URL-aware composer reveals advanced context and sends only one logical sub
     .getByLabel("Customer outcome")
     .fill("Publish more long-form episodes with less manual editing.");
   await page.getByLabel("Exclusions").fill("Hobby creators\nShort-form-only teams");
-  await page.screenshot({ path: resolve(output, "c07-advanced-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c08-advanced-desktop.png"), fullPage: true });
 
   let createRequestCount = 0;
   page.on("request", (browserRequest) => {
@@ -185,28 +218,71 @@ test("composer exposes validation, loading, duplicate prevention, and API errors
   await expect(
     page.getByText("Describe what you sell using at least 20 characters.").first(),
   ).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c07-validation-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c08-validation-desktop.png"), fullPage: true });
 
   let interceptedRequests = 0;
   await page.route("**/api/runs", async (route) => {
     interceptedRequests += 1;
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 500));
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 800));
     await route.fulfill({
       status: 503,
       contentType: "application/json",
       body: JSON.stringify({
-        error: { message: "Deliberate C1-A browser API failure.", retryable: true },
+        error: { message: "Deliberate C0.8 browser API failure.", retryable: true },
       }),
     });
   });
   await prompt.fill(
     "We sell workflow software for teams that need a clear API error and loading-state test.",
   );
-  const submit = page.getByRole("button", { name: "Start finding customers" });
+  const submit = page.getByTestId("composer-submit");
+  const idleBox = await submit.boundingBox();
+  expect(idleBox).not.toBeNull();
   await submit.dblclick();
   await expect(submit).toBeDisabled();
-  await expect(page.getByText("Deliberate C1-A browser API failure.")).toBeVisible();
+  await expect(submit).toHaveAttribute("aria-busy", "true");
+  await expect(submit).toContainText("Starting run…");
+  await expect(submit.locator(".loading-dot")).toBeVisible();
+  const busyBox = await submit.boundingBox();
+  expect(busyBox).not.toBeNull();
+  expect(busyBox?.width).toBe(idleBox?.width);
+  expect(busyBox?.height).toBe(idleBox?.height);
+  await page.screenshot({ path: resolve(output, "c08-loading-desktop.png"), fullPage: false });
+  await expect(page.getByText("Deliberate C0.8 browser API failure.")).toBeVisible();
+  await expect(submit).toBeEnabled();
+  await expect(submit).toHaveAttribute("aria-busy", "false");
+  await expect(submit).toContainText("Start finding customers →");
   expect(interceptedRequests).toBe(1);
+});
+
+test("reduced motion removes tactile animation while preserving layout", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/", { waitUntil: "networkidle" });
+
+  const prompt = page.getByLabel("Describe what you sell or paste your website");
+  await prompt.focus();
+  const composerMotion = await page.locator('[data-testid="mission-form"]').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { transitionProperty: style.transitionProperty, transform: style.transform };
+  });
+  expect(composerMotion.transitionProperty).toBe("none");
+  expect(composerMotion.transform).toBe("none");
+
+  const submitMotion = await page.getByTestId("composer-submit").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { transitionProperty: style.transitionProperty, transform: style.transform };
+  });
+  expect(submitMotion.transitionProperty).toBe("none");
+  expect(submitMotion.transform).toBe("none");
+
+  await page.getByRole("button", { name: "Add mission context" }).click();
+  const menuMotion = await page.locator('[role="menu"]').evaluate((element) => ({
+    animationName: getComputedStyle(element).animationName,
+    transform: getComputedStyle(element).transform,
+  }));
+  expect(menuMotion.animationName).toBe("none");
+  expect(menuMotion.transform).toBe("none");
 });
 
 test("mobile command interface has no overflow and keeps mission understanding reachable", async ({
@@ -215,25 +291,32 @@ test("mobile command interface has no overflow and keeps mission understanding r
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Let's find your customers." })).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c07-home-mobile.png"), fullPage: false });
+  await page.screenshot({ path: resolve(output, "c08-home-mobile.png"), fullPage: false });
 
   const prompt = page.getByLabel("Describe what you sell or paste your website");
   await prompt.focus();
   await page.screenshot({
-    path: resolve(output, "c07-composer-focused-mobile.png"),
+    path: resolve(output, "c08-composer-focused-mobile.png"),
     fullPage: false,
   });
   await page.getByRole("button", { name: "Advanced" }).click();
   await expect(page.getByTestId("advanced-fields")).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c07-advanced-mobile.png"), fullPage: false });
+  await page.screenshot({ path: resolve(output, "c08-advanced-mobile.png"), fullPage: false });
 
   await page.getByRole("button", { name: "Add mission context" }).click();
   const menuGeometry = await page.locator('[role="menu"]').evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    return { left: rect.left, right: rect.right, width: rect.width };
+    const style = getComputedStyle(element);
+    return {
+      left: rect.left,
+      right: rect.right,
+      width: rect.width,
+      animationName: style.animationName,
+    };
   });
   expect(menuGeometry.left).toBeGreaterThanOrEqual(0);
   expect(menuGeometry.right).toBeLessThanOrEqual(390);
+  expect(menuGeometry.animationName).toBe("composer-menu-in");
 
   const mobileGeometry = await page.evaluate(() => ({
     innerWidth: window.innerWidth,
@@ -265,7 +348,7 @@ test("mobile command interface has no overflow and keeps mission understanding r
   await expect(page.locator('[role="menu"]')).toBeHidden();
   await page.getByRole("button", { name: "Collapse" }).click();
   await expect(page.getByTestId("advanced-fields")).toBeHidden();
-  await page.screenshot({ path: resolve(output, "c07-home-mobile-full.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c08-home-mobile-full.png"), fullPage: true });
 
   await prompt.fill(
     "AI-assisted video-editing software that creates rough cuts for long-form YouTube videos and podcasts.",
@@ -278,7 +361,7 @@ test("mobile command interface has no overflow and keeps mission understanding r
   }));
   expect(runGeometry.bodyScrollWidth).toBeLessThanOrEqual(runGeometry.innerWidth);
   await page.screenshot({
-    path: resolve(output, "c1a-understanding-mobile-full.png"),
+    path: resolve(output, "c08-run-mobile-full.png"),
     fullPage: true,
   });
 });

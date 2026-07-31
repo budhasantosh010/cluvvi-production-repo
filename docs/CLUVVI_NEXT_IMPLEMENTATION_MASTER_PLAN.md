@@ -4,7 +4,7 @@
 
 **Verified C0.6 commit:** `6cf2af9f9d0f96897dcd04ac0d7781e24ffc2d51`
 
-**Active implementation:** C0.7 composer polish + C1-A deterministic mission understanding
+**Active implementation:** C0.8 tactile interaction polish on top of C0.7 + C1-A
 
 **Public repository:** `https://github.com/budhasantosh010/cluvvi-production-repo.git`
 
@@ -46,14 +46,15 @@ Future API ┘
 2. **C0.6** — Command-first homepage.
 3. **C0.7** — Smaller, vertically resizable landing composer.
 4. **C1-A** — Typed deterministic mission understanding and unexecuted search-query plan.
-5. **C1-B** — Bounded source-backed mission understanding with approval.
-6. **C2** — Approved-source query execution planning.
-7. **C3** — First real discovery slice.
-8. **C4** — Evidence investigator.
-9. **C5** — Buyer identification.
-10. **C6** — Contact enrichment.
-11. **C7** — Deterministic opportunity scoring and review.
-12. **C8** — Human evaluation and improvement loop.
+5. **C0.8** — CSS-first tactile interaction polish.
+6. **C1-B** — Bounded source-backed mission understanding with approval.
+7. **C2** — Approved-source query execution planning.
+8. **C3** — First real discovery slice.
+9. **C4** — Evidence investigator.
+10. **C5** — Buyer identification.
+11. **C6** — Contact enrichment.
+12. **C7** — Deterministic opportunity scoring and review.
+13. **C8** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -178,9 +179,17 @@ C1-A reuses the existing compilation phase, generic artifact persistence, local 
 
 The artifact is persisted as `01-mission-understanding.json`, displayed as a specialized run-detail section, and remains available through the generic JSON artifact viewer. Search queries are generated but not executed. No migration, model call, website fetch, crawling, candidate discovery, enrichment, scoring, or outreach belongs in C1-A.
 
+## C0.8 — Tactile interaction polish
+
+**Branch:** `feature/c0-8-tactile-polish`
+
+C0.8 adds one CSS-first interaction system without changing the product architecture or installing an animation dependency. It includes shared easing/duration tokens, tactile press/hover states, stable submit-button geometry, immediate `Starting run…` and `Opening run…` feedback, a lightweight loading dot, smooth composer/menu/popover transitions, subtle recent-row and artifact-tab affordances, a running-stage pulse, and explicit reduced-motion overrides.
+
+C0.8 must not add fake delays, page-transition libraries, Framer Motion, Lottie, engine/core/storage changes, migrations, providers, website ingestion, query execution, candidate discovery, enrichment, scoring, or outreach. Browser verification must prove immediate busy state, no button resize, reduced-motion behavior, and no horizontal overflow on mobile.
+
 ## C1-B — Source-backed mission understanding
 
-Begin only after C1-A is approved and merged.
+Begin only after C0.8 is approved and merged.
 
 **Branch:** `feature/c1-b-source-backed-mission-understanding`
 
