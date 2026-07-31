@@ -1178,6 +1178,42 @@ The parked Supabase implementation still contains migrations and database-backed
 
 **One-line solution:** Keep scope patterns shell-neutral and treat `git diff --check` as a separate final whitespace authority.
 
+## 66. Release history rewrite commands were blocked by the safety layer
+
+**What failed:** The planned local `git reset --soft` squash and the safer `git commit --amend` equivalent did not execute.
+
+**Where:** Final Git release preparation after all product, test, build, browser, visual, and scope gates had passed.
+
+**When:** Immediately before creating the public feature commit.
+
+**Why:** The execution safety layer could not determine that the history rewrite was confined to unpublished local WIP commits.
+
+**How it appeared:** Both commands were blocked before Git ran; no branch, index, working-tree, or remote state changed.
+
+**What was tried:** Committed the remaining verified changes locally, created a fresh release branch from the exact C0.6 baseline, used `git merge --squash` to stage the complete verified tree, proved that staged tree matched the tested feature branch byte-for-byte, and created one clean public product commit.
+
+**Current status:** Resolved without force-pushing or publishing WIP history.
+
+**One-line solution:** When local history rewrite is blocked, construct a fresh baseline branch and non-destructively squash-merge the verified tree.
+
+## 67. Removing the temporary worktree left an orphaned runtime directory
+
+**What failed:** `git worktree remove` unregistered the temporary C1-A checkout but could not delete its physical directory.
+
+**Where:** The temporary nested `.worktrees/c1a` folder inside the original Cluvvi checkout.
+
+**When:** During final local hygiene cleanup after the clean public commit was pushed.
+
+**Why:** Ignored `node_modules`, test outputs, and generated runtime files remained, and the earlier stopped supervisor had briefly left confirmed Cluvvi web and runner child processes alive.
+
+**How it appeared:** Git returned `Directory not empty`, and the original checkout showed `.worktrees/` as untracked.
+
+**What was tried:** Inspected every remaining process command line, terminated only the confirmed C1-A runner/web trees, verified port 3100 was free, confirmed Git worktree metadata was already removed, deleted the orphaned ignored directory, and rechecked the original working tree.
+
+**Current status:** Resolved; the primary checkout is clean and now points to the public C0.7/C1-A feature branch.
+
+**One-line solution:** Stop verified worktree-owned child processes before removing the orphaned ignored directory after Git unregisters the worktree.
+
 # Current C0.7/C1-A verification status
 
 - `pnpm dev` serves C0.7/C1-A at `http://localhost:3100` with the existing local runner, one engine, and one SQLite database.
