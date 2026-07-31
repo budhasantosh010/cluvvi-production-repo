@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "artifactKind": "search_results.v1",
+  "discoveryMode": "free_only",
+  "summary": {
+    "queriesPlanned": 2,
+    "queriesExecuted": 2,
+    "providersUsed": ["fixture_search_provider"],
+    "rawResults": 3,
+    "dedupedResults": 3,
+    "paidCreditsUsed": 0,
+    "startedAt": "2026-07-31T10:00:00.000Z",
+    "completedAt": "2026-07-31T10:00:01.000Z"
+  },
+  "providerBreakdown": [
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceType": "search_web",
+      "queriesExecuted": 1,
+      "resultsReturned": 1,
+      "errors": 0
+    },
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceType": "reviews",
+      "queriesExecuted": 1,
+      "resultsReturned": 1,
+      "errors": 0
+    },
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceType": "job_posts",
+      "queriesExecuted": 1,
+      "resultsReturned": 1,
+      "errors": 0
+    }
+  ],
+  "results": [
+    {
+      "id": "fixture_result_001",
+      "queryId": "fixture_query_001",
+      "query": "podcast agency struggling with editing turnaround",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceType": "search_web",
+      "title": "Fixture podcast agency production discussion",
+      "snippet": "Example-only snippet describing a fictional production bottleneck.",
+      "url": "https://example.com/fixture/podcast-agency-production",
+      "authorOrCompany": "Fixture Podcast Agency",
+      "domain": "example.com",
+      "publishedAt": "2026-07-15T09:00:00.000Z",
+      "discoveredAt": "2026-07-31T10:00:00.200Z",
+      "language": "en",
+      "country": "US"
+    },
+    {
+      "id": "fixture_result_002",
+      "queryId": "fixture_query_001",
+      "query": "podcast agency struggling with editing turnaround",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceType": "reviews",
+      "title": "Fixture review mentioning slow post-production",
+      "snippet": "Example-only review signal for downstream evidence-contract testing.",
+      "url": "https://example.com/fixture/review/post-production",
+      "authorOrCompany": "Fixture Media Team",
+      "domain": "example.com",
+      "discoveredAt": "2026-07-31T10:00:00.400Z",
+      "language": "en"
+    },
+    {
+      "id": "fixture_result_003",
+      "queryId": "fixture_query_002",
+      "query": "company hiring video editor long-form content",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceType": "job_posts",
+      "title": "Fixture long-form video editor role",
+      "snippet": "Example-only hiring signal for a fictional content team.",
+      "url": "https://example.com/fixture/jobs/video-editor",
+      "authorOrCompany": "Fixture Content Company",
+      "domain": "example.com",
+      "publishedAt": "2026-07-25T12:00:00.000Z",
+      "discoveredAt": "2026-07-31T10:00:00.600Z",
+      "language": "en",
+      "country": "GB"
+    }
+  ],
+  "warnings": ["Fixture example only. This is not live discovery data."]
+}

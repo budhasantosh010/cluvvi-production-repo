@@ -4,7 +4,7 @@
 
 **Verified C0.6 commit:** `6cf2af9f9d0f96897dcd04ac0d7781e24ffc2d51`
 
-**Active implementation:** C0.9 Apple-style main-flow choreography on top of C0.8 + C1-A
+**Active implementation:** C1-0 Discovery Architecture Freeze after completed C0.9
 
 **Public repository:** `https://github.com/budhasantosh010/cluvvi-production-repo.git`
 
@@ -40,6 +40,18 @@ Future API ┘
 - Facts and inferences are stored and displayed separately.
 - Fixture and live modes are explicit; live mission understanding must never flow into fixture discovery.
 
+## Current status after C0.9
+
+- C0 application foundation: complete for the current local fixture-mode scope.
+- C0.7 + C1-A deterministic Mission Understanding: complete.
+- C0.8 tactile interaction polish: complete.
+- C0.9 Apple-style flow choreography: complete.
+- C1-0 Discovery Architecture Freeze: current milestone; complete after this branch is verified and pushed.
+- Discovery Engine: the next bottleneck.
+- C1-B Standalone Discovery Engine scaffold: next implementation milestone, but not started in C1-0.
+
+Cluvvi currently understands and plans. It does not yet discover real customers.
+
 ## Ordered roadmap
 
 1. **G0** — Secure and push the verified baseline.
@@ -48,14 +60,15 @@ Future API ┘
 4. **C1-A** — Typed deterministic mission understanding and unexecuted search-query plan.
 5. **C0.8** — CSS-first tactile interaction polish.
 6. **C0.9** — Apple-style main-flow choreography.
-7. **C1-B** — Bounded source-backed mission understanding with approval.
-8. **C2** — Approved-source query execution planning.
-9. **C3** — First real discovery slice.
-10. **C4** — Evidence investigator.
-11. **C5** — Buyer identification.
-12. **C6** — Contact enrichment.
-13. **C7** — Deterministic opportunity scoring and review.
-14. **C8** — Human evaluation and improvement loop.
+7. **C1-0** — Discovery Architecture Freeze.
+8. **C1-B** — Standalone Discovery Engine scaffold.
+9. **C1-C** — Evidence Engine fixture-contract version.
+10. **C1-D** — Identity + Enrichment fixture-contract version.
+11. **C1-E** — Opportunity Ranker.
+12. **C1-F** — Buyer Map Output.
+13. **C2** — First researched live discovery providers and approved integration path.
+14. **C3** — First real discovery slice.
+15. **C4** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -209,38 +222,54 @@ UI/UX references reviewed for C0.9: UI Skills Motion, Emil Kowalski Skills, Kine
 
 C0.9 must not install a UI or motion library, animate layout dimensions, add artificial waiting, claim live discovery, execute queries, ingest websites, add providers, or change engine/core/storage/API contracts. Browser verification must prove pointer-down feedback, creating/opening continuity, stable geometry, truthful copy, reduced-motion behavior, Mission Understanding visibility, and no mobile overflow.
 
-## C1-B — Source-backed mission understanding
+## C1-0 — Discovery Architecture Freeze
 
-Begin only after C0.9 is approved and merged.
+**Branch:** `feature/c1-0-discovery-architecture-freeze`
 
-**Branch:** `feature/c1-b-source-backed-mission-understanding`
+**Status:** Complete after this branch passes documentation checks, is pushed, and local/remote SHAs match.
 
-**Commit message:** `feat: add source-backed Cluvvi mission understanding`
+C1-0 freezes:
 
-Required high-level flow:
+- the six connected engines;
+- Discovery Engine as the next bottleneck;
+- the separate project location `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`;
+- free, paid, manual, and fixture provider categories;
+- `free_only`, `balanced`, and `paid_deep` discovery modes;
+- the `search_results.v1` bridge contract;
+- the Track A / Track B parallel build plan;
+- the human provider-research template.
 
-```text
-Browser mission
-→ bounded SSRF-safe website ingestion
-→ source-document persistence
-→ provider-independent structured model gateway
-→ validated, provenance-aware interpretation
-→ awaiting interpretation approval
-→ review / approve / correct / regenerate
-→ stop
-```
+C1-0 is documentation and planning only. It adds no providers, APIs, crawlers, runtime behavior, dependencies, or migrations.
 
-C1 must not add market search, candidate discovery, Apollo, YouTube, enrichment, scoring, outreach, Supabase, authentication, or deployment. Fixture mode remains deterministic for regression and CI.
+## C1-B — Standalone Discovery Engine scaffold
+
+Begin only after C1-0 is reviewed.
+
+**Target project:** `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`
+
+The scaffold should add contracts, provider registry, fixture provider, normalization, dedupe, CLI, tests, and `search_results.v1` output. It must not add live providers in its first milestone.
+
+## C1-C — Evidence Engine fixture-contract version
+
+Consume clearly labeled fixture `search_results.v1` and produce `evidence_findings.v1`. Do not claim live evidence.
+
+## C1-D — Identity + Enrichment fixture-contract version
+
+Produce `identity_enrichment.v1` with role hypotheses and manual/public contact-route suggestions. Do not guess private contacts or add paid enrichment.
+
+## C1-E — Opportunity Ranker
+
+Produce `ranked_opportunities.v1` using deterministic scorecards over mission fit, evidence, timing, identity relevance, contactability, confidence, and limitations.
+
+## C1-F — Buyer Map Output
+
+Produce `buyer_map.v1` and a run-page presentation of ranked fixture opportunities, evidence, buyer rationale, contact routes, confidence, and limitations.
 
 ## Future phases
 
-- **C2:** Versioned bounded source plans only; no search execution.
-- **C3:** One real provider and one strong signal family; first ten real candidate companies.
-- **C4:** Source-backed passed/rejected/uncertain investigation.
-- **C5:** Current, relevant buyer identification; do not default to CEO.
-- **C6:** Enrich only investigated candidates; never guess emails.
-- **C7:** Deterministic scoring with hard gates and limitations.
-- **C8:** Human labels and `Precision@20`; no outreach before quality threshold.
+- **C2:** Research and approve the first live discovery providers and integration path.
+- **C3:** Execute a narrow real discovery slice with preserved provenance.
+- **C4:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
 
 ## Git workflow
 

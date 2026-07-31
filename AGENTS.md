@@ -12,6 +12,14 @@ Read these before changing active engine or browser-runtime code:
 8. `docs/EVALS.md`
 9. `docs/FAILURES_AND_LIMITATIONS.md`
 
+Before implementing discovery, evidence, identity, enrichment, ranking, or Buyer Map features, also read:
+
+10. `docs/ARCHITECTURE_6_ENGINES.md`
+11. `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`
+12. `docs/SEARCH_RESULTS_V1_CONTRACT.md`
+13. `docs/C1_PARALLEL_BUILD_PLAN.md`
+14. `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`
+
 ## Current product boundary
 
 C0.9 presents the existing C0.7 + C1-A local engine through a smaller command composer with CSS-first tactile controls and continuous Apple-style main-flow choreography at `http://localhost:3100`.
@@ -24,7 +32,17 @@ Command composer or CLI
 → remaining deterministic fixture artifacts
 ```
 
-C0.9 may change interaction CSS, tiny reusable pointer-state helpers, client-side submit/status continuity, honest run-detail placeholders, stage presentation, and browser tests only. C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. Neither phase may add animation libraries, artificial delays, website ingestion, executed searches, external models/providers, candidate discovery, enrichment, scoring, LinkedIn automation, outreach, authentication, billing, deployment, or a database migration. Query planning is real local logic; market evidence remains absent until a later approved phase.
+C0.9 may change interaction CSS, tiny reusable pointer-state helpers, client-side submit/status continuity, honest run-detail placeholders, stage presentation, and browser tests only. C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. C1-0 is documentation and architecture freeze only. Query planning is real local logic; market evidence remains absent until a later approved phase.
+
+Discovery boundary rules:
+
+- Do not add live crawling inside the Cluvvi production repository unless explicitly requested.
+- Discovery Engine is planned as a separate standalone project at `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`.
+- Cluvvi consumes the frozen `search_results.v1` artifact.
+- Do not scrape LinkedIn or bypass login walls.
+- Do not add paid providers without explicit approval.
+- Do not use fake live-discovery language.
+- Fixture `search_results.v1` is allowed for downstream contract work only when clearly labeled as fixture data.
 
 ## Active and parked paths
 
