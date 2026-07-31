@@ -2,7 +2,7 @@
 
 Cluvvi is an evidence-backed buyer-discovery engine. Its commercial benchmark is to turn what someone sells into real opportunities worth contacting, with evidence, the right buyer, confidence, and clear limitations.
 
-## Current active phase: C0.8 tactile interaction polish + C1-A mission understanding
+## Current active phase: C0.9 Apple-style flow choreography + C1-A mission understanding
 
 ```text
 Command composer or CLI
@@ -16,7 +16,7 @@ SQLite durable stages and versioned artifacts
 Later fixture stages (no live search execution)
 ```
 
-C0.7 makes the landing composer smaller and vertically resizable. C1-A turns the existing compilation stage into a typed, deterministic Mission Understanding V1 artifact with buyer hypotheses, pain language, source priorities, and 25–60 deduplicated search queries. C0.8 adds CSS-first tactile controls, immediate creating/opening submit feedback, smooth menus and popovers, subtle live-stage motion, stable button geometry, and reduced-motion overrides without adding an animation dependency. No query is executed and no live customer is claimed yet.
+C0.7 makes the landing composer smaller and vertically resizable. C1-A turns the existing compilation stage into a typed, deterministic Mission Understanding V1 artifact with buyer hypotheses, pain language, source priorities, and 25–60 deduplicated search queries. C0.8 adds the shared CSS-first tactile system. C0.9 completes the main-flow choreography with immediate pointer-down feedback, a stable committed composer state, truthful local-run status continuity, an intentional opening transition, honest first-paint artifact placeholders, and clearer stage semantics. No animation package, artificial delay, executed query, or live-customer claim was added.
 
 ## Start the browser application
 
@@ -46,6 +46,7 @@ pnpm dev:runner
 
 ```text
 Enter what you sell
+→ pointer-down feedback commits the composer immediately
 → create one durable SQLite run
 → enqueue one idempotent run request
 → local runner claims it with a lease
@@ -106,6 +107,6 @@ pnpm build
 pnpm test:browser-local
 ```
 
-Focused C0.8 tests prove URL/text mission mapping, the smaller vertically resizable composer, immediate busy feedback, stable submit-button geometry, tactile control transitions, smooth menu entry, subtle stage progress, reduced-motion behavior, duplicate-submit prevention, run-detail rendering, refresh durability, and responsive browser geometry without mobile overflow. C1-A generator and persistence tests remain unchanged and green.
+Focused C0.9 tests prove URL/text mission mapping, pointer-down press state on the main controls, `idle → creating → opening` continuity, truthful local-run status copy, stable desktop/mobile submit geometry, smooth menu entry, honest run-detail placeholders, clear stage semantics, reduced-motion behavior, duplicate-submit prevention, run-detail rendering, refresh durability, and responsive geometry without mobile overflow. C1-A generator and persistence tests remain unchanged and green.
 
 Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.

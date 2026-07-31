@@ -1322,18 +1322,163 @@ The parked Supabase implementation still contains migrations and database-backed
 
 **One-line solution:** Prefer file-scoped searches and single-purpose Git checks over deeply quoted all-in-one commands.
 
-# Current C0.8 + C1-A verification status
+## 74. The first press-feedback hook violated the React effect rule
 
-- `pnpm dev` serves C0.8 + C1-A at `http://localhost:3100` with the existing local runner, one engine, and one SQLite database.
+**What failed:** Focused ESLint rejected the initial reusable pointer-state hook.
+
+**Where:** `apps/web/lib/use-press-feedback.ts`.
+
+**When:** During the first written-code verification pass for C0.9.
+
+**Why:** The hook synchronously called `setPressed(false)` inside an effect when `disabled` changed, which could create an unnecessary cascading render.
+
+**How it appeared:** `react-hooks/set-state-in-effect` reported the state update at the disabled-state reset.
+
+**What was tried:** Removed the effect entirely, relied on the real pointer-up/cancel/leave lifecycle, prevented pointer-down while disabled, and derived the returned pressed value as false when disabled.
+
+**Current status:** Resolved; strict TypeScript and focused ESLint pass.
+
+**One-line solution:** Model press state through pointer events instead of synchronously resetting React state inside an effect.
+
+## 75. Both local coding connectors became temporarily unavailable
+
+**What failed:** Harness writes and commands intermittently returned network errors, while the DevSpace fallback returned OAuth 503.
+
+**Where:** The local Cluvvi checkout during the press-hook repair and formatter rerun.
+
+**When:** Immediately after the first focused lint failure.
+
+**Why:** The local Tailscale MCP endpoint was temporarily unreachable and the fallback token endpoint was unavailable.
+
+**How it appeared:** Harness returned `mcp_network_error: Connection failed`; DevSpace returned `503: OAuth token request failed`.
+
+**What was tried:** Kept the same task and branch, used idempotent operation IDs, verified whether each write landed before retrying, attempted the approved DevSpace fallback once, and resumed through Harness when it recovered.
+
+**Current status:** Resolved; no duplicate or partial source change remained.
+
+**One-line solution:** Preserve the task and retry idempotent operations after connector recovery instead of switching to an untracked edit path.
+
+## 76. A combined verification command used an unsupported PowerShell separator
+
+**What failed:** The first formatter-plus-lint rerun did not execute either project tool.
+
+**Where:** The Windows Harness shell.
+
+**When:** After correcting the press-feedback hook.
+
+**Why:** This PowerShell version does not accept `&&` as a statement separator.
+
+**How it appeared:** PowerShell returned `The token '&&' is not a valid statement separator in this version.`
+
+**What was tried:** Split formatting, TypeScript, and lint into separate observable commands.
+
+**Current status:** Resolved.
+
+**One-line solution:** Run one PowerShell-safe verification command per Harness call.
+
+## 77. Browser QA initially found a stale Cluvvi environment and runner lease
+
+**What failed:** `pnpm dev` could not bind localhost:3100; the first restart then could not acquire runner leadership.
+
+**Where:** C0.9 browser and screenshot verification.
+
+**When:** After the focused written-code gate passed.
+
+**Why:** A previous confirmed Cluvvi `start-local-dev.mjs` process tree still owned port 3100, and its durable SQLite leadership lease briefly remained after termination.
+
+**How it appeared:** Startup returned `EADDRINUSE`; the next attempt returned `Another Cluvvi local runner owns the SQLite leadership lease`.
+
+**What was tried:** Inspected the listener and its parent chain, confirmed every process belonged to this Cluvvi checkout, terminated only that tree, verified no runner process remained, allowed the real lease window to expire, and restarted normally.
+
+**Current status:** Resolved; one web process and one runner served localhost:3100 for final QA.
+
+**One-line solution:** Stop only the confirmed stale Cluvvi supervisor tree, then let its durable lease expire before restarting.
+
+## 78. Initial visual evidence captured non-product or transitional states
+
+**What failed:** Three screenshots did not cleanly represent the final UI even though the interactions passed.
+
+**Where:** The Plus popover, reduced-motion capture, and mobile loading capture under `visual_qa/`.
+
+**When:** During the first manual screenshot review.
+
+**Why:** The Plus menu was captured during its 180ms entry animation, the reduced-motion screenshot left the disclosure open, Next.js development UI appeared over the product, and the mobile page remained scrolled below the composer.
+
+**How it appeared:** The menu looked translucent, the reduced-motion image obscured the heading, a fixed `N` badge overlapped content, and the mobile loading image cropped most of the composer. One harmless image-reader call was also temporarily safety-blocked before succeeding on retry.
+
+**What was tried:** Waited on the menu's real Web Animations completion promise, closed the menu before the reduced-motion capture, hid only `nextjs-portal` in Playwright evidence, scrolled to the top before mobile loading capture, reran all browser tests, and reopened the regenerated screenshots.
+
+**Current status:** Resolved; all required desktop and mobile images are clean and product-only.
+
+**One-line solution:** Capture screenshots from settled, intentional UI states and remove only framework development overlays from evidence.
+
+## 79. Exact geometry equality was too strict for browser subpixels
+
+**What failed:** One final browser rerun stopped on button-height equality despite no visible or meaningful layout change.
+
+**Where:** Stable submit-button geometry assertion in `tests/browser-local/cluvvi-local.spec.ts`.
+
+**When:** After the final mobile screenshot framing change.
+
+**Why:** Chromium returned `44px` idle height and `43.999969482421875px` busy height because of floating-point layout representation.
+
+**How it appeared:** Playwright reported an exact-equality failure with a difference below one ten-thousandth of a pixel.
+
+**What was tried:** Replaced exact equality with a three-decimal `toBeCloseTo` assertion while retaining strict width and height stability verification.
+
+**Current status:** Resolved; the complete browser-local suite passes.
+
+**One-line solution:** Assert visual geometry with subpixel tolerance rather than bit-for-bit floating-point equality.
+
+## 80. The first final scope assertions were PowerShell-sensitive
+
+**What failed:** Two initial read-only final scope assertions did not produce valid scope evidence.
+
+**Where:** Final pre-commit dependency and runtime-boundary checks for C0.9.
+
+**When:** After `pnpm check` and browser/visual verification had passed.
+
+**Why:** PowerShell treated a silent successful `git diff --quiet` command as a false condition, and the next combined ripgrep expression contained nested quote characters that PowerShell parsed before ripgrep received them.
+
+**How it appeared:** The first command incorrectly printed `dependency-files-changed` while showing no dependency path in the changed-file list; the second stopped with a PowerShell parser error before Git or ripgrep ran.
+
+**What was tried:** Rechecked dependency files using `$LASTEXITCODE`, split runtime checks into the Harness's native file-scoped grep, and reran the allowed-path and whitespace checks independently.
+
+**Current status:** Resolved; dependency files are unchanged, allowed paths are clean, and the changed browser runtime contains no heavy motion library, provider, SQL, or artificial delay.
+
+**One-line solution:** Use `$LASTEXITCODE` for silent external commands and native file-scoped searches for quote-heavy patterns.
+
+## 81. Restoring Next.js generated declarations reintroduced formatter-only noise
+
+**What failed:** The post-review `pnpm format:check` named only `apps/web/next-env.d.ts` after the successful complete gate.
+
+**Where:** Final pre-commit formatting verification.
+
+**When:** After restoring Next.js build-generated churn from the C0.9 diff.
+
+**Why:** The tracked generated declaration's local Windows representation was not Prettier-normalized, while the successful build had rewritten it into the formatter-compatible representation.
+
+**How it appeared:** Prettier exited with code 1 for that single file; after formatting, Git status showed `M` but `git diff --quiet` returned success and `git diff` showed no semantic content change.
+
+**What was tried:** Formatted only `next-env.d.ts`, proved its semantic diff was empty, and left it for normal Git staging/index normalization rather than committing generated churn.
+
+**Current status:** Resolved; final formatting passes and the generated declaration is not part of the C0.9 semantic change set.
+
+**One-line solution:** Normalize generated declaration files for the formatter, then prove and exclude any line-ending-only status noise from the commit.
+
+# Current C0.9 + C1-A verification status
+
+- `pnpm dev` served C0.9 + C1-A at `http://localhost:3100` with one local runner, one engine, and one SQLite database during browser verification; the environment was stopped afterward.
 - The homepage still uses `MissionInputSchemaV1`, `POST /api/runs`, the existing application service, atomic request creation, and submission idempotency.
-- Shared 120/180/240ms interaction tokens drive tactile buttons, composer controls, example chips, fixture disclosure, recent runs, and artifact tabs without a new dependency.
-- Submit state changes immediately from idle to `Starting run…`, shows a lightweight loading dot with `aria-busy=true`, advances to `Opening run…`, and keeps stable desktop and mobile geometry.
-- Composer focus, plus-menu entry, fixture popover, recent-row hover, artifact tabs, and running-stage pulse use CSS-only transforms, opacity, borders, and shadows.
-- Reduced-motion mode removes the tactile transitions and animations while preserving popover centering and control layout.
-- The composer remains capped at 720px; its textarea remains vertically resizable and the 390px mobile viewport has no horizontal overflow.
-- The complete normal-runner browser suite reports five passed C0.8 flows and two intentionally skipped dedicated failure/resume scenario tests.
-- Prettier, zero-warning ESLint, strict TypeScript, 37 unit/integration tests, and every production build pass.
-- Eleven C0.8 screenshots cover desktop, mobile, focused, advanced, validation, loading, and run-detail states and were manually inspected.
-- C1-A mission understanding, source planning, artifact persistence, engine reuse, and generic JSON inspection remain unchanged.
-- No dependency, application-service, engine, core, storage, database, worker, CLI, API-route, migration, Supabase, provider, model, crawler, live-search, enrichment, scoring, LinkedIn automation, or outreach code changed.
-- Mission understanding and query planning remain deterministic local product logic; no live market data, real customers, executed searches, or fake delays are claimed.
+- A reusable pointer-state hook provides immediate mouse/touch press feedback for submit, Plus, Website, Advanced, and example controls without breaking keyboard interaction.
+- The composer exposes `idle | creating | opening` through `data-submit-state`; truthful status copy progresses from `Creating your run locally…` to `Run created. Opening details…` without artificial waiting.
+- The committed status row reserves layout space, and desktop/mobile submit dimensions remain stable while `aria-busy` and loading dots update immediately.
+- Run detail renders its summary and durable stage timeline immediately, uses honest Mission Understanding/artifact placeholders when output is not yet available, and keeps the completed C1-A artifact visible.
+- Running, completed, reused, failed, skipped, and pending stage semantics remain stable and accessible; reduced-motion mode removes transforms and animation loops.
+- The composer remains capped at 720px, its textarea remains vertically resizable, and the 390px mobile viewport has no horizontal overflow.
+- The complete normal-runner browser suite reports five passed C0.9 flows and two intentionally skipped dedicated failure/resume scenario tests.
+- `pnpm check` passed Prettier, zero-warning ESLint, strict TypeScript across all workspaces, 13 test files with 37/37 unit/integration tests, and every production build.
+- Fourteen C0.9 screenshots were generated; the nine required home, loading, Plus, advanced, run-detail, and reduced-motion images were manually inspected after visual iterations.
+- C1-A mission understanding, source planning, artifact persistence, engine reuse, generic JSON inspection, API routes, and durable storage remain unchanged.
+- No dependency, application-service, engine, core, storage, database, worker, CLI, API-route, migration, Supabase, provider, model, crawler, live-search, enrichment, scoring, LinkedIn automation, outreach, or artificial delay was added.
+- Mission understanding and query planning remain deterministic local product logic; no live market data, real customers, or executed searches are claimed, and C1-B was not started.

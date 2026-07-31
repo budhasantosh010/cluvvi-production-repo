@@ -4,6 +4,7 @@ import { MissionInputSchemaV1 } from "@cluvvi/core/mission";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { analyzeMissionPrompt, createMissionName } from "@/lib/customer-mission-composer";
+import { usePressFeedback } from "@/lib/use-press-feedback";
 
 interface CustomerMissionComposerProps {
   runnerAvailable: boolean;
@@ -15,6 +16,12 @@ function submitLabel(step: SubmitStep): string {
   if (step === "creating") return "Starting run…";
   if (step === "opening") return "Opening run…";
   return "Start finding customers →";
+}
+
+function submitStatus(step: SubmitStep): string {
+  if (step === "creating") return "Creating your run locally…";
+  if (step === "opening") return "Run created. Opening details…";
+  return "";
 }
 
 type FieldErrors = Record<string, string[]>;
@@ -105,6 +112,28 @@ function OptionalFieldHeader({
   );
 }
 
+function ExamplePromptButton({
+  example,
+  onSelect,
+}: {
+  example: (typeof EXAMPLE_PROMPTS)[number];
+  onSelect: () => void;
+}) {
+  const { pressed, pressProps } = usePressFeedback<HTMLButtonElement>();
+
+  return (
+    <button
+      type="button"
+      className="example-chip"
+      data-pressed={pressed}
+      {...pressProps}
+      onClick={onSelect}
+    >
+      {example}
+    </button>
+  );
+}
+
 export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComposerProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -127,6 +156,10 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
   const [requestError, setRequestError] = useState<string | null>(null);
   const promptAnalysis = useMemo(() => analyzeMissionPrompt(prompt), [prompt]);
   const submitting = submitStep !== "idle";
+  const submitPress = usePressFeedback<HTMLButtonElement>(submitting);
+  const plusPress = usePressFeedback<HTMLButtonElement>();
+  const websitePress = usePressFeedback<HTMLButtonElement>();
+  const advancedPress = usePressFeedback<HTMLButtonElement>();
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -299,6 +332,8 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
         }}
         className="command-composer"
         data-testid="mission-form"
+        data-submit-state={submitStep}
+        aria-busy={submitting}
       >
         <div className="relative p-5 sm:p-6">
           {!runnerAvailable && (
@@ -422,6 +457,8 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
                 ref={plusButtonRef}
                 type="button"
                 className="composer-control size-11 rounded-full px-0 text-xl"
+                data-pressed={plusPress.pressed}
+                {...plusPress.pressProps}
                 aria-label="Add mission context"
                 aria-expanded={plusOpen}
                 aria-controls="mission-context-menu"
@@ -449,6 +486,8 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
             <button
               type="button"
               className="composer-control"
+              data-pressed={websitePress.pressed}
+              {...websitePress.pressProps}
               onClick={() => showField("website")}
               aria-pressed={fieldVisible("website") || website.length > 0}
             >
@@ -494,6 +533,8 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
             <button
               type="button"
               className="composer-control"
+              data-pressed={advancedPress.pressed}
+              {...advancedPress.pressProps}
               aria-expanded={advancedOpen}
               onClick={() => setAdvancedOpen((open) => !open)}
             >
@@ -503,6 +544,8 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
             <button
               className="composer-submit"
               type="submit"
+              data-pressed={submitPress.pressed}
+              {...submitPress.pressProps}
               aria-busy={submitting}
               disabled={submitting}
               data-testid="composer-submit"
@@ -510,6 +553,18 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
               {submitting && <span className="loading-dot" aria-hidden="true" />}
               <span aria-live="polite">{submitLabel(submitStep)}</span>
             </button>
+          </div>
+
+          <div
+            className="composer-submit-status"
+            data-visible={submitting}
+            data-testid="composer-submit-status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-hidden={!submitting}
+          >
+            {submitting && <span className="loading-dot" aria-hidden="true" />}
+            <span>{submitting ? submitStatus(submitStep) : "\u00a0"}</span>
           </div>
 
           {geography === "Custom" && (
@@ -746,17 +801,14 @@ export function CustomerMissionComposer({ runnerAvailable }: CustomerMissionComp
 
       <div className="flex flex-wrap justify-center gap-2" aria-label="Example customer searches">
         {EXAMPLE_PROMPTS.map((example) => (
-          <button
+          <ExamplePromptButton
             key={example}
-            type="button"
-            className="example-chip"
-            onClick={() => {
+            example={example}
+            onSelect={() => {
               setPrompt(example);
               requestAnimationFrame(() => document.getElementById("description-field")?.focus());
             }}
-          >
-            {example}
-          </button>
+          />
         ))}
       </div>
     </div>

@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 
 const output = resolve(process.cwd(), "visual_qa");
 
+async function hideDevelopmentUi(page: Page) {
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+}
+
 async function waitForCompletedFixtureRun(page: Page) {
   await expect(page).toHaveURL(/\/runs\/run_[a-f0-9]{32}$/);
   const runView = page.locator('[data-testid="run-view"]');
@@ -35,6 +39,7 @@ test("command-first home submits a text-only mission and preserves it in recent 
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "networkidle" });
+  await hideDevelopmentUi(page);
 
   await expect(page.getByRole("heading", { name: "Let's find your customers." })).toBeVisible();
   await expect(
@@ -67,7 +72,7 @@ test("command-first home submits a text-only mission and preserves it in recent 
   });
   expect(tactileStyles.minWidth).toBeGreaterThanOrEqual(180);
   expect(tactileStyles.transitionProperty).toContain("transform");
-  await page.screenshot({ path: resolve(output, "c08-home-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c0-9-home-desktop.png"), fullPage: true });
 
   const prompt = page.getByLabel("Describe what you sell or paste your website");
   const promptGeometry = await prompt.evaluate((element) => {
@@ -81,17 +86,66 @@ test("command-first home submits a text-only mission and preserves it in recent 
   expect(promptGeometry.maxHeight).toBe("256px");
   await prompt.focus();
   await page.screenshot({
-    path: resolve(output, "c08-composer-focused-desktop.png"),
+    path: resolve(output, "c0-9-composer-focused-desktop.png"),
     fullPage: false,
   });
-  await page.getByRole("button", { name: "Find companies currently hiring video editors" }).click();
+  const exampleChip = page.getByRole("button", {
+    name: "Find companies currently hiring video editors",
+  });
+  await exampleChip.dispatchEvent("pointerdown", { pointerType: "mouse", button: 0, buttons: 1 });
+  await expect(exampleChip).toHaveAttribute("data-pressed", "true");
+  await exampleChip.dispatchEvent("pointerup", { pointerType: "mouse", button: 0, buttons: 0 });
+  await expect(exampleChip).toHaveAttribute("data-pressed", "false");
+  await exampleChip.click();
   await expect(prompt).toHaveValue("Find companies currently hiring video editors");
   await prompt.fill(
     "We sell AI-assisted software that creates rough cuts for long-form video production teams.",
   );
 
-  await page.getByRole("button", { name: "Start finding customers" }).click();
+  await page.evaluate(() => {
+    const form = document.querySelector<HTMLElement>('[data-testid="mission-form"]');
+    if (form === null) throw new Error("Mission form was not found.");
+    const record = () => {
+      const states = JSON.parse(sessionStorage.getItem("c09-submit-states") ?? "[]") as Array<{
+        state: string;
+        status: string;
+      }>;
+      states.push({
+        state: form.dataset.submitState ?? "missing",
+        status:
+          form
+            .querySelector<HTMLElement>('[data-testid="composer-submit-status"]')
+            ?.textContent.trim() ?? "",
+      });
+      sessionStorage.setItem("c09-submit-states", JSON.stringify(states));
+    };
+    sessionStorage.setItem("c09-submit-states", "[]");
+    new MutationObserver(record).observe(form, {
+      attributes: true,
+      attributeFilter: ["data-submit-state"],
+    });
+  });
+
+  const submit = page.getByTestId("composer-submit");
+  await submit.dispatchEvent("pointerdown", { pointerType: "mouse", button: 0, buttons: 1 });
+  await expect(submit).toHaveAttribute("data-pressed", "true");
+  await submit.dispatchEvent("pointerup", { pointerType: "mouse", button: 0, buttons: 0 });
+  await expect(submit).toHaveAttribute("data-pressed", "false");
+  await submit.click();
   const runUrl = await waitForCompletedFixtureRun(page);
+  const submitStates = await page.evaluate(
+    () =>
+      JSON.parse(sessionStorage.getItem("c09-submit-states") ?? "[]") as Array<{
+        state: string;
+        status: string;
+      }>,
+  );
+  expect(submitStates.some((entry) => entry.state === "creating")).toBe(true);
+  expect(
+    submitStates.some(
+      (entry) => entry.state === "opening" && entry.status.includes("Run created. Opening details"),
+    ),
+  ).toBe(true);
   const firstStage = page.locator('[data-stage-status="completed"]').first();
   await firstStage.evaluate((element) => element.classList.add("stage-running"));
   const pulseAnimation = await firstStage
@@ -104,7 +158,7 @@ test("command-first home submits a text-only mission and preserves it in recent 
     .evaluate((element) => getComputedStyle(element).transitionProperty);
   expect(artifactTransition).toContain("transform");
   await page.screenshot({
-    path: resolve(output, "c08-run-desktop.png"),
+    path: resolve(output, "c0-9-run-detail-desktop.png"),
     fullPage: true,
   });
   await page.reload({ waitUntil: "networkidle" });
@@ -115,6 +169,7 @@ test("command-first home submits a text-only mission and preserves it in recent 
   await expect(page.getByTestId("mission-understanding")).toBeVisible();
 
   await page.goto("/", { waitUntil: "networkidle" });
+  await hideDevelopmentUi(page);
   await expect(
     page.getByText(/We sell AI-assisted software that creates rough cuts/).first(),
   ).toBeVisible();
@@ -136,6 +191,7 @@ test("URL-aware composer reveals advanced context and sends only one logical sub
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "networkidle" });
+  await hideDevelopmentUi(page);
   const prompt = page.getByLabel("Describe what you sell or paste your website");
 
   await prompt.fill("example.com");
@@ -151,7 +207,42 @@ test("URL-aware composer reveals advanced context and sends only one logical sub
   await expect(page.getByLabel("Product website")).toHaveValue("https://example.com/");
   await page.getByLabel("Product website").fill("https://example.com/pricing");
 
-  await page.getByRole("button", { name: "Advanced" }).click();
+  const plusButton = page.getByRole("button", { name: "Add mission context" });
+  await plusButton.dispatchEvent("pointerdown", { pointerType: "touch", button: 0, buttons: 1 });
+  await expect(plusButton).toHaveAttribute("data-pressed", "true");
+  await plusButton.dispatchEvent("pointerup", { pointerType: "touch", button: 0, buttons: 0 });
+  await expect(plusButton).toHaveAttribute("data-pressed", "false");
+  await plusButton.click();
+  const plusMenu = page.locator('[role="menu"]');
+  await expect(plusMenu).toBeVisible();
+  await plusMenu.evaluate(async (element) => {
+    await Promise.all(
+      element.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+  await page.screenshot({ path: resolve(output, "c0-9-plus-menu.png"), fullPage: false });
+  await page.keyboard.press("Escape");
+
+  const websiteButton = page.getByRole("button", { name: "Website" });
+  await websiteButton.dispatchEvent("pointerdown", {
+    pointerType: "mouse",
+    button: 0,
+    buttons: 1,
+  });
+  await expect(websiteButton).toHaveAttribute("data-pressed", "true");
+  await websiteButton.dispatchEvent("pointerup", { pointerType: "mouse", button: 0, buttons: 0 });
+  await expect(websiteButton).toHaveAttribute("data-pressed", "false");
+
+  const advancedButton = page.getByRole("button", { name: "Advanced" });
+  await advancedButton.dispatchEvent("pointerdown", {
+    pointerType: "mouse",
+    button: 0,
+    buttons: 1,
+  });
+  await expect(advancedButton).toHaveAttribute("data-pressed", "true");
+  await advancedButton.dispatchEvent("pointerup", { pointerType: "mouse", button: 0, buttons: 0 });
+  await expect(advancedButton).toHaveAttribute("data-pressed", "false");
+  await advancedButton.click();
   await expect(page.getByTestId("advanced-fields")).toBeVisible();
   await page.getByLabel("Customer geography").selectOption("United Arab Emirates");
   await page.getByLabel("Number of opportunities").selectOption("30");
@@ -159,7 +250,7 @@ test("URL-aware composer reveals advanced context and sends only one logical sub
     .getByLabel("Customer outcome")
     .fill("Publish more long-form episodes with less manual editing.");
   await page.getByLabel("Exclusions").fill("Hobby creators\nShort-form-only teams");
-  await page.screenshot({ path: resolve(output, "c08-advanced-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c0-9-advanced-context.png"), fullPage: true });
 
   let createRequestCount = 0;
   page.on("request", (browserRequest) => {
@@ -211,6 +302,7 @@ test("composer exposes validation, loading, duplicate prevention, and API errors
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "networkidle" });
+  await hideDevelopmentUi(page);
   const prompt = page.getByLabel("Describe what you sell or paste your website");
   await prompt.fill("Too short");
   await page.getByRole("button", { name: "Start finding customers" }).click();
@@ -218,37 +310,53 @@ test("composer exposes validation, loading, duplicate prevention, and API errors
   await expect(
     page.getByText("Describe what you sell using at least 20 characters.").first(),
   ).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c08-validation-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c0-9-validation-desktop.png"), fullPage: true });
 
   let interceptedRequests = 0;
+  let releaseRequest: (() => void) | undefined;
+  const requestGate = new Promise<void>((resolveGate) => {
+    releaseRequest = resolveGate;
+  });
   await page.route("**/api/runs", async (route) => {
     interceptedRequests += 1;
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 800));
+    await requestGate;
     await route.fulfill({
       status: 503,
       contentType: "application/json",
       body: JSON.stringify({
-        error: { message: "Deliberate C0.8 browser API failure.", retryable: true },
+        error: { message: "Deliberate C0.9 browser API failure.", retryable: true },
       }),
     });
   });
   await prompt.fill(
     "We sell workflow software for teams that need a clear API error and loading-state test.",
   );
+  const form = page.getByTestId("mission-form");
   const submit = page.getByTestId("composer-submit");
+  const status = page.getByTestId("composer-submit-status");
   const idleBox = await submit.boundingBox();
   expect(idleBox).not.toBeNull();
   await submit.dblclick();
+  await expect(form).toHaveAttribute("data-submit-state", "creating");
   await expect(submit).toBeDisabled();
   await expect(submit).toHaveAttribute("aria-busy", "true");
   await expect(submit).toContainText("Starting run…");
   await expect(submit.locator(".loading-dot")).toBeVisible();
+  await expect(status).toBeVisible();
+  await expect(status).toContainText("Creating your run locally…");
+  await expect(status.locator(".loading-dot")).toBeVisible();
   const busyBox = await submit.boundingBox();
   expect(busyBox).not.toBeNull();
-  expect(busyBox?.width).toBe(idleBox?.width);
-  expect(busyBox?.height).toBe(idleBox?.height);
-  await page.screenshot({ path: resolve(output, "c08-loading-desktop.png"), fullPage: false });
-  await expect(page.getByText("Deliberate C0.8 browser API failure.")).toBeVisible();
+  expect(busyBox?.width).toBeCloseTo(idleBox?.width ?? 0, 3);
+  expect(busyBox?.height).toBeCloseTo(idleBox?.height ?? 0, 3);
+  await page.screenshot({
+    path: resolve(output, "c0-9-submit-loading-desktop.png"),
+    fullPage: false,
+  });
+  releaseRequest?.();
+  await expect(page.getByText("Deliberate C0.9 browser API failure.")).toBeVisible();
+  await expect(form).toHaveAttribute("data-submit-state", "idle");
+  await expect(status).toBeHidden();
   await expect(submit).toBeEnabled();
   await expect(submit).toHaveAttribute("aria-busy", "false");
   await expect(submit).toContainText("Start finding customers →");
@@ -259,6 +367,7 @@ test("reduced motion removes tactile animation while preserving layout", async (
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/", { waitUntil: "networkidle" });
+  await hideDevelopmentUi(page);
 
   const prompt = page.getByLabel("Describe what you sell or paste your website");
   await prompt.focus();
@@ -269,12 +378,24 @@ test("reduced motion removes tactile animation while preserving layout", async (
   expect(composerMotion.transitionProperty).toBe("none");
   expect(composerMotion.transform).toBe("none");
 
-  const submitMotion = await page.getByTestId("composer-submit").evaluate((element) => {
+  const reducedSubmit = page.getByTestId("composer-submit");
+  await reducedSubmit.dispatchEvent("pointerdown", {
+    pointerType: "mouse",
+    button: 0,
+    buttons: 1,
+  });
+  await expect(reducedSubmit).toHaveAttribute("data-pressed", "true");
+  const submitMotion = await reducedSubmit.evaluate((element) => {
     const style = getComputedStyle(element);
     return { transitionProperty: style.transitionProperty, transform: style.transform };
   });
   expect(submitMotion.transitionProperty).toBe("none");
   expect(submitMotion.transform).toBe("none");
+  await reducedSubmit.dispatchEvent("pointerup", {
+    pointerType: "mouse",
+    button: 0,
+    buttons: 0,
+  });
 
   await page.getByRole("button", { name: "Add mission context" }).click();
   const menuMotion = await page.locator('[role="menu"]').evaluate((element) => ({
@@ -283,6 +404,12 @@ test("reduced motion removes tactile animation while preserving layout", async (
   }));
   expect(menuMotion.animationName).toBe("none");
   expect(menuMotion.transform).toBe("none");
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[role="menu"]')).toBeHidden();
+  await page.screenshot({
+    path: resolve(output, "c0-9-reduced-motion-if-possible.png"),
+    fullPage: false,
+  });
 });
 
 test("mobile command interface has no overflow and keeps mission understanding reachable", async ({
@@ -290,18 +417,19 @@ test("mobile command interface has no overflow and keeps mission understanding r
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/", { waitUntil: "networkidle" });
+  await hideDevelopmentUi(page);
   await expect(page.getByRole("heading", { name: "Let's find your customers." })).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c08-home-mobile.png"), fullPage: false });
+  await page.screenshot({ path: resolve(output, "c0-9-home-mobile.png"), fullPage: false });
 
   const prompt = page.getByLabel("Describe what you sell or paste your website");
   await prompt.focus();
   await page.screenshot({
-    path: resolve(output, "c08-composer-focused-mobile.png"),
+    path: resolve(output, "c0-9-composer-focused-mobile.png"),
     fullPage: false,
   });
   await page.getByRole("button", { name: "Advanced" }).click();
   await expect(page.getByTestId("advanced-fields")).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c08-advanced-mobile.png"), fullPage: false });
+  await page.screenshot({ path: resolve(output, "c0-9-advanced-mobile.png"), fullPage: false });
 
   await page.getByRole("button", { name: "Add mission context" }).click();
   const menuGeometry = await page.locator('[role="menu"]').evaluate((element) => {
@@ -348,12 +476,45 @@ test("mobile command interface has no overflow and keeps mission understanding r
   await expect(page.locator('[role="menu"]')).toBeHidden();
   await page.getByRole("button", { name: "Collapse" }).click();
   await expect(page.getByTestId("advanced-fields")).toBeHidden();
-  await page.screenshot({ path: resolve(output, "c08-home-mobile-full.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c0-9-home-mobile-full.png"), fullPage: true });
 
   await prompt.fill(
     "AI-assisted video-editing software that creates rough cuts for long-form YouTube videos and podcasts.",
   );
-  await page.getByRole("button", { name: "Start finding customers" }).click();
+
+  let releaseMobileRequest: (() => void) | undefined;
+  const mobileRequestGate = new Promise<void>((resolveGate) => {
+    releaseMobileRequest = resolveGate;
+  });
+  await page.route("**/api/runs", async (route) => {
+    await mobileRequestGate;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { message: "Deliberate C0.9 mobile loading proof.", retryable: true },
+      }),
+    });
+  });
+
+  const mobileSubmit = page.getByTestId("composer-submit");
+  const mobileStatus = page.getByTestId("composer-submit-status");
+  await mobileSubmit.click();
+  await expect(mobileSubmit).toHaveAttribute("aria-busy", "true");
+  await expect(mobileStatus).toContainText("Creating your run locally…");
+  const mobileSubmitBox = await mobileSubmit.boundingBox();
+  expect(mobileSubmitBox).not.toBeNull();
+  expect(mobileSubmitBox?.width).toBeGreaterThan(300);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: resolve(output, "c0-9-submit-loading-mobile.png"),
+    fullPage: false,
+  });
+  releaseMobileRequest?.();
+  await expect(page.getByText("Deliberate C0.9 mobile loading proof.")).toBeVisible();
+  await page.unroute("**/api/runs");
+
+  await mobileSubmit.click();
   await waitForCompletedFixtureRun(page);
   const runGeometry = await page.evaluate(() => ({
     innerWidth: window.innerWidth,
@@ -361,7 +522,7 @@ test("mobile command interface has no overflow and keeps mission understanding r
   }));
   expect(runGeometry.bodyScrollWidth).toBeLessThanOrEqual(runGeometry.innerWidth);
   await page.screenshot({
-    path: resolve(output, "c08-run-mobile-full.png"),
+    path: resolve(output, "c0-9-run-detail-mobile.png"),
     fullPage: true,
   });
 });
