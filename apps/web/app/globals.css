@@ -165,7 +165,7 @@ code {
   }
 
   .command-textarea {
-    @apply block min-h-36 w-full resize-none border-0 bg-transparent p-0 text-lg leading-8 text-neutral-950 outline-none placeholder:text-neutral-400 sm:min-h-40 sm:text-xl;
+    @apply block min-h-24 max-h-64 w-full resize-y overflow-y-auto border-0 bg-transparent p-0 text-base leading-7 text-neutral-950 outline-none placeholder:text-neutral-400 sm:min-h-28 sm:text-lg sm:leading-8;
   }
 
   .composer-control {

@@ -9,7 +9,13 @@ async function waitForCompletedFixtureRun(page: Page) {
   const runView = page.locator('[data-testid="run-view"]');
   await expect(runView).toHaveAttribute("data-run-status", "completed", { timeout: 30_000 });
   await expect(page.locator('[data-stage-status="completed"]')).toHaveCount(11);
-  await expect(page.getByText("Fixture output — not real market data.")).toBeVisible();
+  await expect(page.getByText("Deterministic planning — no live market results.")).toBeVisible();
+  await expect(page.getByTestId("mission-understanding")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mission understanding" })).toBeVisible();
+  await expect(
+    page.getByText("Search queries are generated but not executed yet.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText("podcast agency struggling with editing turnaround")).toBeVisible();
   await expect(page.locator('[data-testid="artifact-json"]')).toContainText('"fixture": true');
   return page.url();
 }
@@ -44,15 +50,24 @@ test("command-first home submits a text-only mission and preserves it in recent 
     const rect = element.getBoundingClientRect();
     return { width: rect.width, left: rect.left, right: rect.right };
   });
-  expect(geometry.width).toBeLessThanOrEqual(842);
+  expect(geometry.width).toBeLessThanOrEqual(722);
   expect(geometry.left).toBeGreaterThanOrEqual(0);
   expect(geometry.right).toBeLessThanOrEqual(1440);
-  await page.screenshot({ path: resolve(output, "c06-home-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c07-home-desktop.png"), fullPage: true });
 
   const prompt = page.getByLabel("Describe what you sell or paste your website");
+  const promptGeometry = await prompt.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return { height: rect.height, resize: style.resize, maxHeight: style.maxHeight };
+  });
+  expect(promptGeometry.height).toBeGreaterThanOrEqual(96);
+  expect(promptGeometry.height).toBeLessThanOrEqual(130);
+  expect(promptGeometry.resize).toBe("vertical");
+  expect(promptGeometry.maxHeight).toBe("256px");
   await prompt.focus();
   await page.screenshot({
-    path: resolve(output, "c06-composer-focused-desktop.png"),
+    path: resolve(output, "c07-composer-focused-desktop.png"),
     fullPage: false,
   });
   await page.getByRole("button", { name: "Find companies currently hiring video editors" }).click();
@@ -63,11 +78,16 @@ test("command-first home submits a text-only mission and preserves it in recent 
 
   await page.getByRole("button", { name: "Start finding customers" }).click();
   const runUrl = await waitForCompletedFixtureRun(page);
+  await page.screenshot({
+    path: resolve(output, "c1a-understanding-desktop.png"),
+    fullPage: true,
+  });
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.locator('[data-testid="run-view"]')).toHaveAttribute(
     "data-run-status",
     "completed",
   );
+  await expect(page.getByTestId("mission-understanding")).toBeVisible();
 
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(
@@ -106,7 +126,7 @@ test("URL-aware composer reveals advanced context and sends only one logical sub
     .getByLabel("Customer outcome")
     .fill("Publish more long-form episodes with less manual editing.");
   await page.getByLabel("Exclusions").fill("Hobby creators\nShort-form-only teams");
-  await page.screenshot({ path: resolve(output, "c06-advanced-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c07-advanced-desktop.png"), fullPage: true });
 
   let createRequestCount = 0;
   page.on("request", (browserRequest) => {
@@ -119,11 +139,11 @@ test("URL-aware composer reveals advanced context and sends only one logical sub
   expect(createRequestCount).toBe(1);
 
   const runId = runUrl.split("/").at(-1)!;
-  const mission = {
+  const apiMission = {
     schemaVersion: "1.0",
-    name: "C0.6 idempotency API proof",
+    name: "C1-A idempotency API proof",
     description:
-      "A command-first browser API mission proving duplicate requests return one logical durable run.",
+      "A command-first browser mission proving duplicate requests return one logical durable run while preserving mission understanding.",
     geographies: ["Global"],
     desiredOpportunities: 20,
     exclusions: [],
@@ -133,11 +153,11 @@ test("URL-aware composer reveals advanced context and sends only one logical sub
   const idempotencyKey = `playwright_${crypto.randomUUID()}`;
   const first = await request.post("/api/runs", {
     headers: { "Idempotency-Key": idempotencyKey },
-    data: mission,
+    data: apiMission,
   });
   const duplicate = await request.post("/api/runs", {
     headers: { "Idempotency-Key": idempotencyKey },
-    data: mission,
+    data: apiMission,
   });
   expect(first.status()).toBe(201);
   expect(duplicate.status()).toBe(200);
@@ -165,7 +185,7 @@ test("composer exposes validation, loading, duplicate prevention, and API errors
   await expect(
     page.getByText("Describe what you sell using at least 20 characters.").first(),
   ).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c06-validation-desktop.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c07-validation-desktop.png"), fullPage: true });
 
   let interceptedRequests = 0;
   await page.route("**/api/runs", async (route) => {
@@ -175,7 +195,7 @@ test("composer exposes validation, loading, duplicate prevention, and API errors
       status: 503,
       contentType: "application/json",
       body: JSON.stringify({
-        error: { message: "Deliberate C0.6 browser API failure.", retryable: true },
+        error: { message: "Deliberate C1-A browser API failure.", retryable: true },
       }),
     });
   });
@@ -185,27 +205,27 @@ test("composer exposes validation, loading, duplicate prevention, and API errors
   const submit = page.getByRole("button", { name: "Start finding customers" });
   await submit.dblclick();
   await expect(submit).toBeDisabled();
-  await expect(page.getByText("Deliberate C0.6 browser API failure.")).toBeVisible();
+  await expect(page.getByText("Deliberate C1-A browser API failure.")).toBeVisible();
   expect(interceptedRequests).toBe(1);
 });
 
-test("mobile command interface has no overflow and keeps popovers and controls reachable", async ({
+test("mobile command interface has no overflow and keeps mission understanding reachable", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Let's find your customers." })).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c06-home-mobile.png"), fullPage: false });
+  await page.screenshot({ path: resolve(output, "c07-home-mobile.png"), fullPage: false });
 
   const prompt = page.getByLabel("Describe what you sell or paste your website");
   await prompt.focus();
   await page.screenshot({
-    path: resolve(output, "c06-composer-focused-mobile.png"),
+    path: resolve(output, "c07-composer-focused-mobile.png"),
     fullPage: false,
   });
   await page.getByRole("button", { name: "Advanced" }).click();
   await expect(page.getByTestId("advanced-fields")).toBeVisible();
-  await page.screenshot({ path: resolve(output, "c06-advanced-mobile.png"), fullPage: false });
+  await page.screenshot({ path: resolve(output, "c07-advanced-mobile.png"), fullPage: false });
 
   await page.getByRole("button", { name: "Add mission context" }).click();
   const menuGeometry = await page.locator('[role="menu"]').evaluate((element) => {
@@ -245,5 +265,20 @@ test("mobile command interface has no overflow and keeps popovers and controls r
   await expect(page.locator('[role="menu"]')).toBeHidden();
   await page.getByRole("button", { name: "Collapse" }).click();
   await expect(page.getByTestId("advanced-fields")).toBeHidden();
-  await page.screenshot({ path: resolve(output, "c06-home-mobile-full.png"), fullPage: true });
+  await page.screenshot({ path: resolve(output, "c07-home-mobile-full.png"), fullPage: true });
+
+  await prompt.fill(
+    "AI-assisted video-editing software that creates rough cuts for long-form YouTube videos and podcasts.",
+  );
+  await page.getByRole("button", { name: "Start finding customers" }).click();
+  await waitForCompletedFixtureRun(page);
+  const runGeometry = await page.evaluate(() => ({
+    innerWidth: window.innerWidth,
+    bodyScrollWidth: document.body.scrollWidth,
+  }));
+  expect(runGeometry.bodyScrollWidth).toBeLessThanOrEqual(runGeometry.innerWidth);
+  await page.screenshot({
+    path: resolve(output, "c1a-understanding-mobile-full.png"),
+    fullPage: true,
+  });
 });

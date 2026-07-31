@@ -2,12 +2,14 @@ import {
   C0_FIXTURE_WARNING,
   FixtureArtifactEnvelopeSchema,
   LocalMissionSchema,
+  MissionUnderstandingArtifactV1Schema,
   RunPhaseSchema,
   type ArtifactType,
   type FixtureArtifactEnvelope,
   type LocalMission,
   type LocalRunPhase,
 } from "@cluvvi/core";
+import { generateMissionUnderstandingArtifactV1 } from "./mission-understanding";
 import type { EngineStage, RuntimeSchema, StageContext } from "./stage";
 
 interface MissionStageInput {
@@ -25,14 +27,20 @@ const MissionStageInputSchema: RuntimeSchema<MissionStageInput> = {
 
 const FixtureInputSchema: RuntimeSchema<FixtureArtifactEnvelope> = FixtureArtifactEnvelopeSchema;
 
-function outputSchemaFor(stage: LocalRunPhase): RuntimeSchema<FixtureArtifactEnvelope> {
+function outputSchemaFor(
+  stage: LocalRunPhase,
+  dataSchema?: RuntimeSchema<Record<string, unknown>>,
+): RuntimeSchema<FixtureArtifactEnvelope> {
   return {
     parse(value: unknown): FixtureArtifactEnvelope {
       const parsed = FixtureArtifactEnvelopeSchema.parse(value);
       if (parsed.stage !== stage) {
         throw new Error(`Fixture output stage must equal ${stage}.`);
       }
-      return parsed;
+      return {
+        ...parsed,
+        data: dataSchema?.parse(parsed.data) ?? parsed.data,
+      };
     },
   };
 }
@@ -56,15 +64,17 @@ function envelope(
 function createFixtureStage(input: {
   name: LocalRunPhase;
   artifactType: ArtifactType;
+  version?: string;
   previousArtifactType?: ArtifactType;
+  outputDataSchema?: RuntimeSchema<Record<string, unknown>>;
   createData: (source: unknown, context: StageContext) => Record<string, unknown>;
 }): EngineStage<unknown, unknown> {
   return {
     name: input.name,
-    version: "1.0.0",
+    version: input.version ?? "1.0.0",
     artifactType: input.artifactType,
     inputSchema: input.name === "mission" ? MissionStageInputSchema : FixtureInputSchema,
-    outputSchema: outputSchemaFor(input.name),
+    outputSchema: outputSchemaFor(input.name, input.outputDataSchema),
     async loadInput(context) {
       if (input.name === "mission") {
         return { mission: context.mission };
@@ -103,31 +113,39 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
     }),
     createFixtureStage({
       name: "compilation",
-      artifactType: "interpretation",
+      version: "1.1.0",
+      artifactType: "mission_understanding",
       previousArtifactType: "mission",
+      outputDataSchema: MissionUnderstandingArtifactV1Schema,
       createData(_source, context) {
-        return {
-          offer: {
-            summary: context.mission.input.description,
-            customerOutcome: context.mission.input.customerOutcome ?? "Not supplied",
-            provenance: "user_provided",
-          },
-          gtmMotion: { type: "fixture_unclassified", confidence: 0 },
-          segments: [],
-          assumptions: ["C0 does not call a model."],
-          ambiguities: ["Commercial interpretation is deferred to C2."],
-        };
+        return generateMissionUnderstandingArtifactV1(context.mission.input);
       },
     }),
     createFixtureStage({
       name: "source_planning",
+      version: "1.1.0",
       artifactType: "source_plan",
-      previousArtifactType: "interpretation",
-      createData() {
+      previousArtifactType: "mission_understanding",
+      createData(source) {
+        const inputArtifact = FixtureArtifactEnvelopeSchema.parse(source);
+        const understanding = MissionUnderstandingArtifactV1Schema.parse(inputArtifact.data);
         return {
-          strategySummary: "No external sources are executed in C0.",
-          searchStrategies: [],
-          stopConditions: { candidateTarget: 0, candidateHardLimit: 0 },
+          strategySummary:
+            "Cluvvi generated a deterministic source and query plan. Search queries are not executed in C1-A.",
+          generatedQueryCount: understanding.searchQueries.length,
+          highPriorityQueryCount: understanding.searchQueries.filter(
+            (query) => query.priority === "high",
+          ).length,
+          plannedSources: understanding.sourcePlan.map((entry) => ({
+            sourceType: entry.sourceType,
+            priority: entry.priority,
+          })),
+          searchStrategies: understanding.searchQueries.slice(0, 15),
+          stopConditions: {
+            candidateTarget: understanding.inputSummary.desiredOpportunities,
+            candidateHardLimit: 0,
+            executionEnabled: false,
+          },
         };
       },
     }),
@@ -136,7 +154,11 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
       artifactType: "search_results",
       previousArtifactType: "source_plan",
       createData() {
-        return { searchCalls: 0, results: [] };
+        return {
+          searchCalls: 0,
+          results: [],
+          note: "Queries were generated but not executed in C1-A.",
+        };
       },
     }),
     createFixtureStage({
@@ -200,7 +222,7 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
           outcome: "fixture_run_completed",
           desiredOpportunities: context.mission.input.desiredOpportunities,
           realOpportunitiesProduced: 0,
-          nextPhase: "C1 website ingestion",
+          nextPhase: "C1-B approved-source query execution",
         };
       },
     }),

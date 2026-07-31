@@ -2,19 +2,21 @@
 
 Cluvvi is an evidence-backed buyer-discovery engine. Its commercial benchmark is to turn what someone sells into real opportunities worth contacting, with evidence, the right buyer, confidence, and clear limitations.
 
-## Current active phase: C0.6 command-first homepage
+## Current active phase: C0.7 + C1-A deterministic mission understanding
 
 ```text
 Command composer or CLI
           ↓
 One Cluvvi application/engine path
           ↓
-SQLite durable run requests and stages
+Deterministic mission understanding + search plan
           ↓
-Versioned fixture artifacts
+SQLite durable stages and versioned artifacts
+          ↓
+Later fixture stages (no live search execution)
 ```
 
-C0.6 turns the local browser into a focused AI-agent-style command surface while preserving the proven C0.5 engine and durability architecture. It remains explicit fixture mode and does **not** claim to discover real customers yet.
+C0.7 makes the landing composer smaller and vertically resizable. C1-A turns the existing compilation stage into a typed, deterministic Mission Understanding V1 artifact with buyer hypotheses, pain language, source priorities, and 25–60 deduplicated search queries. No query is executed and no live customer is claimed yet.
 
 ## Start the browser application
 
@@ -47,9 +49,10 @@ Enter what you sell
 → create one durable SQLite run
 → enqueue one idempotent run request
 → local runner claims it with a lease
-→ shared CluvviEngine executes eleven stages
-→ browser polls persisted progress
-→ refresh, inspect, fail, and resume safely
+→ shared CluvviEngine generates Mission Understanding V1
+→ persist buyer hypotheses, source plan, and unexecuted search queries
+→ continue the remaining deterministic fixture stages
+→ browser polls, refreshes, inspects, fails, and resumes safely
 ```
 
 The browser exposes:
@@ -62,7 +65,7 @@ The browser exposes:
 /settings/local
 ```
 
-Every generated result is visibly marked as deterministic fixture output.
+Mission understanding and query planning are visibly marked as deterministic local planning. Later workflow artifacts remain fixture output. Nothing is presented as live market data or real customer discovery.
 
 ## CLI remains available
 
@@ -103,6 +106,6 @@ pnpm build
 pnpm test:browser-local
 ```
 
-Focused C0.6 tests prove URL/text mission mapping, progressive context controls, keyboard submission, validation and API errors, duplicate-submit prevention, atomic request idempotency, complete fixture execution, refresh durability, and responsive browser geometry without mobile overflow.
+Focused C0.7/C1-A tests prove URL/text mission mapping, the smaller vertically resizable composer, typed deterministic mission understanding for video, GTM, support, and fallback missions, query deduplication, exclusion handling, durable artifact persistence/reuse, duplicate-submit prevention, run-detail rendering, refresh durability, and responsive browser geometry without mobile overflow.
 
 Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.

@@ -14,16 +14,17 @@ Read these before changing active engine or browser-runtime code:
 
 ## Current product boundary
 
-C0.6 presents the existing C0.5 deterministic engine through a command-first homepage at `http://localhost:3100`.
+C0.7 + C1-A present the existing local engine through a smaller command composer and generate a typed deterministic Mission Understanding V1 artifact at `http://localhost:3100`.
 
 ```text
 Command composer or CLI
 → one application/engine path
+→ deterministic mission understanding and unexecuted query plan
 → SQLite durability
-→ deterministic fixture artifacts
+→ remaining deterministic fixture artifacts
 ```
 
-C0.6 is a presentation phase. Do not add real model calls, website ingestion, search, enrichment, scoring, outreach, authentication, billing, deployment, database migrations, or engine-stage changes. Stop for visual approval before C1.
+C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. It must not ingest websites, execute searches, call external models/providers, discover candidates, enrich contacts, score opportunities, automate LinkedIn, send outreach, activate authentication/billing/deployment, or add a database migration. Query planning is real local logic; market evidence remains absent until a later approved phase.
 
 ## Active and parked paths
 

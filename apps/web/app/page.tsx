@@ -50,7 +50,7 @@ export default async function HomePage() {
         </p>
       </section>
 
-      <section className="mx-auto mt-10 max-w-[840px] sm:mt-12">
+      <section className="mx-auto mt-10 max-w-[720px] sm:mt-12">
         <CustomerMissionComposer runnerAvailable={diagnostics.runner.available} />
       </section>
 

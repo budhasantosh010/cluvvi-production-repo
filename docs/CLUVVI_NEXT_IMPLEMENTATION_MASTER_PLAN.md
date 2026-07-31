@@ -1,8 +1,13 @@
 # Cluvvi Next Implementation Master Plan
 
-**Current baseline:** C0.5 local browser application  
-**Verified C0.5 commit:** `3a1fcb7de6b2fe4f3c66aadb0efbcf532d2d10a9`  
-**Public repository:** `https://github.com/budhasantosh010/cluvvi-production-repo.git`  
+**Current baseline:** C0.6 command-first local browser application
+
+**Verified C0.6 commit:** `6cf2af9f9d0f96897dcd04ac0d7781e24ffc2d51`
+
+**Active implementation:** C0.7 composer polish + C1-A deterministic mission understanding
+
+**Public repository:** `https://github.com/budhasantosh010/cluvvi-production-repo.git`
+
 **Local application:** `http://localhost:3100`
 
 This document is the source-controlled execution summary of the product plan supplied on July 30, 2026. The complete user-provided plan remains the authority when this summary is ambiguous.
@@ -39,14 +44,16 @@ Future API ┘
 
 1. **G0** — Secure and push the verified baseline.
 2. **C0.6** — Command-first homepage.
-3. **C1** — Real source-backed mission understanding.
-4. **C2** — Real bounded source planner.
-5. **C3** — First real discovery slice.
-6. **C4** — Evidence investigator.
-7. **C5** — Buyer identification.
-8. **C6** — Contact enrichment.
-9. **C7** — Deterministic opportunity scoring and review.
-10. **C8** — Human evaluation and improvement loop.
+3. **C0.7** — Smaller, vertically resizable landing composer.
+4. **C1-A** — Typed deterministic mission understanding and unexecuted search-query plan.
+5. **C1-B** — Bounded source-backed mission understanding with approval.
+6. **C2** — Approved-source query execution planning.
+7. **C3** — First real discovery slice.
+8. **C4** — Evidence investigator.
+9. **C5** — Buyer identification.
+10. **C6** — Contact enrichment.
+11. **C7** — Deterministic opportunity scoring and review.
+12. **C8** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -152,11 +159,31 @@ No database migration, AI, search, enrichment, scoring, outreach, Supabase activ
 - Feature branch is pushed and the working tree is clean.
 - Stop for visual approval. Do not begin C1.
 
-## C1 — Real mission understanding
+## C0.7 + C1-A — Composer polish and deterministic mission understanding
 
-Begin only after C0.6 is approved and merged.
+**Branch:** `feature/c0-7-c1-a-mission-understanding`
 
-**Branch:** `feature/c1-real-mission-understanding`  
+C0.7 narrows the landing composer to 720px and gives its textarea a compact 96–112px default height, a 256px maximum height, and vertical-only resizing.
+
+C1-A reuses the existing compilation phase, generic artifact persistence, local runner, idempotency, and run-detail page. It produces `mission_understanding.v1` with:
+
+- normalized mission inputs;
+- product category, value proposition, likely sales motion, and confidence;
+- three to eight buyer hypotheses;
+- pain, competitor, workaround, and exclusion keywords;
+- eight deterministic intent signals;
+- a source plan including Reddit, job posts, web search, company websites, reviews, Product Hunt, Hacker News, and manual-only LinkedIn research;
+- 25–60 trimmed, deduplicated search queries;
+- explicit risks, unknowns, and next steps.
+
+The artifact is persisted as `01-mission-understanding.json`, displayed as a specialized run-detail section, and remains available through the generic JSON artifact viewer. Search queries are generated but not executed. No migration, model call, website fetch, crawling, candidate discovery, enrichment, scoring, or outreach belongs in C1-A.
+
+## C1-B — Source-backed mission understanding
+
+Begin only after C1-A is approved and merged.
+
+**Branch:** `feature/c1-b-source-backed-mission-understanding`
+
 **Commit message:** `feat: add source-backed Cluvvi mission understanding`
 
 Required high-level flow:
