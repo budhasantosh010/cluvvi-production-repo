@@ -8,6 +8,7 @@ export const C0_FIXTURE_WARNING =
 export const ArtifactTypeSchema = z.enum([
   "mission",
   "interpretation",
+  "mission_understanding",
   "source_plan",
   "search_results",
   "candidates",
@@ -52,6 +53,7 @@ export type ArtifactRecord = z.infer<typeof ArtifactRecordSchema>;
 export const ARTIFACT_FILE_NAMES: Readonly<Record<ArtifactType, string>> = {
   mission: "00-mission.json",
   interpretation: "01-interpretation.json",
+  mission_understanding: "01-mission-understanding.json",
   source_plan: "02-source-plan.json",
   search_results: "03-search-results.json",
   candidates: "04-candidates.json",

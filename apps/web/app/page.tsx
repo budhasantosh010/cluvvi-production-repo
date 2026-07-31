@@ -1,4 +1,4 @@
-import { LocalMissionForm } from "@/components/local-mission-form";
+import { CustomerMissionComposer } from "@/components/customer-mission-composer";
 import { getWebLocalRuntime } from "@/lib/server/local-runtime";
 import Link from "next/link";
 
@@ -6,6 +6,17 @@ export const dynamic = "force-dynamic";
 
 function statusClass(status: string): string {
   return `status-pill status-${status}`;
+}
+
+function relativeTime(timestamp: string): string {
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 1_000));
+  if (elapsedSeconds < 60) return "just now";
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  return `${elapsedDays}d ago`;
 }
 
 export default async function HomePage() {
@@ -16,79 +27,80 @@ export default async function HomePage() {
   ]);
 
   return (
-    <main className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-10 sm:px-8 sm:py-14 lg:py-16">
-      <section className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(540px,1.25fr)] lg:items-start">
-        <div className="pt-2 lg:sticky lg:top-10 lg:pt-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-lime-300 bg-lime-100 px-3 py-1.5 text-xs font-semibold text-lime-950">
-            <span className="size-2 rounded-full bg-lime-600" />
-            Local browser application
+    <main className="mx-auto w-full max-w-[928px] px-5 pb-20 pt-14 sm:px-8 sm:pt-20">
+      <section className="text-center">
+        <div className="fixture-disclosure relative mx-auto inline-block text-left">
+          <details className="group">
+            <summary className="fixture-trigger">
+              <span className="size-1.5 rounded-full bg-lime-600" />
+              Local fixture mode
+            </summary>
+          </details>
+          <div className="fixture-popover" role="tooltip">
+            This version demonstrates the complete workflow with deterministic test data. Real
+            product understanding and market discovery are being connected next.
           </div>
-          <h1 className="mt-6 max-w-2xl text-5xl font-semibold tracking-[-0.05em] text-neutral-950 sm:text-6xl lg:text-7xl">
-            Find who needs what you sell.
-          </h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-neutral-600">
-            Tell Cluvvi what you sell. Cluvvi will progressively search for potential customers and
-            show the evidence behind every result.
-          </p>
-          <div className="mt-8 rounded-2xl border border-violet-200 bg-violet-50 p-5 text-sm leading-6 text-violet-950">
-            <strong>Local fixture mode:</strong> The current engine demonstrates the complete
-            workflow using deterministic test data. Real AI and market discovery arrive in later
-            phases.
-          </div>
-          <dl className="mt-8 grid grid-cols-2 gap-3 text-sm">
-            <div className="metric-card">
-              <dt>Runner</dt>
-              <dd>{diagnostics.runner.available ? "Active" : "Offline"}</dd>
-            </div>
-            <div className="metric-card">
-              <dt>Storage</dt>
-              <dd>SQLite · WAL</dd>
-            </div>
-            <div className="metric-card">
-              <dt>Engine</dt>
-              <dd>{diagnostics.engineVersion}</dd>
-            </div>
-            <div className="metric-card">
-              <dt>Mode</dt>
-              <dd>Fixture</dd>
-            </div>
-          </dl>
         </div>
-        <LocalMissionForm runnerAvailable={diagnostics.runner.available} />
+
+        <h1 className="mx-auto mt-7 max-w-[720px] text-5xl font-semibold tracking-[-0.055em] text-neutral-950 sm:text-6xl md:text-7xl">
+          Let&apos;s find your customers.
+        </h1>
+        <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-neutral-600 sm:text-lg sm:leading-8">
+          Tell Cluvvi what you sell. It finds companies showing evidence they need it.
+        </p>
       </section>
 
-      <section className="surface-card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-200 px-6 py-5 sm:px-8">
+      <section className="mx-auto mt-10 max-w-[720px] sm:mt-12">
+        <CustomerMissionComposer runnerAvailable={diagnostics.runner.available} />
+      </section>
+
+      <section
+        className="mx-auto mt-20 max-w-[840px] sm:mt-24"
+        aria-labelledby="recent-runs-heading"
+      >
+        <div className="flex items-end justify-between gap-4 border-b border-neutral-200 pb-4">
           <div>
-            <p className="eyebrow">Durable history</p>
-            <h2 className="mt-2 text-xl font-semibold">Recent runs</h2>
+            <p className="eyebrow">Your work</p>
+            <h2
+              id="recent-runs-heading"
+              className="mt-2 text-xl font-semibold tracking-tight text-neutral-950"
+            >
+              Recent runs
+            </h2>
           </div>
-          <Link href="/runs" className="button-secondary">
+          <Link
+            href="/runs"
+            className="text-sm font-medium text-neutral-600 underline-offset-4 hover:text-neutral-950 hover:underline"
+          >
             View all runs
           </Link>
         </div>
+
         {runs.length === 0 ? (
-          <div className="p-8 text-sm leading-6 text-neutral-500">
-            Your first browser-created run will appear here and remain available after restarts.
-          </div>
+          <p className="py-8 text-sm leading-6 text-neutral-500">
+            Your first run will appear here and remain available after restarts.
+          </p>
         ) : (
-          <div className="divide-y divide-neutral-100">
+          <div className="divide-y divide-neutral-200/80">
             {runs.map((run) => (
-              <Link key={run.id} href={`/runs/${run.id}`} className="run-list-row">
-                <div className="min-w-0">
-                  <strong className="block truncate text-sm text-neutral-950">
+              <Link key={run.id} href={`/runs/${run.id}`} className="recent-run-row">
+                <span className="min-w-0">
+                  <strong className="block truncate text-sm font-medium text-neutral-950">
                     {run.missionName}
                   </strong>
-                  <span className="mt-1 block truncate font-mono text-xs text-neutral-400">
-                    {run.id}
-                  </span>
-                </div>
+                  <time
+                    className="mt-1 block text-xs text-neutral-400 sm:hidden"
+                    dateTime={run.updatedAt}
+                  >
+                    {relativeTime(run.updatedAt)}
+                  </time>
+                </span>
                 <span className={statusClass(run.status)}>{run.status.replaceAll("_", " ")}</span>
                 <span className="hidden text-sm capitalize text-neutral-500 sm:block">
                   {run.phase.replaceAll("_", " ")}
                 </span>
-                <time className="hidden text-sm text-neutral-500 md:block">
-                  {new Date(run.startedAt).toLocaleString()}
+                <time className="hidden text-sm text-neutral-400 sm:block" dateTime={run.updatedAt}>
+                  {relativeTime(run.updatedAt)}
                 </time>
                 <span aria-hidden="true" className="text-neutral-400">
                   →

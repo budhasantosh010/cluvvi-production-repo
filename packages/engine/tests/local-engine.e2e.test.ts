@@ -1,4 +1,10 @@
-import { MissionInputSchemaV1, ORDERED_RUN_PHASES, type LocalRunPhase } from "@cluvvi/core";
+import {
+  FixtureArtifactEnvelopeSchema,
+  MissionInputSchemaV1,
+  MissionUnderstandingArtifactV1Schema,
+  ORDERED_RUN_PHASES,
+  type LocalRunPhase,
+} from "@cluvvi/core";
 import { SqliteCluvviStore } from "@cluvvi/storage";
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
@@ -64,6 +70,20 @@ describe("CluvviEngine C0 fixture flow", () => {
       );
       expect(toolCallsBefore).toHaveLength(ORDERED_RUN_PHASES.length);
       expect(existsSync(resolve(root, "runs", result.run.id, "run-report.md"))).toBe(true);
+      const understandingEnvelope = FixtureArtifactEnvelopeSchema.parse(
+        JSON.parse(
+          await readFile(
+            resolve(root, "runs", result.run.id, "01-mission-understanding.json"),
+            "utf8",
+          ),
+        ),
+      );
+      const understanding = MissionUnderstandingArtifactV1Schema.parse(understandingEnvelope.data);
+      expect(understanding.productUnderstanding.productCategory).toMatch(/video|editing/i);
+      expect(understanding.searchQueries.length).toBeGreaterThanOrEqual(25);
+      expect(
+        result.artifacts.some((artifact) => artifact.artifactType === "mission_understanding"),
+      ).toBe(true);
       const finalArtifact = JSON.parse(
         await readFile(resolve(root, "runs", result.run.id, "10-finalization.json"), "utf8"),
       ) as { fixture: boolean; warning: string };

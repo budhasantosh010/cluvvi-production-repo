@@ -5,6 +5,7 @@ export * from "./local/error";
 export * from "./local/fingerprint";
 export * from "./local/ids";
 export * from "./local/mission";
+export * from "./local/mission-understanding";
 export * from "./local/run";
 export * from "./local/run-request";
 export * from "./schemas/common";

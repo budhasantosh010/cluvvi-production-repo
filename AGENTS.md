@@ -2,27 +2,29 @@
 
 Read these before changing active engine or browser-runtime code:
 
-1. `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`
-2. `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/PRODUCT_RULES.md`
-5. `docs/DATA_MODEL.md`
-6. `docs/PROVIDER_CONTRACTS.md`
-7. `docs/EVALS.md`
-8. `docs/FAILURES_AND_LIMITATIONS.md`
+1. `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`
+2. `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`
+3. `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`
+4. `docs/ARCHITECTURE.md`
+5. `docs/PRODUCT_RULES.md`
+6. `docs/DATA_MODEL.md`
+7. `docs/PROVIDER_CONTRACTS.md`
+8. `docs/EVALS.md`
+9. `docs/FAILURES_AND_LIMITATIONS.md`
 
 ## Current product boundary
 
-C0.5 exposes the existing local deterministic engine through a browser at `http://localhost:3100`.
+C0.8 presents the existing C0.7 + C1-A local engine through a smaller command composer with CSS-first tactile interaction polish at `http://localhost:3100`.
 
 ```text
-Browser or CLI
+Command composer or CLI
 → one application/engine path
+→ deterministic mission understanding and unexecuted query plan
 → SQLite durability
-→ deterministic fixture artifacts
+→ remaining deterministic fixture artifacts
 ```
 
-Do not add real model calls, website ingestion, search, enrichment, scoring, outreach, authentication, billing, or deployment in C0.5.
+C0.8 may change interaction CSS, client-side submit labels, accessibility state, and browser tests only. C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. Neither phase may add animation libraries, fake delays, website ingestion, executed searches, external models/providers, candidate discovery, enrichment, scoring, LinkedIn automation, outreach, authentication, billing, deployment, or a database migration. Query planning is real local logic; market evidence remains absent until a later approved phase.
 
 ## Active and parked paths
 

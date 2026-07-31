@@ -1,5 +1,6 @@
 "use client";
 
+import { MissionUnderstandingView } from "@/components/mission-understanding-view";
 import type { RunView } from "@cluvvi/application/contracts";
 import type { ArtifactRecord } from "@cluvvi/core";
 import Link from "next/link";
@@ -17,8 +18,8 @@ interface RunViewClientProps {
 
 const labels: Record<RunView["stages"][number]["name"], string> = {
   mission: "Mission",
-  compilation: "Compilation",
-  source_planning: "Source planning",
+  compilation: "Mission understanding",
+  source_planning: "Search planning",
   discovery: "Discovery",
   normalization: "Normalization",
   investigation: "Investigation",
@@ -86,6 +87,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         .length,
     [view.stages],
   );
+  const understandingArtifact = useMemo(
+    () =>
+      view.artifacts.find((artifact) => artifact.artifactType === "mission_understanding") ?? null,
+    [view.artifacts],
+  );
 
   async function runAction(action: "resume" | "cancel") {
     setActionPending(true);
@@ -128,9 +134,10 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   return (
     <div className="grid gap-6" data-testid="run-view" data-run-status={view.run.status}>
       <div className="fixture-banner">
-        <strong>Fixture output — not real market data.</strong>
+        <strong>Deterministic planning — no live market results.</strong>
         <span>
-          The current engine proves the durable workflow using deterministic test records.
+          Cluvvi generated mission understanding and search queries locally. The queries have not
+          been executed against external sources.
         </span>
       </div>
 
@@ -223,6 +230,10 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
             </div>
           </dl>
         </section>
+      )}
+
+      {understandingArtifact !== null && (
+        <MissionUnderstandingView artifact={understandingArtifact} />
       )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.4fr)]">
