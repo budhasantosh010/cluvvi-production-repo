@@ -2,19 +2,19 @@
 
 Cluvvi is an evidence-backed buyer-discovery engine. Its commercial benchmark is to turn what someone sells into real opportunities worth contacting, with evidence, the right buyer, confidence, and clear limitations.
 
-## Current active phase: C0.5 local browser application
+## Current active phase: C0.6 command-first homepage
 
 ```text
-Browser or CLI
-      ↓
+Command composer or CLI
+          ↓
 One Cluvvi application/engine path
-      ↓
+          ↓
 SQLite durable run requests and stages
-      ↓
+          ↓
 Versioned fixture artifacts
 ```
 
-C0.5 deliberately remains in fixture mode. It proves the browser workflow and durable local execution, but it does **not** claim to discover real customers yet.
+C0.6 turns the local browser into a focused AI-agent-style command surface while preserving the proven C0.5 engine and durability architecture. It remains explicit fixture mode and does **not** claim to discover real customers yet.
 
 ## Start the browser application
 
@@ -103,6 +103,6 @@ pnpm build
 pnpm test:browser-local
 ```
 
-Focused C0.5 tests prove atomic run creation, submission idempotency, request claims and lease recovery, single-runner leadership, complete fixture execution, browser refresh durability, artifact path validation, failure display, and browser resume with completed-stage reuse.
+Focused C0.6 tests prove URL/text mission mapping, progressive context controls, keyboard submission, validation and API errors, duplicate-submit prevention, atomic request idempotency, complete fixture execution, refresh durability, and responsive browser geometry without mobile overflow.
 
-Read `AGENTS.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.
+Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.

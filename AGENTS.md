@@ -2,27 +2,28 @@
 
 Read these before changing active engine or browser-runtime code:
 
-1. `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`
-2. `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/PRODUCT_RULES.md`
-5. `docs/DATA_MODEL.md`
-6. `docs/PROVIDER_CONTRACTS.md`
-7. `docs/EVALS.md`
-8. `docs/FAILURES_AND_LIMITATIONS.md`
+1. `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`
+2. `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`
+3. `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`
+4. `docs/ARCHITECTURE.md`
+5. `docs/PRODUCT_RULES.md`
+6. `docs/DATA_MODEL.md`
+7. `docs/PROVIDER_CONTRACTS.md`
+8. `docs/EVALS.md`
+9. `docs/FAILURES_AND_LIMITATIONS.md`
 
 ## Current product boundary
 
-C0.5 exposes the existing local deterministic engine through a browser at `http://localhost:3100`.
+C0.6 presents the existing C0.5 deterministic engine through a command-first homepage at `http://localhost:3100`.
 
 ```text
-Browser or CLI
+Command composer or CLI
 → one application/engine path
 → SQLite durability
 → deterministic fixture artifacts
 ```
 
-Do not add real model calls, website ingestion, search, enrichment, scoring, outreach, authentication, billing, or deployment in C0.5.
+C0.6 is a presentation phase. Do not add real model calls, website ingestion, search, enrichment, scoring, outreach, authentication, billing, deployment, database migrations, or engine-stage changes. Stop for visual approval before C1.
 
 ## Active and parked paths
 

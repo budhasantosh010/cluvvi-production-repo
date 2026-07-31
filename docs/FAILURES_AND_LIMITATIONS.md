@@ -836,16 +836,178 @@ The parked Supabase implementation still contains migrations and database-backed
 
 **One-line solution:** Prefer a preserving merge for a harmless placeholder history when the execution environment prohibits remote history replacement.
 
-# Current C0.5 verification status
+## 47. Non-interactive HTTPS push could not access the Windows credential dialog
 
-- `pnpm dev` starts Next.js and the local runner on `http://localhost:3100` without Docker, Supabase, authentication, or provider keys.
-- Web and runner prove that they share the same persisted SQLite database identity.
-- Browser run creation, request insertion, progress, artifacts, refresh durability, and fixture disclosure pass in a real Chromium browser.
-- Duplicate submission returns one logical run, and artifact path traversal is rejected.
-- Active request leases cannot be stolen; expired leases recover.
-- One active runner owns the SQLite leadership lease; a second runner is rejected, and a crashed leader recovers after expiry.
-- A browser-visible investigation failure resumes to completion with five earlier stages reused.
-- Desktop, failed-run, resumed-run, mobile viewport, and mobile full-page screenshots were opened and visually inspected.
-- DOM geometry confirms no mobile horizontal overflow and visible controls remain within the viewport.
-- Direct Windows SIGINT to the supervisor removes the port-3100 listener, runner, and supervisor process.
+**What failed:** Normal `git push -u origin main` over HTTPS could not authenticate from the Harness process.
+
+**Where:** Git Credential Manager / Windows credential-helper boundary.
+
+**When:** After the secure G0 baseline commit was ready.
+
+**Why:** Git attempted to open an interactive credential prompt, but the Harness process had no terminal dialog or `/dev/tty`; forcing non-interactive mode confirmed no cached credential was available to that process.
+
+**How it appeared:** Git reported `User cancelled dialog`, `No such device or address`, and then `terminal prompts disabled`.
+
+**What was tried:** Inspected configured helpers and GitHub CLI auth, forced the Windows credential helper non-interactively, then used the already-configured SSH transport for the push and restored `origin` to the requested HTTPS URL afterward.
+
+**Current status:** Resolved; local and remote `main` matched after the push.
+
+**One-line solution:** Use a non-interactive credential already available to the executor, or use the configured SSH transport and restore the canonical HTTPS remote URL.
+
+## 48. Both local coding connectors became intermittently unavailable during C0.6
+
+**What failed:** Read, edit, and command calls temporarily stopped reaching the laptop.
+
+**Where:** ChatGPT Harness network endpoint and the DevSpace OAuth fallback.
+
+**When:** During the accessibility cleanup and before the first focused C0.6 gate.
+
+**Why:** The Harness endpoint repeatedly timed out; DevSpace simultaneously returned OAuth `503 Service Unavailable`.
+
+**How it appeared:** Lightweight read-only calls failed before execution, and no repository output was returned.
+
+**What was tried:** Retried idempotent calls, inspected task state after recovery, avoided duplicate writes, and did not commit or push the unverified branch while the connectors were unavailable.
+
+**Current status:** Resolved externally; the same task and branch resumed without lost work.
+
+**One-line solution:** Preserve the task/branch, retry with operation IDs, inspect state after reconnection, and never claim completion during a connector outage.
+
+## 49. The first strict C0.6 typecheck rejected unchecked optional-field state access
+
+**What failed:** The initial focused web typecheck stopped on strict indexed access in the new composer state.
+
+**Where:** `apps/web/components/customer-mission-composer.tsx`.
+
+**When:** Immediately after the first command-composer implementation.
+
+**Why:** Optional field visibility was represented by typed sets and refs, but one access path did not satisfy the repository's strict indexing rules.
+
+**How it appeared:** `tsc --noEmit` failed before browser work began.
+
+**What was tried:** Narrowed the access through the typed optional-field key and reran the same focused typecheck.
+
+**Current status:** Resolved; strict TypeScript later passed across every workspace project.
+
+**One-line solution:** Keep optional-field state keyed by the canonical union and narrow every dynamic access before use.
+
+## 50. Interrupted accessibility cleanup left invalid JSX
+
+**What failed:** Prettier could not parse the command composer.
+
+**Where:** The advanced optional-context section in `customer-mission-composer.tsx`.
+
+**When:** After moving remove buttons outside labels while the connector was unstable.
+
+**Why:** One `Additional context` wrapper opened as a label but closed as a div, and several optional headers still nested interactive buttons inside labels.
+
+**How it appeared:** The focused formatter stopped on a mismatched closing tag.
+
+**What was tried:** Re-read the actual file after reconnection, replaced the affected advanced-field block atomically, added explicit `htmlFor`/`id` pairs, and reran formatting and TypeScript.
+
+**Current status:** Resolved; the resulting JSX is valid and keyboard/screen-reader labels are explicit.
+
+**One-line solution:** After interrupted structural JSX edits, re-read the complete containing block and repair it atomically before continuing.
+
+## 51. Strict lint rejected an inline Playwright import type
+
+**What failed:** Targeted ESLint stopped after formatting and web TypeScript passed.
+
+**Where:** `tests/browser-local/cluvvi-local.spec.ts`.
+
+**When:** During the first focused C0.6 verification gate.
+
+**Why:** The helper parameter used `import("@playwright/test").Page`, which violates `@typescript-eslint/consistent-type-imports`.
+
+**How it appeared:** One lint error and zero warnings.
+
+**What was tried:** Added `type Page` to the normal Playwright import and used it directly.
+
+**Current status:** Resolved; targeted and full zero-warning lint passed.
+
+**One-line solution:** Use explicit top-level type imports instead of inline `import()` annotations.
+
+## 52. Native closed details hid the fixture explanation from hover
+
+**What failed:** The first real C0.6 browser run passed three tests but failed the fixture-disclosure interaction.
+
+**Where:** Homepage fixture-mode badge and tooltip.
+
+**When:** During Playwright visual/interaction verification.
+
+**Why:** The explanation lived inside a closed `<details>` subtree, so the browser's native closed-details rendering suppressed it before hover opacity rules could apply.
+
+**How it appeared:** Playwright hovered the badge but reported the tooltip as hidden.
+
+**What was tried:** A display override was insufficient; the explanation was moved outside the hidden subtree while native `<summary>` click/keyboard state remained, and CSS now exposes it on hover, focus, or open state.
+
+**Current status:** Resolved; all four C0.6 browser flows pass.
+
+**One-line solution:** Keep hoverable tooltip content outside the browser-hidden portion of a closed native disclosure.
+
+## 53. Initial visual evidence obscured the headline and exposed raw schema wording
+
+**What failed:** The first screenshots were technically valid but not approval-quality.
+
+**Where:** Desktop home/focused captures and desktop validation capture.
+
+**When:** Manual visual inspection after the first green browser rerun.
+
+**Why:** The test left the pointer over the fixture badge, keeping the tooltip over the headline, and Zod's raw minimum-length message was surfaced directly to the user.
+
+**How it appeared:** The headline was partially covered, and validation read `Too small: expected string to have >=20 characters`.
+
+**What was tried:** Moved the pointer away before home/focused screenshots, collapsed advanced fields before the full-mobile screenshot, mapped canonical schema failures to human-readable field messages, regenerated all eight screenshots, and reopened them.
+
+**Current status:** Resolved; desktop and mobile evidence is clean and validation uses product language.
+
+**One-line solution:** Treat screenshot state and validation copy as product behavior, not incidental test output.
+
+## 54. Early scope-check patterns produced false positives
+
+**What failed:** Three iterations of the final scope command stopped despite clean C0.6 boundaries.
+
+**Where:** The ad-hoc PowerShell/ripgrep scope gate.
+
+**When:** After the full repository gate passed.
+
+**Why:** A broad SQL regex matched JavaScript `Set.delete()` and `<select>` markup; later fixed-string checks escaped quote characters differently under PowerShell.
+
+**How it appeared:** The checker reported direct SQL and missing POST reuse even though the component visibly contained `fetch("/api/runs", { method: "POST" })`.
+
+**What was tried:** Replaced generic SQL keywords with SQL-shaped phrases, checked route and method literals independently without quote-sensitive patterns, and reran all other boundary checks unchanged.
+
+**Current status:** Resolved; the final scope gate passed with 19 changed paths and exactly eight C0.6 screenshots.
+
+**One-line solution:** Scope checks must match integration-shaped syntax and avoid shell-quoting-sensitive literals.
+
+## 55. Reverted generated Next.js type file failed the final formatting check
+
+**What failed:** The first post-review `pnpm format:check` reported `apps/web/next-env.d.ts` as unformatted.
+
+**Where:** Next.js-generated TypeScript environment declarations.
+
+**When:** After the successful full build and after removing incidental generated-file churn from the feature diff.
+
+**Why:** Restoring the tracked version also restored its local line-ending/formatter state, while the earlier full `pnpm format` had normalized the generated file.
+
+**How it appeared:** Prettier listed only `apps/web/next-env.d.ts`; no TypeScript, runtime, or content error existed.
+
+**What was tried:** Ran Prettier on that file alone and inspected the Git diff.
+
+**Current status:** Resolved; Prettier succeeded and Git reported no content change.
+
+**One-line solution:** Normalize generated declaration files before the final format check, then confirm the rewrite does not create source-controlled semantic churn.
+
+# Current C0.6 verification status
+
+- G0 public `main` was audited, hardened, pushed, and verified before C0.6 began.
+- `pnpm dev` serves the command-first interface at `http://localhost:3100` with the existing local runner and SQLite database.
+- The homepage uses `MissionInputSchemaV1`, `POST /api/runs`, the existing application service, and existing idempotency.
+- Text-only, URL-only, and text-plus-URL behavior is deterministic and covered.
+- Advanced context, geography, opportunity count, prompt chips, keyboard submission, loading, API errors, and duplicate-submit prevention pass in Chromium.
+- The complete local browser suite reports four passed C0.6 tests and two intentionally skipped failure/resume scenario tests under the normal runner.
+- Prettier, zero-warning ESLint, strict TypeScript, 32 unit/integration tests, and every production build pass.
+- Eight desktop/mobile screenshots were captured and manually inspected.
+- Mobile DOM geometry confirms no horizontal overflow and all visible controls remain inside the 390px viewport.
+- No package, engine, storage, worker, CLI, API route, migration, Supabase, provider, AI, search, enrichment, scoring, or outreach code changed in C0.6.
 - All output remains explicit deterministic fixture data and is never presented as real customer discovery.

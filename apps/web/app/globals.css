@@ -2,11 +2,12 @@
 
 :root {
   color-scheme: light;
-  --background: #f6f7f3;
+  --background: #fbfbf8;
   --surface: #ffffff;
-  --ink: #171717;
-  --muted: #666660;
-  --line: #e7e8e1;
+  --ink: #11110f;
+  --muted: #686862;
+  --line: #deded7;
+  --subtle-line: #ecece6;
   --accent: #d9ff57;
 }
 
@@ -23,9 +24,7 @@ body {
   min-height: 100vh;
   margin: 0;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at 8% 0%, rgb(217 255 87 / 18%), transparent 30rem),
-    radial-gradient(circle at 95% 22%, rgb(196 181 253 / 13%), transparent 28rem), var(--background);
+  background: var(--background);
   color: var(--ink);
   font-family:
     Inter,
@@ -78,7 +77,7 @@ code {
   }
 
   .surface-card {
-    @apply rounded-3xl border border-neutral-200/90 bg-white shadow-[0_24px_70px_-44px_rgba(0,0,0,0.32)];
+    @apply rounded-3xl border border-neutral-200/90 bg-white shadow-[0_18px_44px_-34px_rgba(0,0,0,0.28)];
   }
 
   .eyebrow {
@@ -157,6 +156,72 @@ code {
     @apply grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-6 py-5 transition hover:bg-neutral-50 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:px-8;
   }
 
+  .command-composer {
+    @apply overflow-visible rounded-[20px] border border-neutral-300/90 bg-white shadow-[0_18px_52px_-34px_rgba(0,0,0,0.30)] transition;
+  }
+
+  .command-composer:focus-within {
+    @apply border-neutral-400 shadow-[0_22px_60px_-34px_rgba(0,0,0,0.36)];
+  }
+
+  .command-textarea {
+    @apply block min-h-36 w-full resize-none border-0 bg-transparent p-0 text-lg leading-8 text-neutral-950 outline-none placeholder:text-neutral-400 sm:min-h-40 sm:text-xl;
+  }
+
+  .composer-control {
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950;
+  }
+
+  .composer-control[aria-pressed="true"] {
+    @apply border-neutral-400 bg-neutral-100 text-neutral-950;
+  }
+
+  .composer-select-label {
+    @apply inline-flex min-h-11 items-center rounded-xl border border-neutral-200 bg-white transition hover:border-neutral-300 hover:bg-neutral-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-neutral-950;
+  }
+
+  .composer-select {
+    @apply h-10 max-w-44 cursor-pointer appearance-none bg-transparent px-3 text-sm font-medium text-neutral-700 outline-none;
+  }
+
+  .composer-submit {
+    @apply ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-wait disabled:opacity-60;
+  }
+
+  .composer-menu {
+    @apply absolute bottom-[calc(100%+0.6rem)] left-0 z-30 w-[min(19rem,calc(100vw-2.5rem))] rounded-xl border border-neutral-200 bg-white p-1.5 shadow-xl;
+  }
+
+  .example-chip {
+    @apply min-h-11 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-600 transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950;
+  }
+
+  .fixture-disclosure {
+    @apply relative;
+  }
+
+  .fixture-trigger {
+    @apply flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full border border-lime-300 bg-lime-50 px-3 text-xs font-semibold text-lime-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950;
+  }
+
+  .fixture-trigger::-webkit-details-marker {
+    display: none;
+  }
+
+  .fixture-popover {
+    @apply invisible absolute left-1/2 top-[calc(100%+0.6rem)] z-40 block w-[min(22rem,calc(100vw-2.5rem))] -translate-x-1/2 rounded-xl border border-violet-200 bg-white p-4 text-left text-sm font-normal leading-6 text-violet-950 opacity-0 shadow-xl transition;
+  }
+
+  .fixture-disclosure:hover .fixture-popover,
+  .fixture-disclosure:focus-within .fixture-popover,
+  .fixture-disclosure details[open] + .fixture-popover {
+    @apply visible opacity-100;
+  }
+
+  .recent-run-row {
+    @apply grid min-h-16 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-4 transition hover:bg-white/70 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto];
+  }
+
   .stage-row {
     @apply flex min-h-16 items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5;
   }
@@ -205,10 +270,33 @@ code {
 }
 
 @media (max-width: 640px) {
+  .composer-submit {
+    margin-left: 0;
+  }
+
+  .composer-select {
+    max-width: 9.5rem;
+  }
+
+  .recent-run-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
   .json-viewer {
     max-height: 480px;
     padding: 1rem;
     font-size: 0.7rem;
     line-height: 1.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
