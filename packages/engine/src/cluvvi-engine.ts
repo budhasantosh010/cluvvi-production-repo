@@ -162,7 +162,7 @@ export class CluvviEngine {
         stageVersion: stage.version,
         input: validatedInput,
         engineVersion: LOCAL_ENGINE_VERSION,
-        providerConfiguration: "fixture-v1",
+        providerConfiguration: "fixture-project-b-v2",
       });
       const previous = await this.#store.findCompletedStageExecution(
         run.id,
@@ -221,7 +221,7 @@ export class CluvviEngine {
           run,
           artifactType: stage.artifactType,
           stage: stage.name,
-          schemaVersion: "1.0",
+          schemaVersion: stage.schemaVersion,
           version: (previousArtifact?.version ?? 0) + 1,
           data: validatedOutput,
           createdAt: completedAt,

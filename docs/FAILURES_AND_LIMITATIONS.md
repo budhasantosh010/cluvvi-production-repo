@@ -1569,3 +1569,311 @@ The parked Supabase implementation still contains migrations and database-backed
 - `pnpm check` passed Prettier, zero-warning ESLint, strict TypeScript across all workspaces, 13 test files with 37/37 tests, and every production build.
 - No dependency, lockfile, runtime, API-route, engine, storage, migration, provider, crawler, external-call, enrichment, ranking, Buyer Map, or outreach implementation was added.
 - C1-B Standalone Discovery Engine scaffold was not started.
+
+# Project B C1-C through C1-F failures
+
+## 86. Downstream pipeline test used an invalid opaque mission ID
+
+**What failed:** The first focused Project B contract/pipeline test run stopped before executing the downstream suite.
+
+**Where:** `packages/engine/tests/downstream-fixture-pipeline.test.ts`.
+
+**When:** After the independent V1/V2 schemas, fixtures, pure transformations, and stage adapters typechecked successfully.
+
+**Why:** The test used `mission_test`, but `LocalMissionSchema` requires the established opaque ID format `mission_<32 lowercase hex characters>`.
+
+**How it appeared:** Zod rejected the test fixture at module load with an `invalid_format` issue for the `id` field; core and engine TypeScript checks had already passed.
+
+**What was tried:** Replaced the test ID with a deterministic valid opaque mission ID and reran the identical focused gate.
+
+**Current status:** Resolved; the downstream suite loaded and executed after the ID repair.
+
+**One-line solution:** Use schema-valid opaque IDs in test fixtures instead of human-readable placeholders.
+
+## 87. Buyer Map duplicated one coverage gap from two coverage fields
+
+**What failed:** The focused Buyer Map test found two gap rows for the same unavailable source zone.
+
+**Where:** `buildBuyerMap` in `packages/engine/src/downstream-fixture-data.ts`.
+
+**When:** After ten of eleven focused contract and pipeline tests passed.
+
+**Why:** `skippedSourceZones` and `manualReviewRecommended` described the same `private_manual_sources` gap with different reasons, so deduplication by source zone plus reason preserved both rows.
+
+**How it appeared:** `buyerMap.coverageGaps` contained two records where the acceptance expectation was one actionable gap per source zone.
+
+**What was tried:** Consolidated gaps by `sourceZone`, using the richer manual-review record to override the generic skipped-zone suggestion.
+
+**Current status:** Resolved; the Buyer Map test now reports one actionable gap for the unavailable source zone.
+
+**One-line solution:** Present one coverage gap per source zone and prefer explicit manual-review guidance over generated fallback text.
+
+## 88. Coverage-gap consolidation inferred an overly narrow template-literal type
+
+**What failed:** The next focused engine typecheck rejected inserting a manual-review gap into the consolidated coverage map.
+
+**Where:** `buildBuyerMap` in `packages/engine/src/downstream-fixture-data.ts`.
+
+**When:** Immediately after consolidating Buyer Map gaps by source zone.
+
+**Why:** TypeScript inferred the generated fallback `suggestedAction` as a template-literal subtype, while the persisted contract correctly accepts any non-empty string.
+
+**How it appeared:** TS2345 reported that the manual gap's plain `string` suggestion was not assignable to the inferred `Review ${string}...` subtype.
+
+**What was tried:** Declared the map explicitly as `Map<string, BuyerMapCoverageGapV1>` so both generated and manual suggestions use the durable contract type.
+
+**Current status:** Resolved; strict engine typecheck and the focused pipeline suite pass.
+
+**One-line solution:** Type intermediate collections against the persisted contract instead of allowing literal inference to create a narrower accidental API.
+
+## 89. Harness process stop left orphaned local web and runner children
+
+**What failed:** The first dedicated failure-browser environment could not start because port 3100 remained occupied after stopping the normal development process.
+
+**Where:** Windows local development process supervision around `pnpm dev`.
+
+**When:** Between the normal browser suite and the dedicated investigation-stage failure proof.
+
+**Why:** Harness stopped the tracked supervisor process, but the spawned Next.js and local-runner child processes remained alive briefly and retained the listener and SQLite heartbeat loop.
+
+**How it appeared:** The failure-mode startup exited with `EADDRINUSE` for `localhost:3100`; inspection identified the prior Next.js listener and runner process IDs.
+
+**What was tried:** Identified the exact child PIDs from the prior startup, terminated only those process trees, and verified that port 3100 had no remaining listener before restart.
+
+**Current status:** Resolved; port 3100 is free and the dedicated failure environment started cleanly.
+
+**One-line solution:** After stopping the Windows supervisor, verify port and runner-child cleanup before launching a differently configured local environment.
+
+## 90. Dedicated failure browser spec still used pre-composer selectors
+
+**What failed:** The first dedicated structured-failure browser proof timed out before submitting a run.
+
+**Where:** `tests/browser-local/cluvvi-failure.spec.ts`.
+
+**When:** Against the correctly configured investigation-stage failure environment.
+
+**Why:** The normally skipped scenario still targeted `textarea[name="description"]`, `input[name="customerOutcome"]`, and the old `Run fixture workflow` button from before the command-composer redesign.
+
+**How it appeared:** Playwright waited 60 seconds for the obsolete textarea selector and never reached the API or engine.
+
+**What was tried:** Replaced the stale selectors with the current accessible prompt label and `Start finding customers` button used by the maintained normal browser suite.
+
+**Current status:** Resolved; the dedicated structured-failure proof passes against the current composer.
+
+**One-line solution:** Keep dedicated failure/resume specs aligned with the same accessible composer selectors used by the normal browser flow.
+
+## 91. Project A compatibility fixture copy was semantically equal but not byte-identical
+
+**What failed:** The first cross-project compatibility gate stopped before schema validation because the Cluvvi fixture copy had a different SHA-256 hash from Project A's canonical fixture.
+
+**Where:** `packages/engine/src/fixtures/project-a-video-editing.search-results.v2.json` compared with Project A `fixtures/video-editing.search-results.v2.json`.
+
+**When:** After the normal, failure, and resume browser proofs passed.
+
+**Why:** The copied JSON used six compact one-line `raw` objects while the canonical Project A artifact used multiline formatting. Values and schema were otherwise identical.
+
+**How it appeared:** The compatibility script printed different hashes and intentionally threw `Project A fixture copy is not byte-identical.` before running either validator.
+
+**What was tried:** Diffed the files, confirmed formatting was the only difference, and rewrote the Cluvvi fixture from the canonical Project A file verbatim.
+
+**Current status:** Resolved at the semantic-content level; the only remaining mismatch was diagnosed as Windows CRLF normalization.
+
+**One-line solution:** Preserve the canonical cross-project fixture byte-for-byte so one hash proves both projects validate the same artifact.
+
+## 92. Windows file writing normalized the canonical fixture from LF to CRLF
+
+**What failed:** Rewriting the semantically exact Project A fixture through the normal file tool still produced a different SHA-256 hash.
+
+**Where:** The copied compatibility fixture in `packages/engine/src/fixtures/project-a-video-editing.search-results.v2.json`.
+
+**When:** During the second cross-project hash check.
+
+**Why:** The source artifact contains 253 LF bytes and no carriage returns, while the Windows file writer emitted 253 CRLF pairs.
+
+**How it appeared:** Byte diagnostics showed source length 8,985 with `cr=0`, while the copy length was 9,238 with `cr=253`; `git diff --ignore-space-at-eol` showed no content difference.
+
+**What was tried:** Copied the canonical source byte array directly with `System.IO.File.WriteAllBytes` and immediately verified matching SHA-256 hashes.
+
+**Current status:** Resolved; both files now hash to `EAF3B8CA91727842FCB691AA5A099211ADD338C06840DAD3099AE22C614DF557`.
+
+**One-line solution:** Use a byte-preserving copy for immutable cross-repository fixtures when Windows text writers normalize line endings.
+
+## 93. Final Project B format check found unformatted edited files
+
+**What failed:** The first final repository formatting gate reported style differences in 27 newly edited Project B source, test, fixture, UI, and documentation files.
+
+**Where:** `pnpm format:check` across the Cluvvi workspace.
+
+**When:** After cross-project compatibility, focused tests, full unit tests, browser tests, failure/resume proofs, and visual review had already passed.
+
+**Why:** The implementation was assembled through targeted file writes and exact replacements without a final Prettier write pass.
+
+**How it appeared:** Prettier exited with code 1 and listed only Project B files; the byte-identical canonical Project A fixture was not listed and remained unchanged.
+
+**What was tried:** Recorded the failure and formatted only the files named by Prettier, excluding the immutable canonical compatibility fixture.
+
+**Current status:** Resolved; the targeted formatter pass completed and the identical repository-wide format gate passed.
+
+**One-line solution:** Run a targeted formatter pass over the reported Project B files while preserving the byte-identical cross-project fixture.
+
+## 94. Restoring generated Next.js declarations reintroduced CRLF formatting
+
+**What failed:** The final documentation/scope formatting gate reported only `apps/web/next-env.d.ts` after the generated file had been restored from Git.
+
+**Where:** `apps/web/next-env.d.ts`.
+
+**When:** After the production build, browser verification, historical screenshot cleanup, and status-document updates.
+
+**Why:** Git restored the correct committed declaration content with Windows CRLF worktree bytes, while the repository Prettier configuration expects LF output.
+
+**How it appeared:** `pnpm format:check` exited with code 1 and named only `apps/web/next-env.d.ts`; its import still correctly referenced `./.next/dev/types/routes.d.ts`.
+
+**What was tried:** Recorded the failure and ran Prettier on the generated declaration to normalize line endings without changing its semantic content.
+
+**Current status:** Resolved; Prettier normalized only the declaration line endings, and the identical format and diff gates passed.
+
+**One-line solution:** Normalize the restored generated declaration with Prettier after builds instead of committing the production-generated route reference.
+
+## 95. Forbidden-capability audit confused frozen V1 vocabulary with executable scraping code
+
+**What failed:** The first final capability-boundary audit stopped on the string `linkedin_manual`.
+
+**Where:** `DiscoverySourceTypeV1Schema` in `packages/core/src/local/search-results.ts`.
+
+**When:** During the final negative-capability audit after all functional and browser gates passed.
+
+**Why:** The audit pattern treated any `linkedin` text as prohibited behavior, but `linkedin_manual` is a required historical enum value in the frozen V1 contract and does not implement scraping, authentication bypass, or a provider call.
+
+**How it appeared:** Ripgrep found the V1 enum label and the audit intentionally threw `Forbidden runtime capability found.` before completing the remaining checks.
+
+**What was tried:** Recorded the false positive, removed contract vocabulary from the executable-capability pattern, and added a separate engine/runtime scan for LinkedIn implementation references.
+
+**Current status:** Resolved at the contract-vocabulary level; the next audit correctly excluded the frozen V1 enum.
+
+**One-line solution:** Separate frozen contract vocabulary from scans for executable provider, network, crawler, or scraping behavior.
+
+## 96. LinkedIn implementation scan included unchanged manual-safety planning text
+
+**What failed:** The second boundary audit stopped on existing mission-planning references to manual LinkedIn research.
+
+**Where:** Unchanged `packages/engine/src/mission-understanding.ts` and `packages/engine/src/mission-understanding-config.ts`.
+
+**When:** Immediately after excluding the frozen V1 enum from the capability scan.
+
+**Why:** The audit searched the entire engine tree for the word `linkedin`, so it matched pre-existing source-planning vocabulary and an explicit safety instruction saying not to scrape profiles or automate messaging.
+
+**How it appeared:** Ripgrep returned manual research labels and the audit threw `LinkedIn runtime implementation reference found.` even though those files were not modified and contained no provider call.
+
+**What was tried:** Confirmed the matches are unchanged planning/safety text, then restricted Project B capability scans to the new downstream runtime files and executable network/provider patterns.
+
+**Current status:** Resolved at the unchanged-file scope level; the next command excluded those historical planning files.
+
+**One-line solution:** Audit new executable boundaries and changed runtime files rather than flagging unchanged manual-planning vocabulary.
+
+## 97. Split audit still retained `linkedin` in the all-files pattern
+
+**What failed:** The third boundary-audit command repeated the frozen V1 enum false positive before reaching its narrowed LinkedIn implementation check.
+
+**Where:** The PowerShell audit command, not repository code.
+
+**When:** Immediately after documenting the distinction between contract vocabulary and executable behavior.
+
+**Why:** Although the scan paths were narrowed, the shared forbidden pattern still included `linkedin` while also scanning `search-results.ts`, which necessarily contains `linkedin_manual` for V1 compatibility.
+
+**How it appeared:** Ripgrep again returned the frozen enum and the command threw `Forbidden executable capability found.`
+
+**What was tried:** Split the command into a provider/network/crawler pattern that may scan all Project B files and a separate `linkedin` scan that excludes contract schemas and targets only executable downstream/UI implementations.
+
+**Current status:** Resolved; the truly separated capability and LinkedIn implementation scans both passed.
+
+**One-line solution:** Keep vocabulary-sensitive terms out of shared capability patterns and scan only executable implementation paths for them.
+
+## 98. Quoted SQLite regex caused the audit to scan the whole repository
+
+**What failed:** The fourth boundary audit incorrectly reported SQLite leakage outside storage after all earlier checks passed.
+
+**Where:** The PowerShell command used for the final `node:sqlite` boundary scan.
+
+**When:** After dependency, capability, LinkedIn, standalone-coupling, contact-field, and Next.js checks had passed.
+
+**Why:** Mixed single and double quotes in the regex were parsed incorrectly by PowerShell, so ripgrep did not receive the intended explicit non-storage path list and instead searched the repository root.
+
+**How it appeared:** Results included documentation, `AGENTS.md`, and the allowed imports under `packages/storage`, followed by the intentional `SQLite leaked outside storage.` failure.
+
+**What was tried:** Recorded the shell-quoting defect and replaced the regex with a literal `node:sqlite` search over explicit core, engine, application, web, and worker paths.
+
+**Current status:** Resolved; the literal-path boundary audit passed all dependency, capability, coupling, contact, architecture, fixture, and immutability checks.
+
+**One-line solution:** Use literal patterns and explicit paths for shell boundary audits instead of quote-sensitive mixed regexes.
+
+## 99. Same-file batch status updates kept only the final replacement
+
+**What failed:** The first release-document update reported multiple successful replacements per file, but direct reads showed that most status changes were absent.
+
+**Where:** `README.md`, `AGENTS.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, and `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`.
+
+**When:** During the final CTO review after implementation, tests, browser evidence, and boundary audits had passed.
+
+**Why:** Multiple replacements against the same file were evaluated from one original snapshot, so later writes overwrote earlier replacements even though the batch reported each operation as applied.
+
+**How it appeared:** Git diff stats showed only one or two changed lines in documents that should have received several status updates; direct reads still described C1-0.1 and Project B as future work.
+
+**What was tried:** Recorded the partial-write hazard and switched to one exact replacement per file state, verifying each document directly after editing.
+
+**Current status:** Resolved; all four documents were updated sequentially and direct searches confirmed the completed C1-C through C1-F status, passed compatibility gate, and unstarted C1-G boundary.
+
+**One-line solution:** Never batch multiple replacements against one file snapshot; rewrite once or apply sequential edits with fresh state.
+
+## 100. First Project B branch push timed out before creating the remote branch
+
+**What failed:** The first `git push -u origin feature/c1-c-to-c1-f-downstream-fixture-pipeline` call did not return before the Harness timeout.
+
+**Where:** GitHub push from the Cluvvi repository.
+
+**When:** After the complete Project B implementation was locally committed as `f828f547700bc3ffcc8f7f786817f84c29f48b2e`.
+
+**Why:** The remote operation stalled or exceeded the connector timeout; Git returned no success or error text.
+
+**How it appeared:** Harness returned `TimeoutError`. A follow-up `git ls-remote --heads` showed that the remote branch did not exist, proving the push had not completed.
+
+**What was tried:** Recorded the failure, amended the local commit to include this ledger entry, and prepared a retry with Git progress disabled and a longer timeout.
+
+**Current status:** Resolved at the transport-choice level; the remote branch was still absent, and the final push moved to the already authenticated SSH route.
+
+**One-line solution:** Verify remote state after an indeterminate push timeout, then retry idempotently with quieter output and a longer timeout.
+
+## 101. Push retry used an invalid Git configuration key
+
+**What failed:** The first push retry exited before contacting GitHub.
+
+**Where:** The local Git command used to retry the Project B branch push.
+
+**When:** After the timeout ledger entry was amended into commit `c8a72325ca943b358660e03e97e37e722f6869c8`.
+
+**Why:** The command used `git -c progress=false`, but Git `-c` requires a sectioned configuration key such as `protocol.version`; `progress` is only supported here as the `--no-progress` push option.
+
+**How it appeared:** Git returned `error: key does not contain a section: progress` and `fatal: unable to parse command-line config` with exit code 1.
+
+**What was tried:** Recorded the command-construction error and prepared the supported `git push --no-progress` form without the invalid `-c` argument.
+
+**Current status:** Resolved; the invalid config key was removed and the final push uses the supported `--no-progress` flag over SSH.
+
+**One-line solution:** Use the documented `--no-progress` push flag instead of inventing an unsectioned Git config key.
+
+## 102. HTTPS push could not access credentials in the non-interactive shell
+
+**What failed:** The corrected HTTPS push reached GitHub but could not read a username after its credential dialog was cancelled.
+
+**Where:** The configured `origin` HTTPS push URL.
+
+**When:** After the invalid Git config key was removed and commit `cb3b3cacd512daf0f4792f982b7ab1d80632aa25` was ready to publish.
+
+**Why:** Git Credential Manager attempted an interactive credential flow, but the Harness shell has no `/dev/tty`; GitHub CLI was also not logged in.
+
+**How it appeared:** Git returned `fatal: User cancelled dialog`, `failed to execute prompt script`, and `could not read Username for 'https://github.com'`.
+
+**What was tried:** Inspected the normal machine authentication paths without exposing credentials. HTTPS had no usable non-interactive session, while `ssh -T -o BatchMode=yes git@github.com` authenticated successfully as `budhasantosh010`.
+
+**Current status:** Resolved; only `origin`'s push URL will use the existing authenticated SSH key, while the normal HTTPS fetch URL remains unchanged.
+
+**One-line solution:** Use the already authenticated GitHub SSH key for non-interactive pushes when HTTPS credential prompting is unavailable.

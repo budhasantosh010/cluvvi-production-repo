@@ -13,10 +13,14 @@ export const ArtifactTypeSchema = z.enum([
   "search_results",
   "candidates",
   "investigations",
+  "evidence_findings",
   "buyers",
   "contacts",
+  "identity_enrichment",
   "opportunities",
+  "ranked_opportunities",
   "review",
+  "buyer_map",
   "finalization",
 ]);
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
@@ -58,9 +62,13 @@ export const ARTIFACT_FILE_NAMES: Readonly<Record<ArtifactType, string>> = {
   search_results: "03-search-results.json",
   candidates: "04-candidates.json",
   investigations: "05-investigations.json",
+  evidence_findings: "05-evidence-findings.json",
   buyers: "06-buyers.json",
   contacts: "07-contacts.json",
+  identity_enrichment: "07-identity-enrichment.json",
   opportunities: "08-opportunities.json",
+  ranked_opportunities: "08-ranked-opportunities.json",
   review: "09-review.json",
+  buyer_map: "09-buyer-map.json",
   finalization: "10-finalization.json",
 };

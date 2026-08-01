@@ -4,7 +4,7 @@
 
 **Verified C0.6 commit:** `6cf2af9f9d0f96897dcd04ac0d7781e24ffc2d51`
 
-**Active implementation:** C1-0.1 Search Results V2 Contract Amendment after completed standalone C1-B fixture scaffold
+**Active implementation:** C1-C through C1-F Downstream Fixture Pipeline after completed C1-0.1 V2 amendment
 
 **Public repository:** `https://github.com/budhasantosh010/cluvvi-production-repo.git`
 
@@ -48,10 +48,14 @@ Future API ┘
 - C0.9 Apple-style flow choreography: complete.
 - C1-0 Discovery Architecture Freeze: complete at `c4e7b3567159bff23f621e80c3f24b1ff283d3db`.
 - C1-B Standalone Discovery Engine fixture scaffold: complete in the separate Project A repository at `d1891db5d53736299200874a41ae34f95025073d`.
-- C1-0.1 Search Results V2 Contract Amendment: current documentation-only milestone.
-- C1-C Evidence Engine fixture-contract version: next implementation milestone after C1-0.1.
+- C1-0.1 Search Results V2 Contract Amendment: complete at `4cec85b32d5ac5a83d89f7fd880d2de22ffa5761`.
+- C1-C Evidence Engine fixture-contract version: implemented in the current Project B branch.
+- C1-D Identity + Enrichment fixture-contract version: implemented with role hypotheses and public manual routes only.
+- C1-E Opportunity Ranker: implemented with a transparent deterministic scorecard and negative/stale penalties.
+- C1-F Buyer Map Output: implemented with citations, risks, warnings, coverage gaps, and responsive browser presentation.
+- C1-G Project A runtime bridge: not started.
 
-Cluvvi currently understands and plans. The standalone project can produce validated fixture discovery runs, but Cluvvi does not yet consume them or discover real customers.
+Cluvvi now understands and plans, independently validates synthetic V2 discovery artifacts, and runs the fixture downstream intelligence pipeline through one durable engine. It still does not discover real customers or call Project A at runtime.
 
 ## Ordered roadmap
 
@@ -68,9 +72,10 @@ Cluvvi currently understands and plans. The standalone project can produce valid
 11. **C1-D** — Identity + Enrichment fixture-contract version preserving V2 lineage.
 12. **C1-E** — Opportunity Ranker over fixture-derived evidence.
 13. **C1-F** — Buyer Map Output with fixture labeling and V2 citations.
-14. **C2** — First researched live discovery providers and approved integration path.
-15. **C3** — First real discovery slice.
-16. **C4** — Human evaluation and improvement loop.
+14. **C1-G** — Approved runtime bridge from standalone Project A V2 output into Cluvvi.
+15. **C2** — First researched live discovery providers and approved integration path.
+16. **C3** — First real discovery slice.
+17. **C4** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -261,44 +266,33 @@ The scaffold is fixture-only. It adds no live provider, network request, crawler
 
 ## C1-0.1 — Search Results V2 Contract Amendment
 
-**Status:** Current documentation-only milestone before Project B.
+**Status:** Complete at `4cec85b32d5ac5a83d89f7fd880d2de22ffa5761`.
 
-C1-0.1 must:
-
-- preserve `docs/SEARCH_RESULTS_V1_CONTRACT.md` unchanged;
-- add `docs/SEARCH_RESULTS_V2_CONTRACT.md`;
-- document V1 as the earlier frozen basic bridge contract;
-- document V2 as the expanded universal discovery-run contract;
-- state that V2 is not backward-compatible with V1 because it adds required planning, context, semantic provenance, and coverage structure;
-- update `AGENTS.md`, the C1 parallel plan, this master plan, and `README.md`;
-- state that C1-C through C1-F consume clearly labeled fixture V2;
-- reserve, but not implement, a future V1-to-V2 adapter boundary.
-
-C1-0.1 adds no runtime code, provider, dependency, API, migration, or integration path.
+C1-0.1 preserves the frozen V1 contract, documents V2 as the expanded non-backward-compatible universal discovery-run contract, and reserves—but does not implement—a future V1-to-V2 adapter boundary.
 
 ## C1-C — Evidence Engine fixture-contract version
 
-Consume validated, clearly labeled fixture `search_results.v2` and produce `evidence_findings.v1`. The Evidence Engine is the primary direct V2 consumer.
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
 
-It must preserve result/query IDs, URLs, provider provenance, `sourceZone`, `searchMethod`, `signalIntent`, citations, warnings, and coverage limitations. It must classify evidence without claiming fixture data is live evidence.
+Consumes validated, clearly labeled fixture `search_results.v2` and produces `evidence_findings.v1`. It preserves result/query IDs, URLs, provider provenance, `sourceZone`, `searchMethod`, `signalIntent`, citations, warnings, and coverage limitations while separating positive, negative, weak, stale, and risk evidence.
 
 ## C1-D — Identity + Enrichment fixture-contract version
 
-Consume evidence findings derived from fixture V2 and produce `identity_enrichment.v1` with role hypotheses and manual/public contact-route suggestions.
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
 
-Do not guess private contacts, scrape LinkedIn, add paid enrichment, or lose traceability to the originating V2 discovery result.
+Consumes evidence findings and produces `identity_enrichment.v1` with role hypotheses and public/manual contact-route suggestions only. It does not guess private contacts, identify real people, scrape LinkedIn, or add paid enrichment.
 
 ## C1-E — Opportunity Ranker
 
-Produce `ranked_opportunities.v1` using deterministic scorecards over mission fit, evidence, timing, identity relevance, contactability, confidence, and limitations.
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
 
-Do not reinterpret discovery `raw` payloads or erase V2 coverage limitations.
+Produces `ranked_opportunities.v1` using an explicit deterministic scorecard over pain, recency, hiring, workaround, company identity, manual contactability, exclusions, and weak/stale evidence. It does not reinterpret provider `raw` payloads or erase V2 coverage limitations.
 
 ## C1-F — Buyer Map Output
 
-Produce `buyer_map.v1` and a run-page presentation of ranked fixture opportunities, evidence, buyer rationale, contact routes, confidence, limitations, and citations.
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
 
-Fixture-derived output must remain explicitly labeled and must not be presented as live customers or complete market coverage.
+Produces `buyer_map.v1` and a responsive run-page presentation of ranked fixture opportunities, evidence, buyer rationale, public manual routes, confidence, score components, risks, limitations, citations, and coverage gaps. Fixture-derived output remains explicitly labeled and is never presented as live customers or complete market coverage.
 
 ## C1 V1/V2 compatibility boundary
 
@@ -310,15 +304,16 @@ Fixture-derived output must remain explicitly labeled and must not be presented 
 - A future adapter requires a separate reviewed mapping, provenance rules, and tests.
 - Cluvvi must not create a permanent runtime import or filesystem dependency on the standalone Project A repository.
 
-The final compatibility gate must prove:
+The final compatibility gate has passed locally:
 
 1. Project A validates its V2 artifact.
-2. Project B validates the same artifact with an independent Cluvvi V2 schema.
+2. Project B validates the same byte-identical artifact with an independent Cluvvi V2 schema.
 3. The Evidence Engine consumes validated V2 and preserves citations and limitations.
 4. Frozen V1 remains unchanged and separately valid.
 
 ## Future phases
 
+- **C1-G:** Add an approved runtime bridge from standalone Project A V2 output into Cluvvi without importing provider implementations.
 - **C2:** Research and approve the first live discovery providers and integration path.
 - **C3:** Execute a narrow real discovery slice with preserved provenance.
 - **C4:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.

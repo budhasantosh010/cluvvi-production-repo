@@ -1,5 +1,6 @@
 "use client";
 
+import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
 import { MissionUnderstandingView } from "@/components/mission-understanding-view";
 import type { RunView } from "@cluvvi/application/contracts";
 import type { ArtifactRecord } from "@cluvvi/core";
@@ -22,11 +23,11 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   source_planning: "Search planning",
   discovery: "Discovery",
   normalization: "Normalization",
-  investigation: "Investigation",
-  buyer_identification: "Buyer identification",
-  enrichment: "Enrichment",
-  ranking: "Ranking",
-  review: "Review",
+  investigation: "Evidence analysis",
+  buyer_identification: "Buyer hypotheses",
+  enrichment: "Identity routes",
+  ranking: "Opportunity ranking",
+  review: "Buyer Map",
   finalization: "Finalization",
 };
 
@@ -143,10 +144,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   return (
     <div className="grid gap-6" data-testid="run-view" data-run-status={view.run.status}>
       <div className="fixture-banner">
-        <strong>Deterministic planning — no live market results.</strong>
+        <strong>Fixture Buyer Map — no live market results.</strong>
         <span>
-          Cluvvi generated mission understanding and search queries locally. The queries have not
-          been executed against external sources.
+          Cluvvi generated mission understanding locally, then processed a version-controlled
+          search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every
+          company and URL is synthetic.
         </span>
       </div>
 
@@ -271,6 +273,8 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
       {understandingArtifact !== null && (
         <MissionUnderstandingView artifact={understandingArtifact} />
       )}
+
+      <DownstreamFixtureView artifacts={view.artifacts} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.4fr)]">
         <section className="surface-card p-6 sm:p-8">

@@ -29,6 +29,7 @@ export interface EngineStage<TInput, TOutput> {
   readonly name: LocalRunPhase;
   readonly version: string;
   readonly artifactType: ArtifactType;
+  readonly schemaVersion: string;
   readonly inputSchema: RuntimeSchema<TInput>;
   readonly outputSchema: RuntimeSchema<TOutput>;
   loadInput(context: StageContext): Promise<unknown>;

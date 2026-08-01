@@ -9,6 +9,7 @@ import {
   type LocalMission,
   type LocalRunPhase,
 } from "@cluvvi/core";
+import { createDownstreamFixtureStages } from "./downstream-stages";
 import { generateMissionUnderstandingArtifactV1 } from "./mission-understanding";
 import type { EngineStage, RuntimeSchema, StageContext } from "./stage";
 
@@ -72,6 +73,7 @@ function createFixtureStage(input: {
   return {
     name: input.name,
     version: input.version ?? "1.0.0",
+    schemaVersion: "1.0",
     artifactType: input.artifactType,
     inputSchema: input.name === "mission" ? MissionStageInputSchema : FixtureInputSchema,
     outputSchema: outputSchemaFor(input.name, input.outputDataSchema),
@@ -102,7 +104,7 @@ function createFixtureStage(input: {
 }
 
 export function createPlaceholderStages(): readonly EngineStage<unknown, unknown>[] {
-  return [
+  const stages: readonly EngineStage<unknown, unknown>[] = [
     createFixtureStage({
       name: "mission",
       artifactType: "mission",
@@ -123,7 +125,7 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
     }),
     createFixtureStage({
       name: "source_planning",
-      version: "1.1.0",
+      version: "1.2.0",
       artifactType: "source_plan",
       previousArtifactType: "mission_understanding",
       createData(source) {
@@ -131,7 +133,7 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
         const understanding = MissionUnderstandingArtifactV1Schema.parse(inputArtifact.data);
         return {
           strategySummary:
-            "Cluvvi generated a deterministic source and query plan. Search queries are not executed in C1-A.",
+            "Cluvvi generated a deterministic source and query plan. Project B consumes a separate version-controlled search_results.v2 fixture; no external query is executed.",
           generatedQueryCount: understanding.searchQueries.length,
           highPriorityQueryCount: understanding.searchQueries.filter(
             (query) => query.priority === "high",
@@ -143,90 +145,17 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
           searchStrategies: understanding.searchQueries.slice(0, 15),
           stopConditions: {
             candidateTarget: understanding.inputSummary.desiredOpportunities,
-            candidateHardLimit: 0,
+            candidateHardLimit: 9,
             executionEnabled: false,
+            fixtureArtifactEnabled: true,
           },
         };
       },
     }),
-    createFixtureStage({
-      name: "discovery",
-      artifactType: "search_results",
-      previousArtifactType: "source_plan",
-      createData() {
-        return {
-          searchCalls: 0,
-          results: [],
-          note: "Queries were generated but not executed in C1-A.",
-        };
-      },
-    }),
-    createFixtureStage({
-      name: "normalization",
-      artifactType: "candidates",
-      previousArtifactType: "search_results",
-      createData() {
-        return { candidates: [], duplicatesRemoved: 0 };
-      },
-    }),
-    createFixtureStage({
-      name: "investigation",
-      artifactType: "investigations",
-      previousArtifactType: "candidates",
-      createData() {
-        return { investigations: [], facts: [], inferences: [] };
-      },
-    }),
-    createFixtureStage({
-      name: "buyer_identification",
-      artifactType: "buyers",
-      previousArtifactType: "investigations",
-      createData() {
-        return { buyers: [] };
-      },
-    }),
-    createFixtureStage({
-      name: "enrichment",
-      artifactType: "contacts",
-      previousArtifactType: "buyers",
-      createData() {
-        return { contacts: [], publicFallbackOnly: true };
-      },
-    }),
-    createFixtureStage({
-      name: "ranking",
-      artifactType: "opportunities",
-      previousArtifactType: "contacts",
-      createData() {
-        return { opportunities: [], scoringVersion: "fixture-c0" };
-      },
-    }),
-    createFixtureStage({
-      name: "review",
-      artifactType: "review",
-      previousArtifactType: "opportunities",
-      createData() {
-        return {
-          passed: [],
-          failed: [],
-          warnings: ["Fixture output cannot be evaluated as a real lead list."],
-        };
-      },
-    }),
-    createFixtureStage({
-      name: "finalization",
-      artifactType: "finalization",
-      previousArtifactType: "review",
-      createData(_source, context) {
-        return {
-          outcome: "fixture_run_completed",
-          desiredOpportunities: context.mission.input.desiredOpportunities,
-          realOpportunitiesProduced: 0,
-          nextPhase: "C1-B approved-source query execution",
-        };
-      },
-    }),
-  ].map((stage) => {
+    ...createDownstreamFixtureStages(),
+  ];
+
+  return stages.map((stage) => {
     RunPhaseSchema.parse(stage.name);
     return stage;
   });

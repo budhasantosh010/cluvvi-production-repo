@@ -16,14 +16,11 @@ test("browser presents a structured fixture failure and preserves a resumable ru
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "networkidle" });
   await page
-    .locator('textarea[name="description"]')
+    .getByLabel("Describe what you sell or paste your website")
     .fill(
       "AI-assisted video-editing software used to prove a durable browser failure and resume flow.",
     );
-  await page
-    .locator('input[name="customerOutcome"]')
-    .fill("Teams can recover a long-running workflow without repeating completed work.");
-  await page.getByRole("button", { name: "Run fixture workflow" }).click();
+  await page.getByRole("button", { name: "Start finding customers" }).click();
   await expect(page).toHaveURL(/\/runs\/run_[a-f0-9]{32}$/);
   const runId = page.url().split("/").at(-1)!;
   const runView = page.locator('[data-testid="run-view"]');

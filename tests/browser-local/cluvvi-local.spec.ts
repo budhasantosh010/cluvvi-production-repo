@@ -13,12 +13,21 @@ async function waitForCompletedFixtureRun(page: Page) {
   const runView = page.locator('[data-testid="run-view"]');
   await expect(runView).toHaveAttribute("data-run-status", "completed", { timeout: 30_000 });
   await expect(page.locator('[data-stage-status="completed"]')).toHaveCount(11);
-  await expect(page.getByText("Deterministic planning — no live market results.")).toBeVisible();
+  await expect(page.getByText("Fixture Buyer Map — no live market results.")).toBeVisible();
   await expect(page.getByTestId("mission-understanding")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mission understanding" })).toBeVisible();
   await expect(
-    page.getByText("Search queries are generated but not executed yet.", { exact: false }),
+    page.getByText("These planned queries were not sent to external sources.", { exact: false }),
   ).toBeVisible();
+  const projectB = page.getByTestId("project-b-fixture-pipeline");
+  await expect(projectB).toBeVisible();
+  await expect(projectB.getByRole("heading", { name: "Fixture Buyer Map" })).toBeVisible();
+  await expect(projectB.getByTestId("buyer-map-opportunity")).toHaveCount(3);
+  await expect(projectB.getByText("Fixture Frame Studio", { exact: true }).first()).toBeVisible();
+  await expect(projectB.getByText("Negative", { exact: true }).first()).toBeVisible();
+  await expect(projectB.getByTestId("buyer-map-coverage-gaps")).toContainText(
+    "private manual sources",
+  );
   await expect(
     page
       .getByTestId("mission-search-queries")
@@ -48,7 +57,7 @@ test("command-first home submits a text-only mission and preserves it in recent 
   await expect(page.getByText("Local fixture mode")).toBeVisible();
   await page.getByText("Local fixture mode").hover();
   const fixtureExplanation = page.getByText(
-    "This version demonstrates the complete workflow with deterministic test data. Real product understanding and market discovery are being connected next.",
+    "Mission understanding is real local logic. Evidence, identity, ranking, and Buyer Map use synthetic companies from a version-controlled search_results.v2 fixture. No live market source is queried.",
   );
   await expect(fixtureExplanation).toBeVisible();
   await page.mouse.move(24, 90);
@@ -160,6 +169,11 @@ test("command-first home submits a text-only mission and preserves it in recent 
   await page.screenshot({
     path: resolve(output, "c0-9-run-detail-desktop.png"),
     fullPage: true,
+  });
+  await page.getByTestId("project-b-fixture-pipeline").scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: resolve(output, "c1-f-buyer-map-desktop.png"),
+    fullPage: false,
   });
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.locator('[data-testid="run-view"]')).toHaveAttribute(
@@ -521,6 +535,11 @@ test("mobile command interface has no overflow and keeps mission understanding r
     bodyScrollWidth: document.body.scrollWidth,
   }));
   expect(runGeometry.bodyScrollWidth).toBeLessThanOrEqual(runGeometry.innerWidth);
+  await page.getByTestId("project-b-fixture-pipeline").scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: resolve(output, "c1-f-buyer-map-mobile.png"),
+    fullPage: false,
+  });
   await page.screenshot({
     path: resolve(output, "c0-9-run-detail-mobile.png"),
     fullPage: true,

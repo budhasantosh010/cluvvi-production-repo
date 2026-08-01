@@ -86,57 +86,31 @@ Add a safe company-website fetch/parsing adapter with SSRF protections, size lim
 
 Add paid provider adapters only after the free flow works and only with explicit approval, configuration, budgets, and credit reporting.
 
-## C1-0.1 — Search Results V2 contract amendment
+## C1-0.1 — Search Results V2 contract amendment — complete
 
-C1-0.1 is the documentation-only bridge between completed Project A and Project B.
+C1-0.1 is the committed documentation-only bridge between completed Project A and Project B. It preserves frozen V1, documents V2, and reserves—but does not implement—a future V1-to-V2 adapter boundary.
 
-It must:
+## Track B — Cluvvi downstream engines using fixture `search_results.v2` — implemented
 
-- preserve `docs/SEARCH_RESULTS_V1_CONTRACT.md` unchanged;
-- document `search_results.v2` in `docs/SEARCH_RESULTS_V2_CONTRACT.md`;
-- update Cluvvi operating rules and implementation plans;
-- state that C1-C through C1-F consume fixture V2;
-- reserve, but not implement, a future V1-to-V2 adapter boundary;
-- add no runtime code, provider, dependency, API, migration, or data-path change.
-
-## Track B — Cluvvi downstream engines using fixture `search_results.v2`
+**Implementation branch:** `feature/c1-c-to-c1-f-downstream-fixture-pipeline`
 
 **Goal:** Build and test Cluvvi's evidence, identity, ranking, and output contracts without pretending fixture data is live discovery.
 
-### B1 / C1-C — Evidence Engine
+### B1 / C1-C — Evidence Engine — complete
 
-Consume validated fixture `search_results.v2` and produce `evidence_findings.v1`.
+Consumes validated fixture `search_results.v2` and produces `evidence_findings.v1` with positive, negative, weak, stale, and risk findings while preserving result/query IDs, URLs, timestamps, provider provenance, `sourceZone`, `searchMethod`, `signalIntent`, warnings, coverage limitations, and citations.
 
-The Evidence Engine is the primary direct V2 consumer. It should classify evidence as passed, rejected, uncertain, stale, contradictory, irrelevant, or insufficient while preserving:
+### B2 / C1-D — Identity + Enrichment Engine — complete
 
-- result and query IDs;
-- URLs and timestamps;
-- provider provenance;
-- `sourceZone`, `searchMethod`, and `signalIntent`;
-- coverage limitations and warnings;
-- citations back to the discovery artifact.
+Consumes evidence findings and produces `identity_enrichment.v1` with likely department and decision-maker-role hypotheses plus public/manual contact routes. It does not identify real people, guess private emails, scrape LinkedIn, or add paid contact enrichment.
 
-It must not claim live evidence when consuming fixtures.
+### B3 / C1-E — Opportunity Ranker — complete
 
-### B2 / C1-D — Identity + Enrichment Engine
+Produces `ranked_opportunities.v1` with an explicit deterministic scorecard over pain, recency, hiring, workaround, company identity, manual contactability, exclusions, and weak/stale evidence. The ranker does not reinterpret discovery `raw` payloads or erase V2 coverage limitations.
 
-Consume evidence findings derived from fixture V2 and create `identity_enrichment.v1` with manual/public contact-route suggestions.
+### B4 / C1-F — Buyer Map Output — complete
 
-The first version should identify likely decision-maker roles and public/manual contact routes. It must not guess private emails, scrape LinkedIn, or add paid contact enrichment.
-
-Traceability to the originating V2 discovery result must survive through the evidence artifact.
-
-### B3 / C1-E — Opportunity Ranker
-
-Create `ranked_opportunities.v1` using deterministic scorecards over mission fit, evidence quality, timing, identity relevance, contact-route quality, confidence, and limitations.
-
-The ranker must not reinterpret discovery `raw` payloads or erase V2 coverage limitations.
-
-### B4 / C1-F — Buyer Map Output
-
-Create `buyer_map.v1` and a run-page display that presents the strongest fixture opportunities, evidence, decision-maker rationale, contact route, confidence, limitations, and source citations.
-
-The UI must clearly label fixture-derived results and must not present them as live customers or complete market coverage.
+Produces `buyer_map.v1` and a responsive run-page display of ranked fixture opportunities, positive and negative evidence, likely buyer roles, public manual routes, transparent score components, risks, limitations, source citations, and coverage gaps. The UI labels every downstream result as synthetic fixture output.
 
 ## Parallel-track rule
 
@@ -165,27 +139,18 @@ V2 makes that boundary more explicit by carrying the run's planning context, sem
 
 ## Integration gates
 
-Project A is ready for fixture compatibility testing when:
+Project A's fixture gate and Project B's implementation gates have passed locally:
 
-- `search_results.v2` validates in Project A;
-- provider, query, source-zone, search-method, and signal-intent provenance is preserved;
-- dedupe is deterministic;
-- provider errors, warnings, and coverage gaps are explicit;
-- paid credit usage is visible;
-- fixture and live modes cannot be confused.
-
-Project B may begin after C1-0.1 is committed.
-
-Its first implementation gates are:
-
-- Cluvvi independently implements the V2 runtime schema;
-- the exact Project A fixture validates in Cluvvi before Evidence logic consumes it;
+- Project A validates `search_results.v2` with preserved provider, query, source-zone, search-method, signal-intent, dedupe, warning, and coverage semantics;
+- Cluvvi independently validates the exact byte-identical Project A fixture before Evidence consumes it;
 - the Evidence Engine accepts only validated V2;
-- fixture labels and V2 limitations survive downstream processing;
-- frozen V1 remains unchanged and separately valid.
+- fixture labels and V2 limitations survive Evidence, Identity, Ranking, Buyer Map, persistence, CLI, and browser presentation;
+- frozen V1 remains unchanged and separately valid;
+- deterministic failure and resume reuse completed durable stages.
 
 Track B may move from fixtures to live artifacts only when:
 
+- C1-G provides an approved schema-validated runtime boundary;
 - the same `search_results.v2` schema is used;
 - live provenance and coverage survive downstream processing;
 - UI language stops short of claims not supported by the evidence;
@@ -193,14 +158,20 @@ Track B may move from fixtures to live artifacts only when:
 
 ## Final compatibility gate
 
-The cross-project gate must verify:
+The cross-project gate passed locally:
 
-1. Project A V2 artifact validates in Project A.
-2. Project B V2 schema validates the same artifact.
-3. Evidence Engine consumes V2 and preserves citations and limitations.
-4. V1 remains unchanged and separately valid.
+1. Project A validates its V2 artifact.
+2. Project B validates the same byte-identical artifact.
+3. Evidence consumes V2 and preserves citations and limitations.
+4. Frozen V1 remains unchanged and separately valid.
 
-## Future adapter boundary
+## C1-G — Future runtime bridge boundary
+
+C1-G may connect validated standalone Project A `search_results.v2` output to Cluvvi through an approved file, service, or API boundary. It must not import provider implementations, bypass schema validation, or blur fixture and live execution.
+
+C1-G has not started.
+
+## Future V1-to-V2 adapter boundary
 
 A future package may translate validated V1 into V2 only after an explicit mapping is approved.
 
@@ -215,6 +186,7 @@ This plan does not authorize:
 - LinkedIn scraping;
 - login-wall bypass;
 - V1-to-V2 migration code;
+- the C1-G runtime bridge;
 - contact enrichment;
 - automated messaging;
 - email sending;

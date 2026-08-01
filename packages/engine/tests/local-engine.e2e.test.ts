@@ -1,8 +1,14 @@
 import {
+  BuyerMapArtifactV1Schema,
+  EvidenceFindingsArtifactV1Schema,
   FixtureArtifactEnvelopeSchema,
+  IdentityEnrichmentArtifactV1Schema,
   MissionInputSchemaV1,
   MissionUnderstandingArtifactV1Schema,
   ORDERED_RUN_PHASES,
+  ProjectBFinalizationArtifactV1Schema,
+  RankedOpportunitiesArtifactV1Schema,
+  SearchResultsArtifactV2Schema,
   type LocalRunPhase,
 } from "@cluvvi/core";
 import { SqliteCluvviStore } from "@cluvvi/storage";
@@ -53,8 +59,8 @@ const mission = MissionInputSchemaV1.parse({
   desiredOpportunities: 20,
 });
 
-describe("CluvviEngine C0 fixture flow", () => {
-  it("completes every stage, writes artifacts, and reuses completed fingerprints", async () => {
+describe("CluvviEngine Project B fixture flow", () => {
+  it("completes every stage, writes typed artifacts, and reuses completed fingerprints", async () => {
     const { root, store, engine } = testRuntime();
     try {
       const result = await engine.start({
@@ -70,6 +76,7 @@ describe("CluvviEngine C0 fixture flow", () => {
       );
       expect(toolCallsBefore).toHaveLength(ORDERED_RUN_PHASES.length);
       expect(existsSync(resolve(root, "runs", result.run.id, "run-report.md"))).toBe(true);
+
       const understandingEnvelope = FixtureArtifactEnvelopeSchema.parse(
         JSON.parse(
           await readFile(
@@ -81,14 +88,42 @@ describe("CluvviEngine C0 fixture flow", () => {
       const understanding = MissionUnderstandingArtifactV1Schema.parse(understandingEnvelope.data);
       expect(understanding.productUnderstanding.productCategory).toMatch(/video|editing/i);
       expect(understanding.searchQueries.length).toBeGreaterThanOrEqual(25);
-      expect(
-        result.artifacts.some((artifact) => artifact.artifactType === "mission_understanding"),
-      ).toBe(true);
-      const finalArtifact = JSON.parse(
-        await readFile(resolve(root, "runs", result.run.id, "10-finalization.json"), "utf8"),
-      ) as { fixture: boolean; warning: string };
+
+      const searchArtifactRecord = result.artifacts.find(
+        (artifact) => artifact.artifactType === "search_results",
+      );
+      expect(searchArtifactRecord?.schemaVersion).toBe("2.0");
+      const searchArtifact = SearchResultsArtifactV2Schema.parse(searchArtifactRecord?.data);
+      expect(searchArtifact.results).toHaveLength(9);
+      expect(searchArtifact.results.every((item) => item.providerCategory === "fixture")).toBe(
+        true,
+      );
+
+      const evidence = EvidenceFindingsArtifactV1Schema.parse(
+        result.artifacts.find((artifact) => artifact.artifactType === "evidence_findings")?.data,
+      );
+      const identity = IdentityEnrichmentArtifactV1Schema.parse(
+        result.artifacts.find((artifact) => artifact.artifactType === "identity_enrichment")?.data,
+      );
+      const ranked = RankedOpportunitiesArtifactV1Schema.parse(
+        result.artifacts.find((artifact) => artifact.artifactType === "ranked_opportunities")?.data,
+      );
+      const buyerMap = BuyerMapArtifactV1Schema.parse(
+        result.artifacts.find((artifact) => artifact.artifactType === "buyer_map")?.data,
+      );
+      expect(evidence.findings.some((finding) => !finding.positive)).toBe(true);
+      expect(identity.fabricatedContacts).toBe(false);
+      expect(ranked.opportunities).toHaveLength(3);
+      expect(buyerMap.coverageGaps).toHaveLength(1);
+
+      const finalArtifact = ProjectBFinalizationArtifactV1Schema.parse(
+        JSON.parse(
+          await readFile(resolve(root, "runs", result.run.id, "10-finalization.json"), "utf8"),
+        ),
+      );
       expect(finalArtifact.fixture).toBe(true);
-      expect(finalArtifact.warning).toMatch(/does not represent real customer discovery/);
+      expect(finalArtifact.warning).toMatch(/not live discovery data/);
+      expect(finalArtifact.realOpportunitiesProduced).toBe(0);
 
       await engine.resume(result.run.id);
       expect(await store.listStageExecutions(result.run.id)).toHaveLength(executionsBefore.length);

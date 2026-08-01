@@ -90,7 +90,7 @@ export class LocalArtifactWriter {
     toolCalls: readonly ToolCallRecord[];
   }): Promise<void> {
     const completedStages = input.artifacts.map((artifact) => `- ✓ ${artifact.stage}`).join("\n");
-    const report = `# Cluvvi C0 fixture run\n\n> This run proves local orchestration only. It does not contain real customer discovery.\n\n- Run: ${input.run.id}\n- Mission: ${input.run.missionName}\n- Status: ${input.run.status}\n- Events: ${input.events.length}\n- Tool-call records: ${input.toolCalls.length}\n\n## Persisted stages\n\n${completedStages}\n\n## Next commercial step\n\nReplace fixture stages progressively, beginning with safe website ingestion and the mission compiler.\n`;
+    const report = `# Cluvvi Project B fixture run\n\n> This run validates the local C1-C through C1-F fixture pipeline. It contains synthetic companies and does not represent live customer discovery.\n\n- Run: ${input.run.id}\n- Mission: ${input.run.missionName}\n- Status: ${input.run.status}\n- Events: ${input.events.length}\n- Tool-call records: ${input.toolCalls.length}\n\n## Persisted stages\n\n${completedStages}\n\n## Next commercial step\n\nRun the cross-project V2 compatibility gate, then research an approved C1-G bridge or live provider separately.\n`;
     await atomicWrite(resolve(this.runDirectory(input.run.id), "run-report.md"), report);
   }
 }
