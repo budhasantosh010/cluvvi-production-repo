@@ -2,7 +2,7 @@
 
 Cluvvi is an evidence-backed buyer-discovery engine. Its commercial benchmark is to turn what someone sells into real opportunities worth contacting, with evidence, the right buyer, confidence, and clear limitations.
 
-## Current active phase: C1-0 Discovery Architecture Freeze
+## Current active phase: C1-0.1 Search Results V2 Contract Amendment
 
 ```text
 Command composer or CLI
@@ -16,7 +16,7 @@ SQLite durable stages and versioned artifacts
 Later fixture stages (no live search execution)
 ```
 
-C0.7 makes the landing composer smaller and vertically resizable. C1-A turns the existing compilation stage into a typed, deterministic Mission Understanding V1 artifact with buyer hypotheses, pain language, source priorities, and 25–60 deduplicated search queries. C0.8 adds the shared CSS-first tactile system. C0.9 completes the main-flow choreography with immediate pointer-down feedback, a stable committed composer state, truthful local-run status continuity, an intentional opening transition, honest first-paint artifact placeholders, and clearer stage semantics. C1-0 freezes the six-engine architecture, the standalone Discovery Engine boundary, the `search_results.v1` bridge, provider categories, and the parallel build plan. No runtime behavior changes in C1-0.
+C0.7 makes the landing composer smaller and vertically resizable. C1-A turns the existing compilation stage into a typed, deterministic Mission Understanding V1 artifact with buyer hypotheses, pain language, source priorities, and 25–60 deduplicated search queries. C0.8 adds the shared CSS-first tactile system. C0.9 completes the main-flow choreography with immediate pointer-down feedback, a stable committed composer state, truthful local-run status continuity, an intentional opening transition, honest first-paint artifact placeholders, and clearer stage semantics. C1-0 froze the six-engine architecture, the standalone Discovery Engine boundary, the earlier basic `search_results.v1` bridge, provider categories, and the parallel build plan. The separate C1-B Project A fixture scaffold is now complete and emits the expanded `search_results.v2` universal discovery-run artifact. C1-0.1 documents that V1 remains frozen and unchanged, V2 is not backward-compatible because it adds required planning, context, semantic provenance, and coverage structure, and C1-C through C1-F consume clearly labeled fixture V2. C1-0.1 changes documentation only.
 
 ## Architecture status
 
@@ -38,11 +38,14 @@ Cluvvi does not yet:
 
 Next:
 
-1. Discovery Architecture Freeze — this C1-0 branch.
-2. Standalone Discovery Engine scaffold in `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`.
-3. The `search_results.v1` bridge into Cluvvi's Evidence Engine.
+1. Commit the C1-0.1 documentation-only V2 amendment.
+2. Build C1-C Evidence Engine against clearly labeled fixture `search_results.v2`.
+3. Continue C1-D through C1-F while preserving V2 citations, semantic provenance, fixture labels, and coverage limitations.
+4. Run the cross-project compatibility gate: Project A validates V2, Cluvvi validates the same artifact, Evidence consumes V2, and frozen V1 remains separately valid.
 
-Read `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, and `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md` before starting discovery or downstream engine work.
+`search_results.v1` remains the earlier frozen basic bridge contract. `search_results.v2`, schema `2.0`, is the expanded universal discovery-run contract. No V1-to-V2 adapter exists; only a future explicit adapter boundary is reserved.
+
+Read `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, and `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md` before starting discovery or downstream engine work.
 
 ## Start the browser application
 
@@ -135,4 +138,4 @@ pnpm test:browser-local
 
 Focused C0.9 tests prove URL/text mission mapping, pointer-down press state on the main controls, `idle → creating → opening` continuity, truthful local-run status copy, stable desktop/mobile submit geometry, smooth menu entry, honest run-detail placeholders, clear stage semantics, reduced-motion behavior, duplicate-submit prevention, run-detail rendering, refresh durability, and responsive geometry without mobile overflow. C1-A generator and persistence tests remain unchanged and green.
 
-Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.
+Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.

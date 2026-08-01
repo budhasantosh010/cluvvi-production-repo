@@ -4,7 +4,7 @@
 
 **Verified C0.6 commit:** `6cf2af9f9d0f96897dcd04ac0d7781e24ffc2d51`
 
-**Active implementation:** C1-0 Discovery Architecture Freeze after completed C0.9
+**Active implementation:** C1-0.1 Search Results V2 Contract Amendment after completed standalone C1-B fixture scaffold
 
 **Public repository:** `https://github.com/budhasantosh010/cluvvi-production-repo.git`
 
@@ -46,11 +46,12 @@ Future API ┘
 - C0.7 + C1-A deterministic Mission Understanding: complete.
 - C0.8 tactile interaction polish: complete.
 - C0.9 Apple-style flow choreography: complete.
-- C1-0 Discovery Architecture Freeze: current milestone; complete after this branch is verified and pushed.
-- Discovery Engine: the next bottleneck.
-- C1-B Standalone Discovery Engine scaffold: next implementation milestone, but not started in C1-0.
+- C1-0 Discovery Architecture Freeze: complete at `c4e7b3567159bff23f621e80c3f24b1ff283d3db`.
+- C1-B Standalone Discovery Engine fixture scaffold: complete in the separate Project A repository at `d1891db5d53736299200874a41ae34f95025073d`.
+- C1-0.1 Search Results V2 Contract Amendment: current documentation-only milestone.
+- C1-C Evidence Engine fixture-contract version: next implementation milestone after C1-0.1.
 
-Cluvvi currently understands and plans. It does not yet discover real customers.
+Cluvvi currently understands and plans. The standalone project can produce validated fixture discovery runs, but Cluvvi does not yet consume them or discover real customers.
 
 ## Ordered roadmap
 
@@ -61,14 +62,15 @@ Cluvvi currently understands and plans. It does not yet discover real customers.
 5. **C0.8** — CSS-first tactile interaction polish.
 6. **C0.9** — Apple-style main-flow choreography.
 7. **C1-0** — Discovery Architecture Freeze.
-8. **C1-B** — Standalone Discovery Engine scaffold.
-9. **C1-C** — Evidence Engine fixture-contract version.
-10. **C1-D** — Identity + Enrichment fixture-contract version.
-11. **C1-E** — Opportunity Ranker.
-12. **C1-F** — Buyer Map Output.
-13. **C2** — First researched live discovery providers and approved integration path.
-14. **C3** — First real discovery slice.
-15. **C4** — Human evaluation and improvement loop.
+8. **C1-B** — Standalone Discovery Engine fixture scaffold.
+9. **C1-0.1** — Search Results V2 Contract Amendment.
+10. **C1-C** — Evidence Engine fixture-contract version consuming V2.
+11. **C1-D** — Identity + Enrichment fixture-contract version preserving V2 lineage.
+12. **C1-E** — Opportunity Ranker over fixture-derived evidence.
+13. **C1-F** — Buyer Map Output with fixture labeling and V2 citations.
+14. **C2** — First researched live discovery providers and approved integration path.
+15. **C3** — First real discovery slice.
+16. **C4** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -226,44 +228,94 @@ C0.9 must not install a UI or motion library, animate layout dimensions, add art
 
 **Branch:** `feature/c1-0-discovery-architecture-freeze`
 
-**Status:** Complete after this branch passes documentation checks, is pushed, and local/remote SHAs match.
+**Status:** Complete at `c4e7b3567159bff23f621e80c3f24b1ff283d3db`.
 
-C1-0 freezes:
+C1-0 historically froze:
 
 - the six connected engines;
 - Discovery Engine as the next bottleneck;
 - the separate project location `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`;
 - free, paid, manual, and fixture provider categories;
 - `free_only`, `balanced`, and `paid_deep` discovery modes;
-- the `search_results.v1` bridge contract;
+- the earlier basic `search_results.v1` bridge contract;
 - the Track A / Track B parallel build plan;
 - the human provider-research template.
 
-C1-0 is documentation and planning only. It adds no providers, APIs, crawlers, runtime behavior, dependencies, or migrations.
+The frozen V1 contract remains unchanged and separately valid. C1-0 was documentation and planning only; it added no providers, APIs, crawlers, runtime behavior, dependencies, or migrations.
 
-## C1-B — Standalone Discovery Engine scaffold
-
-Begin only after C1-0 is reviewed.
+## C1-B — Standalone Discovery Engine fixture scaffold
 
 **Target project:** `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`
 
-The scaffold should add contracts, provider registry, fixture provider, normalization, dedupe, CLI, tests, and `search_results.v1` output. It must not add live providers in its first milestone.
+**Status:** Complete in Project A at `d1891db5d53736299200874a41ae34f95025073d` on `feature/c1-b-standalone-discovery-scaffold`.
+
+Project A implements:
+
+- `SearchResultsArtifactV2`;
+- `NormalizedDiscoveryResultV2`;
+- `schemaVersion: "2.0"`;
+- `artifactKind: "search_results.v2"`;
+- deterministic request compilation, domain packs, Source Atlas planning, fixture execution, normalization, dedupe, coverage, CLI, examples, benchmark, and tests.
+
+The scaffold is fixture-only. It adds no live provider, network request, crawler, scraper, browser automation, LLM, database, Cluvvi import, enrichment, scoring, outreach, auth, billing, or V1-to-V2 adapter.
+
+## C1-0.1 — Search Results V2 Contract Amendment
+
+**Status:** Current documentation-only milestone before Project B.
+
+C1-0.1 must:
+
+- preserve `docs/SEARCH_RESULTS_V1_CONTRACT.md` unchanged;
+- add `docs/SEARCH_RESULTS_V2_CONTRACT.md`;
+- document V1 as the earlier frozen basic bridge contract;
+- document V2 as the expanded universal discovery-run contract;
+- state that V2 is not backward-compatible with V1 because it adds required planning, context, semantic provenance, and coverage structure;
+- update `AGENTS.md`, the C1 parallel plan, this master plan, and `README.md`;
+- state that C1-C through C1-F consume clearly labeled fixture V2;
+- reserve, but not implement, a future V1-to-V2 adapter boundary.
+
+C1-0.1 adds no runtime code, provider, dependency, API, migration, or integration path.
 
 ## C1-C — Evidence Engine fixture-contract version
 
-Consume clearly labeled fixture `search_results.v1` and produce `evidence_findings.v1`. Do not claim live evidence.
+Consume validated, clearly labeled fixture `search_results.v2` and produce `evidence_findings.v1`. The Evidence Engine is the primary direct V2 consumer.
+
+It must preserve result/query IDs, URLs, provider provenance, `sourceZone`, `searchMethod`, `signalIntent`, citations, warnings, and coverage limitations. It must classify evidence without claiming fixture data is live evidence.
 
 ## C1-D — Identity + Enrichment fixture-contract version
 
-Produce `identity_enrichment.v1` with role hypotheses and manual/public contact-route suggestions. Do not guess private contacts or add paid enrichment.
+Consume evidence findings derived from fixture V2 and produce `identity_enrichment.v1` with role hypotheses and manual/public contact-route suggestions.
+
+Do not guess private contacts, scrape LinkedIn, add paid enrichment, or lose traceability to the originating V2 discovery result.
 
 ## C1-E — Opportunity Ranker
 
 Produce `ranked_opportunities.v1` using deterministic scorecards over mission fit, evidence, timing, identity relevance, contactability, confidence, and limitations.
 
+Do not reinterpret discovery `raw` payloads or erase V2 coverage limitations.
+
 ## C1-F — Buyer Map Output
 
-Produce `buyer_map.v1` and a run-page presentation of ranked fixture opportunities, evidence, buyer rationale, contact routes, confidence, and limitations.
+Produce `buyer_map.v1` and a run-page presentation of ranked fixture opportunities, evidence, buyer rationale, contact routes, confidence, limitations, and citations.
+
+Fixture-derived output must remain explicitly labeled and must not be presented as live customers or complete market coverage.
+
+## C1 V1/V2 compatibility boundary
+
+- V1 and V2 validate independently.
+- V1 remains unchanged and separately valid.
+- C1-C through C1-F consume fixture V2, not V1.
+- A V2 consumer must reject V1 rather than guess missing planning or coverage data.
+- No V1-to-V2 adapter exists in C1-0.1 or Project B.
+- A future adapter requires a separate reviewed mapping, provenance rules, and tests.
+- Cluvvi must not create a permanent runtime import or filesystem dependency on the standalone Project A repository.
+
+The final compatibility gate must prove:
+
+1. Project A validates its V2 artifact.
+2. Project B validates the same artifact with an independent Cluvvi V2 schema.
+3. The Evidence Engine consumes validated V2 and preserves citations and limitations.
+4. Frozen V1 remains unchanged and separately valid.
 
 ## Future phases
 

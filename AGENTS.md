@@ -17,8 +17,9 @@ Before implementing discovery, evidence, identity, enrichment, ranking, or Buyer
 10. `docs/ARCHITECTURE_6_ENGINES.md`
 11. `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`
 12. `docs/SEARCH_RESULTS_V1_CONTRACT.md`
-13. `docs/C1_PARALLEL_BUILD_PLAN.md`
-14. `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`
+13. `docs/SEARCH_RESULTS_V2_CONTRACT.md`
+14. `docs/C1_PARALLEL_BUILD_PLAN.md`
+15. `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`
 
 ## Current product boundary
 
@@ -32,17 +33,28 @@ Command composer or CLI
 → remaining deterministic fixture artifacts
 ```
 
-C0.9 may change interaction CSS, tiny reusable pointer-state helpers, client-side submit/status continuity, honest run-detail placeholders, stage presentation, and browser tests only. C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. C1-0 is documentation and architecture freeze only. Query planning is real local logic; market evidence remains absent until a later approved phase.
+C0.9 may change interaction CSS, tiny reusable pointer-state helpers, client-side submit/status continuity, honest run-detail placeholders, stage presentation, and browser tests only. C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries.
 
-Discovery boundary rules:
+C1-0.1 is a documentation-only contract amendment after the separate fixture-only C1-B scaffold. It adds no Cluvvi runtime behavior, dependencies, providers, APIs, crawlers, migrations, enrichment, ranking, or outreach.
+
+Query planning is real local logic. Market evidence remains absent from the Cluvvi runtime until a later approved phase.
+
+## Discovery contract and boundary rules
 
 - Do not add live crawling inside the Cluvvi production repository unless explicitly requested.
-- Discovery Engine is planned as a separate standalone project at `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`.
-- Cluvvi consumes the frozen `search_results.v1` artifact.
+- The standalone Discovery Engine lives at `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`.
+- `search_results.v1` is the earlier frozen basic bridge contract and must remain unchanged.
+- `search_results.v2`, schema `2.0`, is the expanded universal discovery-run contract.
+- V2 is not backward-compatible with V1 because it adds required planning, context, semantic provenance, and coverage structure.
+- C1-C through C1-F consume clearly labeled fixture `search_results.v2`.
+- The Evidence Engine is the primary direct V2 consumer. Later engines preserve traceability to V2 through their versioned upstream artifacts.
+- Do not implement or imply a V1-to-V2 adapter. Only the future adapter boundary is reserved.
+- Cluvvi must validate V1 and V2 independently and reject incompatible versions rather than guess.
+- Do not create a permanent runtime import or filesystem dependency on the standalone Discovery Engine repository.
 - Do not scrape LinkedIn or bypass login walls.
 - Do not add paid providers without explicit approval.
 - Do not use fake live-discovery language.
-- Fixture `search_results.v1` is allowed for downstream contract work only when clearly labeled as fixture data.
+- Fixture V2 artifacts and downstream displays must be clearly labeled as fixture data and not live evidence.
 
 ## Active and parked paths
 
