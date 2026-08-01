@@ -4,11 +4,13 @@ import {
   IdentityEnrichmentArtifactV1Schema,
   RankedOpportunitiesArtifactV1Schema,
   type ArtifactRecord,
+  type DiscoveryRuntimeMode,
   type EvidenceFindingV1,
 } from "@cluvvi/core";
 
 interface DownstreamFixtureViewProps {
   artifacts: ArtifactRecord[];
+  discoveryRuntimeMode: DiscoveryRuntimeMode;
 }
 
 function artifactData(artifacts: ArtifactRecord[], artifactType: ArtifactRecord["artifactType"]) {
@@ -29,7 +31,10 @@ function confidenceTone(confidence: "low" | "medium" | "high"): string {
   return "border-neutral-200 bg-neutral-100 text-neutral-700";
 }
 
-export function DownstreamFixtureView({ artifacts }: DownstreamFixtureViewProps) {
+export function DownstreamFixtureView({
+  artifacts,
+  discoveryRuntimeMode,
+}: DownstreamFixtureViewProps) {
   const evidenceResult = EvidenceFindingsArtifactV1Schema.safeParse(
     artifactData(artifacts, "evidence_findings"),
   );
@@ -54,6 +59,7 @@ export function DownstreamFixtureView({ artifacts }: DownstreamFixtureViewProps)
   const identity = identityResult.data;
   const ranked = rankedResult.data;
   const buyerMap = buyerMapResult.data;
+  const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
   const rankingByEntity = new Map(
     ranked.opportunities.map((opportunity) => [opportunity.entityKey, opportunity] as const),
   );
@@ -67,20 +73,33 @@ export function DownstreamFixtureView({ artifacts }: DownstreamFixtureViewProps)
       <div className="border-b border-neutral-200 bg-neutral-50/70 px-6 py-5 sm:px-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="eyebrow">Project B fixture pipeline</p>
+            <p className="eyebrow">
+              {localDiscovery ? "Local Discovery Engine bridge" : "Project B fixture pipeline"}
+            </p>
             <h2
               id="buyer-map-heading"
               className="mt-2 text-2xl font-semibold tracking-tight text-neutral-950"
             >
-              Fixture Buyer Map
+              {localDiscovery ? "Local-engine Fixture Buyer Map" : "Fixture Buyer Map"}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
-              Cluvvi validated a version-controlled <code>search_results.v2</code> fixture through
-              Evidence, Identity, Ranking, and Buyer Map. Every company and URL below is synthetic.
+              {localDiscovery ? (
+                <>
+                  Cluvvi validated <code>search_results.v2</code> returned by the standalone local
+                  Discovery Engine in fixture-provider mode, then ran Evidence, Identity, Ranking,
+                  and Buyer Map. This is not live customer discovery.
+                </>
+              ) : (
+                <>
+                  Cluvvi validated a version-controlled <code>search_results.v2</code> fixture
+                  through Evidence, Identity, Ranking, and Buyer Map. Every company and URL below is
+                  synthetic.
+                </>
+              )}
             </p>
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
-            Synthetic · no live discovery
+            {localDiscovery ? "Local engine · fixture providers" : "Synthetic · no live discovery"}
           </span>
         </div>
       </div>

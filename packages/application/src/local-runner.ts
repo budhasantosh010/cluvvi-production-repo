@@ -4,6 +4,7 @@ import {
   RunnerHeartbeatSchema,
   classifyError,
   createOpaqueId,
+  type DiscoveryRuntimeMode,
   type LocalRunPhase,
   type RunRequest,
 } from "@cluvvi/core";
@@ -22,6 +23,7 @@ export interface LocalRunnerOptions {
   heartbeatIntervalMs?: number;
   leadershipLeaseDurationMs?: number;
   failStage?: LocalRunPhase;
+  discoveryRuntimeMode?: DiscoveryRuntimeMode;
   now?: () => string;
   onReady?: () => void | Promise<void>;
 }
@@ -45,6 +47,7 @@ export class LocalRunner {
   readonly #heartbeatIntervalMs: number;
   readonly #leadershipLeaseDurationMs: number;
   readonly #failStage: LocalRunPhase | undefined;
+  readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
   readonly #now: () => string;
   readonly #startedAt: string;
   readonly #onReady: (() => void | Promise<void>) | undefined;
@@ -63,6 +66,7 @@ export class LocalRunner {
     this.#heartbeatIntervalMs = options.heartbeatIntervalMs ?? 5_000;
     this.#leadershipLeaseDurationMs = options.leadershipLeaseDurationMs ?? 20_000;
     this.#failStage = options.failStage;
+    this.#discoveryRuntimeMode = options.discoveryRuntimeMode ?? "fixture";
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#startedAt = this.#now();
     this.#onReady = options.onReady;
@@ -78,7 +82,7 @@ export class LocalRunner {
       try {
         while (!signal.aborted) {
           this.#throwIfLeadershipLost();
-          const processed = await this.#processNextRequest();
+          const processed = await this.#processNextRequest(signal);
           this.#throwIfLeadershipLost();
           if (!processed) {
             await this.#sleep(this.#pollIntervalMs, signal);
@@ -139,7 +143,7 @@ export class LocalRunner {
     await this.#onReady?.();
   }
 
-  async #processNextRequest(): Promise<boolean> {
+  async #processNextRequest(signal?: AbortSignal): Promise<boolean> {
     const now = this.#now();
     const request = await this.#store.claimNextRunRequest({
       runnerId: this.#runnerId,
@@ -164,7 +168,7 @@ export class LocalRunner {
     );
 
     try {
-      await this.#process(request);
+      await this.#process(request, signal);
       await this.#store.completeRunRequest(request.id, this.#runnerId, this.#now());
     } catch (error) {
       await this.#store.failRunRequest(
@@ -179,7 +183,7 @@ export class LocalRunner {
     return true;
   }
 
-  async #process(request: RunRequest): Promise<void> {
+  async #process(request: RunRequest, signal?: AbortSignal): Promise<void> {
     if (request.action === "cancel") {
       await this.#cancelWhenSafe(request.runId);
       return;
@@ -188,6 +192,7 @@ export class LocalRunner {
     await this.#artifactWriter.ensureRunDirectory(request.runId);
     const options = {
       shouldCancel: () => this.#store.hasPendingCancellation(request.runId),
+      ...(signal === undefined ? {} : { signal }),
       ...(this.#failStage === undefined ? {} : { failStage: this.#failStage }),
     };
     if (request.action === "resume") {
@@ -259,6 +264,7 @@ export class LocalRunner {
         lastSeenAt: now,
         metadata: {
           mode: "fixture",
+          discoveryRuntimeMode: this.#discoveryRuntimeMode,
           databaseInstanceId: await this.#store.getDatabaseInstanceId(),
         },
       }),

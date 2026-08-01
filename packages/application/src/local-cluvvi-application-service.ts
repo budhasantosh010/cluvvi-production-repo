@@ -8,6 +8,7 @@ import {
   createOpaqueId,
   type ArtifactRecord,
   type ArtifactType,
+  type DiscoveryRuntimeMode,
   type LocalRun,
   type LocalRunEvent,
   type MissionInputV1,
@@ -26,6 +27,8 @@ import type {
 
 const FIXTURE_WARNING =
   "The current workflow processes a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. It does not contain live market discovery.";
+const LOCAL_DISCOVERY_WARNING =
+  "This run uses the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery.";
 
 export class ApplicationServiceError extends Error {
   readonly code: string;
@@ -44,11 +47,18 @@ export class ApplicationServiceError extends Error {
 export class LocalCluvviApplicationService implements CluvviApplicationService {
   readonly #store: LocalRuntimeStore;
   readonly #paths: LocalCluvviPaths;
+  readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
   readonly #now: () => string;
 
-  constructor(input: { store: LocalRuntimeStore; paths: LocalCluvviPaths; now?: () => string }) {
+  constructor(input: {
+    store: LocalRuntimeStore;
+    paths: LocalCluvviPaths;
+    discoveryRuntimeMode?: DiscoveryRuntimeMode;
+    now?: () => string;
+  }) {
     this.#store = input.store;
     this.#paths = input.paths;
+    this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
     this.#now = input.now ?? (() => new Date().toISOString());
   }
 
@@ -69,6 +79,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       mission: missionInput,
       sourceFile: "browser://mission-form",
       now,
+      discoveryRuntimeMode: this.#discoveryRuntimeMode,
     });
     const request = RunRequestSchema.parse({
       id: createOpaqueId("request"),
@@ -198,6 +209,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
   async getCapabilities(): Promise<CapabilityReport> {
     return {
       mode: "fixture",
+      discoveryRuntimeMode: this.#discoveryRuntimeMode,
       capabilities: {
         localEngine: true,
         missionCompiler: false,
@@ -207,7 +219,11 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
         youtube: false,
         outreach: false,
       },
-      warnings: [FIXTURE_WARNING],
+      warnings: [
+        this.#discoveryRuntimeMode === "local_discovery_engine"
+          ? LOCAL_DISCOVERY_WARNING
+          : FIXTURE_WARNING,
+      ],
     };
   }
 
@@ -223,6 +239,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       migrationVersion: await this.#store.getMigrationVersion(),
       engineVersion: LOCAL_ENGINE_VERSION,
       mode: "fixture",
+      discoveryRuntimeMode: this.#discoveryRuntimeMode,
       runner: { available, heartbeat },
     };
   }

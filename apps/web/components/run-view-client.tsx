@@ -33,12 +33,39 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
 
 const terminal = new Set(["completed", "failed", "budget_exhausted", "cancelled"]);
 
-function stageStatusLabel(status: RunView["stages"][number]["status"]): string {
-  if (status === "running") return "Running locally";
-  if (status === "reused") return "Reused from durable state";
-  if (status === "completed") return "Completed";
-  if (status === "failed") return "Failed";
-  if (status === "skipped") return "Skipped";
+function hasActiveResumeRequest(view: RunView): boolean {
+  const latestRequest = view.requests.at(-1);
+  return (
+    latestRequest?.action === "resume" &&
+    (latestRequest.status === "pending" || latestRequest.status === "claimed")
+  );
+}
+
+function shouldPollRun(view: RunView): boolean {
+  return !terminal.has(view.run.status) || hasActiveResumeRequest(view);
+}
+
+function stageStatusLabel(
+  stage: RunView["stages"][number],
+  discoveryRuntimeMode: RunView["run"]["config"]["discoveryRuntimeMode"],
+): string {
+  if (stage.name === "discovery") {
+    if (stage.status === "running") {
+      return discoveryRuntimeMode === "local_discovery_engine"
+        ? "Running the local Discovery Engine in fixture-provider mode"
+        : "Loading fixture discovery results";
+    }
+    if (stage.status === "completed" || stage.status === "reused") {
+      return discoveryRuntimeMode === "local_discovery_engine"
+        ? "Ran the local Discovery Engine in fixture-provider mode"
+        : "Loaded fixture discovery results";
+    }
+  }
+  if (stage.status === "running") return "Running locally";
+  if (stage.status === "reused") return "Reused from durable state";
+  if (stage.status === "completed") return "Completed";
+  if (stage.status === "failed") return "Failed";
+  if (stage.status === "skipped") return "Skipped";
   return "Pending";
 }
 
@@ -50,17 +77,21 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   );
   const [requestError, setRequestError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
+  const runId = view.run.id;
+  const pollAllowed = shouldPollRun(view);
 
   useEffect(() => {
-    if (terminal.has(view.run.status)) return;
+    if (!pollAllowed) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
       const delay = document.hidden ? 5000 : 1000;
+      let nextView: RunView | null = null;
       try {
-        const response = await fetch(`/api/runs/${view.run.id}`, { cache: "no-store" });
+        const response = await fetch(`/api/runs/${runId}`, { cache: "no-store" });
         if (response.ok) {
           const next = (await response.json()) as RunView & { runner: RunnerState };
+          nextView = next;
           if (!cancelled) {
             setView(next);
             setRunner(next.runner);
@@ -76,7 +107,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         if (!cancelled)
           setRequestError("The web server is temporarily unavailable. The run remains durable.");
       }
-      if (!cancelled && !terminal.has(view.run.status)) {
+      if (!cancelled && (nextView === null ? pollAllowed : shouldPollRun(nextView))) {
         timer = setTimeout(() => {
           void poll();
         }, delay);
@@ -89,7 +120,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
       cancelled = true;
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [selectedArtifact, view.run.id, view.run.status]);
+  }, [pollAllowed, runId, selectedArtifact]);
 
   const completedCount = useMemo(
     () =>
@@ -102,6 +133,8 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
       view.artifacts.find((artifact) => artifact.artifactType === "mission_understanding") ?? null,
     [view.artifacts],
   );
+  const localDiscovery = view.run.config.discoveryRuntimeMode === "local_discovery_engine";
+  const resumeRequested = hasActiveResumeRequest(view);
 
   async function runAction(action: "resume" | "cancel") {
     setActionPending(true);
@@ -143,12 +176,16 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
 
   return (
     <div className="grid gap-6" data-testid="run-view" data-run-status={view.run.status}>
-      <div className="fixture-banner">
-        <strong>Fixture Buyer Map — no live market results.</strong>
+      <div className="fixture-banner" data-testid="fixture-provider-warning">
+        <strong>
+          {localDiscovery
+            ? "Local Discovery Engine · fixture providers only."
+            : "Fixture Buyer Map — no live market results."}
+        </strong>
         <span>
-          Cluvvi generated mission understanding locally, then processed a version-controlled
-          search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every
-          company and URL is synthetic.
+          {localDiscovery
+            ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
+            : "Cluvvi generated mission understanding locally, then processed a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every company and URL is synthetic."}
         </span>
       </div>
 
@@ -171,14 +208,16 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
               <span className={`status-pill status-${view.run.status}`}>
                 {view.run.status.replaceAll("_", " ")}
               </span>
-              <span className="fixture-badge">Fixture</span>
+              <span className="fixture-badge">
+                {localDiscovery ? "Fixture · local engine" : "Fixture"}
+              </span>
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl">
               {view.run.missionName}
             </h1>
             <p className="mt-3 break-all font-mono text-xs text-neutral-500">{view.run.id}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:min-w-[390px]">
+          <div className="grid grid-cols-2 gap-3 text-sm lg:min-w-[520px] lg:grid-cols-4">
             <div className="metric-card">
               <span>Current phase</span>
               <strong>{labels[view.run.phase]}</strong>
@@ -187,7 +226,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
               <span>Stages done</span>
               <strong>{completedCount} / 11</strong>
             </div>
-            <div className="metric-card col-span-2 sm:col-span-1">
+            <div className="metric-card">
+              <span>Discovery runtime</span>
+              <strong>{localDiscovery ? "Local engine" : "Internal fixture"}</strong>
+            </div>
+            <div className="metric-card">
               <span>Started</span>
               <strong>{new Date(view.run.startedAt).toLocaleString()}</strong>
             </div>
@@ -197,10 +240,10 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
           {(view.run.status === "failed" || view.run.status === "budget_exhausted") && (
             <button
               className="button-primary"
-              disabled={actionPending}
+              disabled={actionPending || resumeRequested}
               onClick={() => void runAction("resume")}
             >
-              Resume run
+              {resumeRequested ? "Resume requested" : "Resume run"}
             </button>
           )}
           {!terminal.has(view.run.status) && (
@@ -274,7 +317,10 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         <MissionUnderstandingView artifact={understandingArtifact} />
       )}
 
-      <DownstreamFixtureView artifacts={view.artifacts} />
+      <DownstreamFixtureView
+        artifacts={view.artifacts}
+        discoveryRuntimeMode={view.run.config.discoveryRuntimeMode}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.4fr)]">
         <section className="surface-card p-6 sm:p-8">
@@ -308,7 +354,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                     {labels[stage.name]}
                   </strong>
                   <span className="text-xs text-neutral-500">
-                    {stageStatusLabel(stage.status)}
+                    {stageStatusLabel(stage, view.run.config.discoveryRuntimeMode)}
                     {stage.attempt ? ` · attempt ${stage.attempt}` : ""}
                   </span>
                 </span>

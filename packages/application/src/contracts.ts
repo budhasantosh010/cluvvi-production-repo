@@ -1,6 +1,7 @@
 import type {
   ArtifactRecord,
   ArtifactType,
+  DiscoveryRuntimeMode,
   LocalMission,
   LocalRun,
   LocalRunEvent,
@@ -40,6 +41,7 @@ export interface CreateRunResult {
 
 export interface CapabilityReport {
   mode: "fixture";
+  discoveryRuntimeMode: DiscoveryRuntimeMode;
   capabilities: {
     localEngine: true;
     missionCompiler: false;
@@ -60,6 +62,7 @@ export interface LocalDiagnostics {
   migrationVersion: string | null;
   engineVersion: string;
   mode: "fixture";
+  discoveryRuntimeMode: DiscoveryRuntimeMode;
   runner: {
     available: boolean;
     heartbeat: RunnerHeartbeat | null;

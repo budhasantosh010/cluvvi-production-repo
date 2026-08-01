@@ -11,6 +11,7 @@ import {
   fingerprint,
   type ArtifactRecord,
   type ArtifactType,
+  type DiscoveryRuntimeMode,
   type LocalMission,
   type LocalRun,
   type LocalRunEvent,
@@ -22,6 +23,7 @@ import type { CluvviStore } from "@cluvvi/storage";
 import { setTimeout as delay } from "node:timers/promises";
 import type { LocalArtifactWriter } from "./artifact-writer";
 import { BudgetController } from "./budget-controller";
+import { FixtureDiscoveryRuntime, type DiscoveryRuntime } from "./discovery-runtime";
 import { createPlaceholderStages } from "./placeholder-stages";
 import { createRunCreationRecords } from "./run-factory";
 import type { EngineStage, StageContext } from "./stage";
@@ -35,6 +37,7 @@ export interface RunResult {
 
 export interface RunExecutionOptions {
   shouldCancel?: () => Promise<boolean>;
+  signal?: AbortSignal;
   failStage?: LocalRunPhase;
 }
 
@@ -60,6 +63,8 @@ export class CluvviEngine {
   readonly #eventSink: EngineEventSink;
   readonly #now: () => string;
   readonly #stageDelayMs: number;
+  readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
+  readonly #providerConfigurationFingerprint: string;
 
   constructor(input: {
     store: CluvviStore;
@@ -69,6 +74,8 @@ export class CluvviEngine {
     eventSink?: EngineEventSink;
     now?: () => string;
     stageDelayMs?: number;
+    discoveryRuntimeMode?: DiscoveryRuntimeMode;
+    providerConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -77,6 +84,9 @@ export class CluvviEngine {
     this.#eventSink = input.eventSink ?? { emit() {} };
     this.#now = input.now ?? (() => new Date().toISOString());
     this.#stageDelayMs = input.stageDelayMs ?? 0;
+    this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
+    this.#providerConfigurationFingerprint =
+      input.providerConfigurationFingerprint ?? "fixture-project-b-v2";
   }
 
   async start(input: {
@@ -90,6 +100,7 @@ export class CluvviEngine {
       mission: input.mission,
       sourceFile: input.sourceFile,
       now: this.#now(),
+      discoveryRuntimeMode: this.#discoveryRuntimeMode,
       ...(input.budget === undefined ? {} : { budget: input.budget }),
     });
     await this.#artifactWriter.ensureRunDirectory(run.id);
@@ -154,7 +165,7 @@ export class CluvviEngine {
       }
 
       this.#budgetController.assertRunCanContinue(run);
-      const context = this.#context(run, mission, stage);
+      const context = this.#context(run, mission, stage, options);
       const untrustedInput = await stage.loadInput(context);
       const validatedInput = stage.inputSchema.parse(untrustedInput);
       const inputFingerprint = fingerprint({
@@ -162,7 +173,8 @@ export class CluvviEngine {
         stageVersion: stage.version,
         input: validatedInput,
         engineVersion: LOCAL_ENGINE_VERSION,
-        providerConfiguration: "fixture-project-b-v2",
+        discoveryRuntimeMode: run.config.discoveryRuntimeMode,
+        providerConfiguration: this.#providerConfigurationFingerprint,
       });
       const previous = await this.#store.findCompletedStageExecution(
         run.id,
@@ -244,14 +256,20 @@ export class CluvviEngine {
       } catch (error) {
         const failedAt = this.#now();
         const failure = classifyError(error, stage.name);
+        const cancelled = failure.code === "DISCOVERY_ENGINE_CANCELLED";
         run = LocalRunSchema.parse({
           ...run,
-          status: failure.category === "budget" ? "budget_exhausted" : "failed",
+          status: cancelled
+            ? "cancelled"
+            : failure.category === "budget"
+              ? "budget_exhausted"
+              : "failed",
           phase: stage.name,
           failure,
           updatedAt: failedAt,
+          ...(cancelled ? { completedAt: failedAt } : {}),
         });
-        const failedEvent = this.#event(run, "stage_failed", {
+        const failedEvent = this.#event(run, cancelled ? "run_cancelled" : "stage_failed", {
           executionId: execution.id,
           code: failure.code,
           retryable: failure.retryable,
@@ -264,6 +282,9 @@ export class CluvviEngine {
         });
         this.#eventSink.emit(failedEvent);
         await this.#artifactWriter.writeFailure(run);
+        if (cancelled) {
+          return { run, artifacts: await this.#store.listArtifacts(run.id) };
+        }
         throw error;
       }
     }
@@ -294,12 +315,15 @@ export class CluvviEngine {
     run: LocalRun,
     mission: LocalMission,
     stage: EngineStage<unknown, unknown>,
+    options: RunExecutionOptions,
   ): StageContext {
     return {
       run,
       mission,
       store: this.#store,
       now: this.#now,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(options.shouldCancel === undefined ? {} : { shouldCancel: options.shouldCancel }),
       getLatestArtifact: (artifactType: ArtifactType) =>
         this.#store.getLatestArtifact(run.id, artifactType),
       recordFixtureToolCall: async ({ toolName, request, response }) => {
@@ -361,8 +385,11 @@ export class CluvviEngine {
   }
 }
 
-export function createDefaultStageRegistry(): StageRegistry {
-  const stages = createPlaceholderStages();
+export function createDefaultStageRegistry(
+  input: { discoveryRuntime?: DiscoveryRuntime } = {},
+): StageRegistry {
+  const discoveryRuntime = input.discoveryRuntime ?? new FixtureDiscoveryRuntime();
+  const stages = createPlaceholderStages({ discoveryRuntime });
   const stageNames = new Set(stages.map((stage) => stage.name));
   if (stageNames.size !== ORDERED_RUN_PHASES.length) {
     throw new Error("Default stage registry must contain every run phase exactly once.");

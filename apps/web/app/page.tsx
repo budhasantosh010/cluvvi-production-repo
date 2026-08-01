@@ -33,13 +33,15 @@ export default async function HomePage() {
           <details className="group">
             <summary className="fixture-trigger">
               <span className="size-1.5 rounded-full bg-lime-600" />
-              Local fixture mode
+              {diagnostics.discoveryRuntimeMode === "local_discovery_engine"
+                ? "Local Discovery Engine fixture mode"
+                : "Local fixture mode"}
             </summary>
           </details>
           <div className="fixture-popover" role="tooltip">
-            Mission understanding is real local logic. Evidence, identity, ranking, and Buyer Map
-            use synthetic companies from a version-controlled search_results.v2 fixture. No live
-            market source is queried.
+            {diagnostics.discoveryRuntimeMode === "local_discovery_engine"
+              ? "Mission understanding is real local logic. Cluvvi sends a versioned JSON request to the standalone local Discovery Engine, which uses fixture providers only, then validates its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map. No live market source is queried."
+              : "Mission understanding is real local logic. Evidence, identity, ranking, and Buyer Map use synthetic companies from a version-controlled search_results.v2 fixture. No live market source is queried."}
           </div>
         </div>
 

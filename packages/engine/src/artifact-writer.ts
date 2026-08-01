@@ -90,7 +90,12 @@ export class LocalArtifactWriter {
     toolCalls: readonly ToolCallRecord[];
   }): Promise<void> {
     const completedStages = input.artifacts.map((artifact) => `- ✓ ${artifact.stage}`).join("\n");
-    const report = `# Cluvvi Project B fixture run\n\n> This run validates the local C1-C through C1-F fixture pipeline. It contains synthetic companies and does not represent live customer discovery.\n\n- Run: ${input.run.id}\n- Mission: ${input.run.missionName}\n- Status: ${input.run.status}\n- Events: ${input.events.length}\n- Tool-call records: ${input.toolCalls.length}\n\n## Persisted stages\n\n${completedStages}\n\n## Next commercial step\n\nRun the cross-project V2 compatibility gate, then research an approved C1-G bridge or live provider separately.\n`;
+    const localDiscovery = input.run.config.discoveryRuntimeMode === "local_discovery_engine";
+    const report = `# Cluvvi fixture-only discovery run\n\n> ${
+      localDiscovery
+        ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery."
+        : "This run used Cluvvi's internal version-controlled search_results.v2 fixture. It does not represent live customer discovery."
+    }\n\n- Run: ${input.run.id}\n- Mission: ${input.run.missionName}\n- Status: ${input.run.status}\n- Discovery runtime: ${input.run.config.discoveryRuntimeMode}\n- Events: ${input.events.length}\n- Tool-call records: ${input.toolCalls.length}\n\n## Persisted stages\n\n${completedStages}\n\n## Scope boundary\n\nC1-G proves the local file-and-process bridge with fixture providers only. C1-H live search providers and C1-I crawlers/extractors were not started.\n`;
     await atomicWrite(resolve(this.runDirectory(input.run.id), "run-report.md"), report);
   }
 }

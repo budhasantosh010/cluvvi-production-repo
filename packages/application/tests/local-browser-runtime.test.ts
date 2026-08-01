@@ -3,8 +3,13 @@ import {
   LocalRunner,
   type LocalDiagnostics,
 } from "@cluvvi/application";
-import type { MissionInputV1 } from "@cluvvi/core";
-import { CluvviEngine, LocalArtifactWriter, createDefaultStageRegistry } from "@cluvvi/engine";
+import { CluvviError, type MissionInputV1 } from "@cluvvi/core";
+import {
+  CluvviEngine,
+  LocalArtifactWriter,
+  createDefaultStageRegistry,
+  type DiscoveryRuntime,
+} from "@cluvvi/engine";
 import { SqliteCluvviStore, type LocalCluvviPaths } from "@cluvvi/storage";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -199,6 +204,80 @@ describe("C0.5 local browser runtime", () => {
       const missingRunId = "run_00000000000000000000000000000000";
       expect(await service.getRunEvents(missingRunId)).toEqual([]);
       expect(await service.getRunArtifact(missingRunId, "mission")).toBeNull();
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("propagates runner shutdown to an active local discovery execution", async () => {
+    const { paths, store, artifactWriter } = await runtime();
+    const service = new LocalCluvviApplicationService({
+      store,
+      paths,
+      discoveryRuntimeMode: "local_discovery_engine",
+    });
+    try {
+      const created = await service.createRun(mission, "browser-submission-abort-0001");
+      let observedSignal: AbortSignal | undefined;
+      let resolveEntered: (() => void) | undefined;
+      const enteredDiscovery = new Promise<void>((resolveEnteredPromise) => {
+        resolveEntered = resolveEnteredPromise;
+      });
+      const discoveryRuntime: DiscoveryRuntime = {
+        mode: "local_discovery_engine",
+        providerConfigurationFingerprint: "test-local-discovery-abort",
+        async execute(input) {
+          observedSignal = input.signal;
+          resolveEntered?.();
+          if (input.signal === undefined) {
+            throw new Error("Runner did not provide its AbortSignal to discovery.");
+          }
+          await new Promise<void>((resolveAbort) => {
+            if (input.signal?.aborted) {
+              resolveAbort();
+              return;
+            }
+            input.signal?.addEventListener("abort", () => resolveAbort(), { once: true });
+          });
+          throw new CluvviError({
+            code: "DISCOVERY_ENGINE_CANCELLED",
+            category: "internal",
+            message: "Controlled runner shutdown cancelled local discovery.",
+            retryable: true,
+            stage: "discovery",
+          });
+        },
+      };
+      const controller = new AbortController();
+      const runner = new LocalRunner({
+        store,
+        artifactWriter,
+        engine: new CluvviEngine({
+          store,
+          artifactWriter,
+          stages: createDefaultStageRegistry({ discoveryRuntime }),
+          discoveryRuntimeMode: discoveryRuntime.mode,
+          providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
+        }),
+        runnerId: "runner-abort-local-discovery",
+        hostname: "test-host",
+        processId: 1005,
+        discoveryRuntimeMode: discoveryRuntime.mode,
+        pollIntervalMs: 10,
+      });
+
+      const running = runner.start(controller.signal);
+      await enteredDiscovery;
+      expect(observedSignal).toBe(controller.signal);
+      controller.abort();
+      await running;
+
+      const cancelled = await service.getRun(created.view.run.id);
+      expect(cancelled?.run.status).toBe("cancelled");
+      expect(cancelled?.run.failure?.code).toBe("DISCOVERY_ENGINE_CANCELLED");
+      expect(
+        cancelled?.artifacts.some((artifact) => artifact.artifactType === "evidence_findings"),
+      ).toBe(false);
     } finally {
       await store.close();
     }

@@ -17,6 +17,8 @@ export interface StageContext {
   readonly mission: LocalMission;
   readonly store: CluvviStore;
   readonly now: () => string;
+  readonly signal?: AbortSignal;
+  readonly shouldCancel?: () => Promise<boolean>;
   getLatestArtifact(artifactType: ArtifactType): Promise<ArtifactRecord | null>;
   recordFixtureToolCall(input: {
     toolName: string;

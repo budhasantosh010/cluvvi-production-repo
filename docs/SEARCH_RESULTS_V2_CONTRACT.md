@@ -254,9 +254,9 @@ The Discovery Engine does not:
 - hide provider failures;
 - claim complete source coverage.
 
-## Fixture usage for C1-C through C1-F
+## Fixture usage for C1-C through C1-G
 
-Project B must consume fixture `search_results.v2` for C1-C through C1-F.
+Project B must consume validated fixture-provider `search_results.v2` for C1-C through C1-G.
 
 Fixture artifacts must:
 
@@ -272,7 +272,31 @@ The canonical Project A compatibility artifact is produced from:
 C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine\fixtures\video-editing.search-results.v2.json
 ```
 
-Project B may copy a version-controlled fixture into Cluvvi tests. Cluvvi must not create a permanent runtime import or filesystem dependency on the standalone repository.
+Project B may copy a version-controlled fixture into Cluvvi tests. Cluvvi must not create a permanent source import or package dependency on the standalone repository.
+
+## C1-G local runtime import policy
+
+C1-G may execute the independently installed Project A CLI through a local process boundary. The bridge uses Project A's existing `discovery_request.v1` input contract and this unchanged `search_results.v2` output contract.
+
+The local adapter must:
+
+- keep internal fixture mode as the default;
+- write one isolated exchange directory per Cluvvi run;
+- pass mission content through the request JSON, not executable arguments;
+- invoke only a trusted configured command and project path;
+- provide explicit absolute input and output paths;
+- preserve stdout, stderr, exit status, timeout, cancellation, and execution metadata separately from V2;
+- preserve the exact returned output before downstream transformation;
+- parse and validate V2 without silently repairing malformed or incompatible output;
+- require `artifactKind: "search_results.v2"` and `schemaVersion: "2.0"`;
+- require the returned `requestId` to match the originating Cluvvi request/run identity;
+- require every provider breakdown and result to use `providerCategory: "fixture"` in C1-G;
+- require zero paid-credit use;
+- preserve required warnings and coverage fields;
+- block Evidence and all later stages when validation fails;
+- reuse an already persisted valid V2 artifact on resume instead of relaunching the process unnecessarily.
+
+Local project paths, executable paths, log paths, and execution-record references are bridge provenance. They must not be added to the core V2 schema.
 
 ## V1 and V2 validation policy
 
@@ -283,13 +307,17 @@ Project B may copy a version-controlled fixture into Cluvvi tests. Cluvvi must n
 - No V1-to-V2 adapter exists in C1-0.1.
 - Any future adapter requires a separately reviewed mapping, tests, provenance rules, and its own versioned boundary.
 
-## Compatibility gate before live integration
+## Compatibility and runtime gate before live integration
 
-The final cross-project compatibility gate must prove:
+The C1-G cross-project gate passed locally and proves:
 
-1. Project A validates its V2 artifact with the Project A runtime schema.
-2. Project B independently validates the same artifact with the Cluvvi V2 schema.
-3. The Evidence Engine consumes validated V2 and preserves citations, semantic provenance, and limitations.
-4. Frozen V1 remains unchanged and separately valid.
+1. Cluvvi writes a valid Project A `discovery_request.v1` with a stable request ID and `providerPreference: "fixture_only"`.
+2. The actual Project A CLI validates that request and writes `search_results.v2`.
+3. Project A validates the resulting artifact with its runtime schema.
+4. Project B independently validates the exact returned artifact with the Cluvvi V2 schema.
+5. Request IDs match and only fixture providers with zero paid credits are present.
+6. The Evidence Engine consumes validated V2 and preserves citations, semantic provenance, and limitations without depending on `raw`.
+7. Identity, Ranking, and Buyer Map complete.
+8. Frozen V1 remains unchanged and separately valid.
 
-Passing the fixture compatibility gate does not authorize live providers, network calls, crawling, scraping, enrichment, outreach, auth, billing, or deployment work.
+Passing the fixture compatibility and runtime gate does not authorize C1-H live providers, C1-I crawlers/extractors, network calls, enrichment, outreach, auth, billing, or deployment work.

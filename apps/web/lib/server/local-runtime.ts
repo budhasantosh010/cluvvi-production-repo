@@ -1,6 +1,7 @@
 import "server-only";
 
 import { LocalCluvviApplicationService } from "@cluvvi/application";
+import { parseDiscoveryRuntimeConfig } from "@cluvvi/engine";
 import { SqliteCluvviStore, resolveLocalCluvviPaths } from "@cluvvi/storage";
 
 export interface WebLocalRuntime {
@@ -15,12 +16,17 @@ const runtimeGlobal = globalThis as typeof globalThis & {
 
 async function createRuntime(): Promise<WebLocalRuntime> {
   const paths = resolveLocalCluvviPaths();
+  const discoveryConfig = parseDiscoveryRuntimeConfig();
   const store = new SqliteCluvviStore({ databasePath: paths.databasePath });
   await store.initialize();
   return {
     paths,
     store,
-    service: new LocalCluvviApplicationService({ store, paths }),
+    service: new LocalCluvviApplicationService({
+      store,
+      paths,
+      discoveryRuntimeMode: discoveryConfig.mode,
+    }),
   };
 }
 

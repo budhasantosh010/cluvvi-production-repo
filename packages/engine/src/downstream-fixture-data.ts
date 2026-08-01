@@ -703,6 +703,6 @@ export function buildProjectBFinalization(input: {
     identityHypothesisCount: identity.hypotheses.length,
     coverageGapCount: buyerMap.coverageGaps.length,
     realOpportunitiesProduced: 0,
-    nextPhase: "C1-G compatibility bridge or approved live-provider research",
+    nextPhase: "C1-H researched live-provider integration path",
   });
 }
