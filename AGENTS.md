@@ -12,26 +12,58 @@ Read these before changing active engine or browser-runtime code:
 8. `docs/EVALS.md`
 9. `docs/FAILURES_AND_LIMITATIONS.md`
 
+Before implementing discovery, evidence, identity, enrichment, ranking, or Buyer Map features, also read:
+
+10. `docs/ARCHITECTURE_6_ENGINES.md`
+11. `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`
+12. `docs/SEARCH_RESULTS_V1_CONTRACT.md`
+13. `docs/SEARCH_RESULTS_V2_CONTRACT.md`
+14. `docs/C1_PARALLEL_BUILD_PLAN.md`
+15. `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`
+
 ## Current product boundary
 
-C0.8 presents the existing C0.7 + C1-A local engine through a smaller command composer with CSS-first tactile interaction polish at `http://localhost:3100`.
+The active local product at `http://localhost:3100` runs one authoritative workflow through the command composer or CLI.
 
 ```text
 Command composer or CLI
 → one application/engine path
 → deterministic mission understanding and unexecuted query plan
-→ SQLite durability
-→ remaining deterministic fixture artifacts
+→ validated synthetic search_results.v2 fixture
+→ evidence → identity hypotheses → ranking → Buyer Map
+→ SQLite durability and versioned artifacts
 ```
 
-C0.8 may change interaction CSS, client-side submit labels, accessibility state, and browser tests only. C1-A may classify the mission, generate buyer hypotheses, pain language, source priorities, and search queries. Neither phase may add animation libraries, fake delays, website ingestion, executed searches, external models/providers, candidate discovery, enrichment, scoring, LinkedIn automation, outreach, authentication, billing, deployment, or a database migration. Query planning is real local logic; market evidence remains absent until a later approved phase.
+C1-C through C1-F are implemented as a deterministic downstream fixture pipeline. Mission understanding and query planning are real local logic. The downstream companies, URLs, evidence, identity hypotheses, scores, and Buyer Map are synthetic fixture output and must never be presented as live market data.
+
+C1-G—the runtime bridge from standalone Project A V2 output into Cluvvi—has not started. No live provider or discovery execution is authorized.
+
+## Discovery contract and boundary rules
+
+- Do not add live crawling inside the Cluvvi production repository unless explicitly requested.
+- The standalone Discovery Engine lives at `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`.
+- `search_results.v1` is the earlier frozen basic bridge contract and must remain unchanged.
+- `search_results.v2`, schema `2.0`, is the expanded universal discovery-run contract.
+- V2 is not backward-compatible with V1 because it adds required planning, context, semantic provenance, and coverage structure.
+- C1-C through C1-F consume clearly labeled fixture `search_results.v2` and are implemented in the shared Cluvvi engine.
+- The Evidence Engine is the primary direct V2 consumer. Identity, Ranking, and Buyer Map preserve traceability through versioned upstream artifacts.
+- Do not implement or imply a V1-to-V2 adapter. Only the future adapter boundary is reserved.
+- Cluvvi must validate V1 and V2 independently and reject incompatible versions rather than guess.
+- Do not create a permanent runtime import or filesystem dependency on the standalone Discovery Engine repository.
+- The exact Project A fixture copy is an immutable compatibility artifact; preserve its bytes and validate it independently.
+- The richer Project B pipeline fixture is separate and must remain synthetic, deterministic, and `.invalid`-only.
+- Do not scrape LinkedIn or bypass login walls.
+- Do not add paid providers without explicit approval.
+- Do not use fake live-discovery language.
+- Fixture V2 artifacts and downstream displays must be clearly labeled as fixture data and not live evidence.
 
 ## Active and parked paths
 
-- `packages/engine` is the only workflow implementation.
+- `packages/core` owns the independent V2, evidence, identity, ranking, Buyer Map, and finalization schemas.
+- `packages/engine` is the only workflow implementation and owns deterministic fixture transformations.
 - `packages/application` owns browser-facing services and the local runner loop.
 - `packages/storage` owns SQLite, run requests, claims, leases, heartbeats, and leadership.
-- `apps/web` owns presentation and thin route handlers; active local routes must not use Supabase.
+- `apps/web` owns presentation and thin route handlers; the Buyer Map view is read-only and schema-validated, and active local routes must not use Supabase.
 - `apps/worker/src/local.ts` is the active local runner entry.
 - `apps/cli` remains a supported interface to the same engine.
 - Existing Supabase/authenticated web routes, the old worker entry, `packages/database`, and `supabase` are preserved Phase 0 code.

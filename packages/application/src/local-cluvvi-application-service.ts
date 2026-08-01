@@ -25,7 +25,7 @@ import type {
 } from "./contracts";
 
 const FIXTURE_WARNING =
-  "The current workflow uses deterministic fixture stages and does not contain real market discovery.";
+  "The current workflow processes a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. It does not contain live market discovery.";
 
 export class ApplicationServiceError extends Error {
   readonly code: string;

@@ -1,5 +1,6 @@
 "use client";
 
+import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
 import { MissionUnderstandingView } from "@/components/mission-understanding-view";
 import type { RunView } from "@cluvvi/application/contracts";
 import type { ArtifactRecord } from "@cluvvi/core";
@@ -22,15 +23,24 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   source_planning: "Search planning",
   discovery: "Discovery",
   normalization: "Normalization",
-  investigation: "Investigation",
-  buyer_identification: "Buyer identification",
-  enrichment: "Enrichment",
-  ranking: "Ranking",
-  review: "Review",
+  investigation: "Evidence analysis",
+  buyer_identification: "Buyer hypotheses",
+  enrichment: "Identity routes",
+  ranking: "Opportunity ranking",
+  review: "Buyer Map",
   finalization: "Finalization",
 };
 
 const terminal = new Set(["completed", "failed", "budget_exhausted", "cancelled"]);
+
+function stageStatusLabel(status: RunView["stages"][number]["status"]): string {
+  if (status === "running") return "Running locally";
+  if (status === "reused") return "Reused from durable state";
+  if (status === "completed") return "Completed";
+  if (status === "failed") return "Failed";
+  if (status === "skipped") return "Skipped";
+  return "Pending";
+}
 
 export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   const [view, setView] = useState(initial);
@@ -134,10 +144,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   return (
     <div className="grid gap-6" data-testid="run-view" data-run-status={view.run.status}>
       <div className="fixture-banner">
-        <strong>Deterministic planning — no live market results.</strong>
+        <strong>Fixture Buyer Map — no live market results.</strong>
         <span>
-          Cluvvi generated mission understanding and search queries locally. The queries have not
-          been executed against external sources.
+          Cluvvi generated mission understanding locally, then processed a version-controlled
+          search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every
+          company and URL is synthetic.
         </span>
       </div>
 
@@ -153,7 +164,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         </div>
       )}
 
-      <section className="surface-card p-6 sm:p-8">
+      <section className="surface-card smooth-panel p-6 sm:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -232,9 +243,38 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         </section>
       )}
 
+      {understandingArtifact === null && (
+        <section
+          className="surface-card smooth-panel p-6 sm:p-8"
+          data-testid="mission-understanding-pending"
+          aria-live="polite"
+        >
+          <div className="flex items-start gap-3">
+            {!terminal.has(view.run.status) && (
+              <span className="loading-dot mt-2 text-neutral-500" aria-hidden="true" />
+            )}
+            <div>
+              <p className="eyebrow">Mission understanding</p>
+              <h2 className="mt-2 text-xl font-semibold text-neutral-950">
+                {terminal.has(view.run.status)
+                  ? "Mission Understanding is not available for this run."
+                  : "Preparing local run artifacts…"}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
+                {terminal.has(view.run.status)
+                  ? "This run ended before the local compilation stage produced the artifact."
+                  : "Mission Understanding will appear here once the local runner completes compilation."}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {understandingArtifact !== null && (
         <MissionUnderstandingView artifact={understandingArtifact} />
       )}
+
+      <DownstreamFixtureView artifacts={view.artifacts} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.4fr)]">
         <section className="surface-card p-6 sm:p-8">
@@ -252,6 +292,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                 className={`stage-row stage-${stage.status}`}
                 data-stage={stage.name}
                 data-stage-status={stage.status}
+                aria-current={stage.status === "running" ? "step" : undefined}
               >
                 <span className="stage-icon" aria-hidden="true">
                   {stage.status === "completed" || stage.status === "reused"
@@ -266,8 +307,8 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                   <strong className="block truncate text-sm text-neutral-900">
                     {labels[stage.name]}
                   </strong>
-                  <span className="text-xs capitalize text-neutral-500">
-                    {stage.status}
+                  <span className="text-xs text-neutral-500">
+                    {stageStatusLabel(stage.status)}
                     {stage.attempt ? ` · attempt ${stage.attempt}` : ""}
                   </span>
                 </span>
@@ -285,7 +326,9 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
             <div className="border-b border-neutral-200 bg-neutral-50 p-3 md:border-r md:border-b-0">
               {view.artifacts.length === 0 ? (
                 <p className="p-3 text-sm leading-6 text-neutral-500">
-                  Artifacts appear here after each durable stage completes.
+                  {terminal.has(view.run.status)
+                    ? "No durable artifacts were produced for this run."
+                    : "Preparing local run artifacts. Each completed stage will appear here."}
                 </p>
               ) : (
                 <div className="flex gap-2 overflow-x-auto md:grid md:overflow-visible">
@@ -307,8 +350,10 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
             </div>
             <div className="min-w-0 p-5 sm:p-7">
               {selectedArtifact === null ? (
-                <div className="grid h-full place-items-center text-center text-sm text-neutral-500">
-                  Waiting for the first artifact…
+                <div className="grid h-full place-items-center text-center text-sm leading-6 text-neutral-500">
+                  {terminal.has(view.run.status)
+                    ? "No artifact is available to inspect."
+                    : "Preparing local run artifacts…"}
                 </div>
               ) : (
                 <div>

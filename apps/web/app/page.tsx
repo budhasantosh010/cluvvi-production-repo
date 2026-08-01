@@ -37,8 +37,9 @@ export default async function HomePage() {
             </summary>
           </details>
           <div className="fixture-popover" role="tooltip">
-            This version demonstrates the complete workflow with deterministic test data. Real
-            product understanding and market discovery are being connected next.
+            Mission understanding is real local logic. Evidence, identity, ranking, and Buyer Map
+            use synthetic companies from a version-controlled search_results.v2 fixture. No live
+            market source is queried.
           </div>
         </div>
 

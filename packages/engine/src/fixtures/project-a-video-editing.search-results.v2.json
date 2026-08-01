@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "2.0",
+  "artifactKind": "search_results.v2",
+  "requestId": "req_42f9f19321648fc1",
+  "discoveryGoal": "customer_opportunities",
+  "discoveryMode": "free_only",
+  "domainPackIds": ["content-production"],
+  "summary": {
+    "queriesPlanned": 10,
+    "queriesExecuted": 10,
+    "providersUsed": ["fixture_search_provider"],
+    "rawResults": 15,
+    "dedupedResults": 6,
+    "paidCreditsUsed": 0,
+    "startedAt": "2026-08-01T00:00:00.000Z",
+    "completedAt": "2026-08-01T00:00:00.000Z"
+  },
+  "providerBreakdown": [
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceZone": "business_directories",
+      "searchMethod": "directory_lookup",
+      "queriesExecuted": 1,
+      "resultsReturned": 2,
+      "errors": 0
+    },
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceZone": "company_websites",
+      "searchMethod": "website_fetch",
+      "queriesExecuted": 4,
+      "resultsReturned": 4,
+      "errors": 0
+    },
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceZone": "forums_communities",
+      "searchMethod": "keyword_search",
+      "queriesExecuted": 2,
+      "resultsReturned": 6,
+      "errors": 0
+    },
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceZone": "industry_publications",
+      "searchMethod": "keyword_search",
+      "queriesExecuted": 1,
+      "resultsReturned": 1,
+      "errors": 0
+    },
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceZone": "job_boards",
+      "searchMethod": "structured_filter",
+      "queriesExecuted": 1,
+      "resultsReturned": 1,
+      "errors": 0
+    },
+    {
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "sourceZone": "review_sites",
+      "searchMethod": "keyword_search",
+      "queriesExecuted": 1,
+      "resultsReturned": 1,
+      "errors": 0
+    }
+  ],
+  "results": [
+    {
+      "id": "result_31bd2ac7b80de3d1",
+      "queryId": "req_42f9f19321648fc1_plan_1",
+      "query": "podcast agency video editing hiring editor",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "discoveryGoal": "customer_opportunities",
+      "searchMethod": "keyword_search",
+      "sourceZone": "forums_communities",
+      "signalIntent": "direct_purchase",
+      "title": "Fixture direct demand at Fixture Frame Studio",
+      "snippet": "Fixture data only: Fixture Frame Studio is actively seeking video editing support with extra context.",
+      "url": "https://content-production.invalid/signals/direct-demand",
+      "domain": "content-production.invalid",
+      "authorOrCompany": "Fixture Frame Studio",
+      "publishedAt": "2026-07-29T10:00:00.000Z",
+      "discoveredAt": "2026-08-01T00:00:00.000Z",
+      "language": "en",
+      "country": "US",
+      "region": "California",
+      "credibility": "high",
+      "riskLevel": "low",
+      "raw": {
+        "fixture": true
+      }
+    },
+    {
+      "id": "result_236238df7ca78fb2",
+      "queryId": "req_42f9f19321648fc1_plan_1",
+      "query": "podcast agency video editing hiring editor",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "discoveryGoal": "customer_opportunities",
+      "searchMethod": "keyword_search",
+      "sourceZone": "job_boards",
+      "signalIntent": "hiring",
+      "title": "Fixture hiring or procurement signal at Fixture Frame Studio",
+      "snippet": "Fixture data only: Fixture Frame Studio opened a current video editing capacity requirement.",
+      "url": "https://content-production.invalid/signals/capacity-role",
+      "domain": "content-production.invalid",
+      "authorOrCompany": "Fixture Frame Studio",
+      "publishedAt": "2026-07-20T10:00:00.000Z",
+      "discoveredAt": "2026-08-01T00:00:00.000Z",
+      "language": "en",
+      "country": "US",
+      "region": "California",
+      "credibility": "high",
+      "riskLevel": "low",
+      "raw": {
+        "fixture": true
+      }
+    },
+    {
+      "id": "result_1e1bf2b603ef7475",
+      "queryId": "req_42f9f19321648fc1_plan_3",
+      "query": "podcast agency editing backlog video editing",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "discoveryGoal": "customer_opportunities",
+      "searchMethod": "keyword_search",
+      "sourceZone": "review_sites",
+      "signalIntent": "complaint",
+      "title": "Fixture complaint about video editing",
+      "snippet": "Fixture data only: a public review describes slow, manual video editing work and repeated delays.",
+      "url": "https://content-production.invalid/reviews/manual-delay",
+      "domain": "content-production.invalid",
+      "authorOrCompany": "Fixture Frame Studio",
+      "publishedAt": "2026-06-30T10:00:00.000Z",
+      "discoveredAt": "2026-08-01T00:00:00.000Z",
+      "language": "en",
+      "country": "US",
+      "region": "California",
+      "credibility": "medium",
+      "riskLevel": "medium",
+      "raw": {
+        "fixture": true
+      }
+    },
+    {
+      "id": "result_4a04b1f12a05d151",
+      "queryId": "req_42f9f19321648fc1_plan_5",
+      "query": "video editing US business directory",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "discoveryGoal": "customer_opportunities",
+      "searchMethod": "directory_lookup",
+      "sourceZone": "business_directories",
+      "signalIntent": "general_relevance",
+      "title": "Fixture directory listing for Fixture Frame Studio",
+      "snippet": "Fixture data only: a weak directory record confirms the entity operates in content production.",
+      "url": "https://content-production.invalid/directory/profile",
+      "domain": "content-production.invalid",
+      "authorOrCompany": "Fixture Frame Studio",
+      "discoveredAt": "2026-08-01T00:00:00.000Z",
+      "language": "en",
+      "country": "US",
+      "region": "California",
+      "credibility": "low",
+      "riskLevel": "low",
+      "raw": {
+        "fixture": true
+      }
+    },
+    {
+      "id": "result_30e6c05d3c5fa83d",
+      "queryId": "req_42f9f19321648fc1_plan_5",
+      "query": "video editing US business directory",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "discoveryGoal": "customer_opportunities",
+      "searchMethod": "directory_lookup",
+      "sourceZone": "industry_publications",
+      "signalIntent": "general_relevance",
+      "title": "Fixture stale article about Fixture Frame Studio",
+      "snippet": "Fixture data only: an old article mentioned possible video editing expansion.",
+      "url": "https://content-production.invalid/archive/old-expansion",
+      "domain": "content-production.invalid",
+      "authorOrCompany": "Fixture Frame Studio",
+      "publishedAt": "2021-01-15T10:00:00.000Z",
+      "discoveredAt": "2026-08-01T00:00:00.000Z",
+      "language": "en",
+      "country": "US",
+      "region": "California",
+      "credibility": "high",
+      "riskLevel": "low",
+      "raw": {
+        "fixture": true
+      }
+    },
+    {
+      "id": "result_816c74988c82efd0",
+      "queryId": "req_42f9f19321648fc1_plan_7",
+      "query": "podcast agency already has internal team video editing",
+      "providerId": "fixture_search_provider",
+      "providerCategory": "fixture",
+      "discoveryGoal": "customer_opportunities",
+      "searchMethod": "website_fetch",
+      "sourceZone": "company_websites",
+      "signalIntent": "negative_evidence",
+      "title": "Fixture disconfirming update from Fixture Frame Studio",
+      "snippet": "Fixture data only: Fixture Frame Studio states it already built a complete internal team and signed a long-term vendor.",
+      "url": "https://content-production.invalid/updates/internal-team",
+      "domain": "content-production.invalid",
+      "authorOrCompany": "Fixture Frame Studio",
+      "publishedAt": "2026-07-25T10:00:00.000Z",
+      "discoveredAt": "2026-08-01T00:00:00.000Z",
+      "language": "en",
+      "country": "US",
+      "region": "California",
+      "credibility": "official",
+      "riskLevel": "low",
+      "raw": {
+        "fixture": true
+      }
+    }
+  ],
+  "coverage": {
+    "searchedSourceZones": [
+      "forums_communities",
+      "job_boards",
+      "review_sites",
+      "business_directories",
+      "industry_publications",
+      "company_websites"
+    ],
+    "skippedSourceZones": [],
+    "providersUsed": ["fixture_search_provider"],
+    "providersUnavailable": [],
+    "manualReviewRecommended": [],
+    "confidenceLimitations": [
+      "No live public source was queried.",
+      "No live provider was configured.",
+      "Results are fixture data.",
+      "Source coverage does not represent real-world coverage."
+    ],
+    "nextBestSearches": []
+  },
+  "warnings": ["Fixture data only. No live public source was queried."]
+}

@@ -55,8 +55,9 @@ export function MissionUnderstandingView({ artifact }: MissionUnderstandingViewP
               Mission understanding
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
-              Cluvvi understood your market and generated a search plan. Search queries are
-              generated but not executed yet. Real market discovery is being connected next.
+              Cluvvi understood your market and generated a search plan locally. These planned
+              queries were not sent to external sources. Project B uses a separate synthetic V2
+              fixture to exercise the downstream pipeline.
             </p>
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
@@ -104,7 +105,7 @@ export function MissionUnderstandingView({ artifact }: MissionUnderstandingViewP
               </h3>
             </div>
             <span className="text-xs text-neutral-500">
-              Hypotheses only · evidence not collected yet
+              Planning hypotheses · separate fixture evidence appears below
             </span>
           </div>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -206,7 +207,7 @@ export function MissionUnderstandingView({ artifact }: MissionUnderstandingViewP
             <div>
               <p className="eyebrow">Search query plan</p>
               <h3 id="search-plan-heading" className="mt-2 text-xl font-semibold">
-                First queries to execute later
+                Queries reserved for a future approved live bridge
               </h3>
             </div>
             <span className="text-xs text-neutral-500">

@@ -174,6 +174,16 @@ code {
     transform: translateY(-1px);
   }
 
+  .command-composer[data-submit-state="creating"],
+  .command-composer[data-submit-state="opening"] {
+    @apply border-neutral-400 shadow-[0_22px_58px_-34px_rgba(0,0,0,0.34)];
+  }
+
+  .command-composer[data-submit-state="creating"] .command-textarea,
+  .command-composer[data-submit-state="opening"] .command-textarea {
+    opacity: 0.72;
+  }
+
   .command-textarea {
     @apply block min-h-24 max-h-64 w-full resize-y overflow-y-auto border-0 bg-transparent p-0 text-base leading-7 text-neutral-950 outline-none placeholder:text-neutral-400 sm:min-h-28 sm:text-lg sm:leading-8;
   }
@@ -198,6 +208,25 @@ code {
     @apply ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-950 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-wait disabled:opacity-60;
     width: 13.5rem;
     min-width: 13.5rem;
+  }
+
+  .composer-submit-status {
+    @apply flex items-center justify-end gap-2 text-xs font-medium text-neutral-500;
+    min-height: 1.25rem;
+    margin-top: 0.625rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(2px);
+    transition:
+      opacity var(--duration-medium) var(--ease-smooth),
+      transform var(--duration-medium) var(--ease-smooth),
+      visibility var(--duration-medium) var(--ease-smooth);
+  }
+
+  .composer-submit-status[data-visible="true"] {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
   }
 
   .composer-menu {
@@ -245,6 +274,19 @@ code {
 
   .stage-row {
     @apply flex min-h-16 items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5;
+    transition:
+      border-color var(--duration-medium) var(--ease-smooth),
+      background-color var(--duration-medium) var(--ease-smooth),
+      opacity var(--duration-medium) var(--ease-smooth);
+  }
+
+  .stage-pending,
+  .stage-skipped {
+    opacity: 0.74;
+  }
+
+  .stage-running strong {
+    @apply text-blue-950;
   }
 
   .stage-icon {
@@ -375,8 +417,17 @@ code {
 .example-chip:active,
 .fixture-trigger:active,
 .recent-run-row:active,
-.artifact-tab:active {
+.artifact-tab:active,
+.composer-submit[data-pressed="true"]:not(:disabled),
+.composer-control[data-pressed="true"]:not(:disabled),
+.example-chip[data-pressed="true"]:not(:disabled) {
   transform: translateY(0) scale(0.985);
+}
+
+.composer-submit[data-pressed="true"]:not(:disabled),
+.composer-control[data-pressed="true"]:not(:disabled),
+.example-chip[data-pressed="true"]:not(:disabled) {
+  transition-duration: 80ms;
 }
 
 .pressable:disabled,
@@ -443,6 +494,10 @@ code {
     min-width: 0;
   }
 
+  .composer-submit-status {
+    justify-content: center;
+  }
+
   .composer-select {
     max-width: 9.5rem;
   }
@@ -474,6 +529,7 @@ code {
   .button-primary,
   .button-secondary,
   .composer-submit,
+  .composer-submit-status,
   .composer-control,
   .example-chip,
   .fixture-trigger,

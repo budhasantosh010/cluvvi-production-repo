@@ -4,7 +4,7 @@
 
 **Verified C0.6 commit:** `6cf2af9f9d0f96897dcd04ac0d7781e24ffc2d51`
 
-**Active implementation:** C0.8 tactile interaction polish on top of C0.7 + C1-A
+**Active implementation:** C1-C through C1-F Downstream Fixture Pipeline after completed C1-0.1 V2 amendment
 
 **Public repository:** `https://github.com/budhasantosh010/cluvvi-production-repo.git`
 
@@ -40,6 +40,23 @@ Future API ┘
 - Facts and inferences are stored and displayed separately.
 - Fixture and live modes are explicit; live mission understanding must never flow into fixture discovery.
 
+## Current status after C0.9
+
+- C0 application foundation: complete for the current local fixture-mode scope.
+- C0.7 + C1-A deterministic Mission Understanding: complete.
+- C0.8 tactile interaction polish: complete.
+- C0.9 Apple-style flow choreography: complete.
+- C1-0 Discovery Architecture Freeze: complete at `c4e7b3567159bff23f621e80c3f24b1ff283d3db`.
+- C1-B Standalone Discovery Engine fixture scaffold: complete in the separate Project A repository at `d1891db5d53736299200874a41ae34f95025073d`.
+- C1-0.1 Search Results V2 Contract Amendment: complete at `4cec85b32d5ac5a83d89f7fd880d2de22ffa5761`.
+- C1-C Evidence Engine fixture-contract version: implemented in the current Project B branch.
+- C1-D Identity + Enrichment fixture-contract version: implemented with role hypotheses and public manual routes only.
+- C1-E Opportunity Ranker: implemented with a transparent deterministic scorecard and negative/stale penalties.
+- C1-F Buyer Map Output: implemented with citations, risks, warnings, coverage gaps, and responsive browser presentation.
+- C1-G Project A runtime bridge: not started.
+
+Cluvvi now understands and plans, independently validates synthetic V2 discovery artifacts, and runs the fixture downstream intelligence pipeline through one durable engine. It still does not discover real customers or call Project A at runtime.
+
 ## Ordered roadmap
 
 1. **G0** — Secure and push the verified baseline.
@@ -47,14 +64,18 @@ Future API ┘
 3. **C0.7** — Smaller, vertically resizable landing composer.
 4. **C1-A** — Typed deterministic mission understanding and unexecuted search-query plan.
 5. **C0.8** — CSS-first tactile interaction polish.
-6. **C1-B** — Bounded source-backed mission understanding with approval.
-7. **C2** — Approved-source query execution planning.
-8. **C3** — First real discovery slice.
-9. **C4** — Evidence investigator.
-10. **C5** — Buyer identification.
-11. **C6** — Contact enrichment.
-12. **C7** — Deterministic opportunity scoring and review.
-13. **C8** — Human evaluation and improvement loop.
+6. **C0.9** — Apple-style main-flow choreography.
+7. **C1-0** — Discovery Architecture Freeze.
+8. **C1-B** — Standalone Discovery Engine fixture scaffold.
+9. **C1-0.1** — Search Results V2 Contract Amendment.
+10. **C1-C** — Evidence Engine fixture-contract version consuming V2.
+11. **C1-D** — Identity + Enrichment fixture-contract version preserving V2 lineage.
+12. **C1-E** — Opportunity Ranker over fixture-derived evidence.
+13. **C1-F** — Buyer Map Output with fixture labeling and V2 citations.
+14. **C1-G** — Approved runtime bridge from standalone Project A V2 output into Cluvvi.
+15. **C2** — First researched live discovery providers and approved integration path.
+16. **C3** — First real discovery slice.
+17. **C4** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -187,38 +208,115 @@ C0.8 adds one CSS-first interaction system without changing the product architec
 
 C0.8 must not add fake delays, page-transition libraries, Framer Motion, Lottie, engine/core/storage changes, migrations, providers, website ingestion, query execution, candidate discovery, enrichment, scoring, or outreach. Browser verification must prove immediate busy state, no button resize, reduced-motion behavior, and no horizontal overflow on mobile.
 
-## C1-B — Source-backed mission understanding
+## C0.9 — Apple-style main-flow choreography
 
-Begin only after C0.8 is approved and merged.
+**Branch:** `feature/c0-9-apple-flow-choreography`
 
-**Branch:** `feature/c1-b-source-backed-mission-understanding`
-
-**Commit message:** `feat: add source-backed Cluvvi mission understanding`
-
-Required high-level flow:
+C0.9 preserves the C0.8 visual language and makes the existing local flow feel continuous:
 
 ```text
-Browser mission
-→ bounded SSRF-safe website ingestion
-→ source-document persistence
-→ provider-independent structured model gateway
-→ validated, provenance-aware interpretation
-→ awaiting interpretation approval
-→ review / approve / correct / regenerate
-→ stop
+pointer down
+→ composer commits immediately
+→ Creating your run locally…
+→ Run created. Opening details…
+→ run summary and stage timeline
+→ Mission Understanding
 ```
 
-C1 must not add market search, candidate discovery, Apollo, YouTube, enrichment, scoring, outreach, Supabase, authentication, or deployment. Fixture mode remains deterministic for regression and CI.
+C0.9 adds a tiny reusable pointer-state hook for the primary composer controls, scoped `data-pressed` styling, form-level `idle | creating | opening` state, a reserved-height accessible status row, truthful opening continuity without artificial delay, honest first-paint Mission Understanding/artifact placeholders, clearer running/reused stage labels, and screenshot-only removal of Next.js development UI. The route, API, engine, persistence, idempotency, and C1-A artifact remain unchanged.
+
+UI/UX references reviewed for C0.9: UI Skills Motion, Emil Kowalski Skills, Kinetics, OriginKit, Colorion Animated Buttons/Text Effects, Tabler Icons, Component Gallery, NameThatUI, Uiverse, Beautiful UI, AIcss, Arlan Vault, Bag UI. These were used as references only; Cluvvi keeps its native lightweight interaction system.
+
+C0.9 must not install a UI or motion library, animate layout dimensions, add artificial waiting, claim live discovery, execute queries, ingest websites, add providers, or change engine/core/storage/API contracts. Browser verification must prove pointer-down feedback, creating/opening continuity, stable geometry, truthful copy, reduced-motion behavior, Mission Understanding visibility, and no mobile overflow.
+
+## C1-0 — Discovery Architecture Freeze
+
+**Branch:** `feature/c1-0-discovery-architecture-freeze`
+
+**Status:** Complete at `c4e7b3567159bff23f621e80c3f24b1ff283d3db`.
+
+C1-0 historically froze:
+
+- the six connected engines;
+- Discovery Engine as the next bottleneck;
+- the separate project location `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`;
+- free, paid, manual, and fixture provider categories;
+- `free_only`, `balanced`, and `paid_deep` discovery modes;
+- the earlier basic `search_results.v1` bridge contract;
+- the Track A / Track B parallel build plan;
+- the human provider-research template.
+
+The frozen V1 contract remains unchanged and separately valid. C1-0 was documentation and planning only; it added no providers, APIs, crawlers, runtime behavior, dependencies, or migrations.
+
+## C1-B — Standalone Discovery Engine fixture scaffold
+
+**Target project:** `C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine`
+
+**Status:** Complete in Project A at `d1891db5d53736299200874a41ae34f95025073d` on `feature/c1-b-standalone-discovery-scaffold`.
+
+Project A implements:
+
+- `SearchResultsArtifactV2`;
+- `NormalizedDiscoveryResultV2`;
+- `schemaVersion: "2.0"`;
+- `artifactKind: "search_results.v2"`;
+- deterministic request compilation, domain packs, Source Atlas planning, fixture execution, normalization, dedupe, coverage, CLI, examples, benchmark, and tests.
+
+The scaffold is fixture-only. It adds no live provider, network request, crawler, scraper, browser automation, LLM, database, Cluvvi import, enrichment, scoring, outreach, auth, billing, or V1-to-V2 adapter.
+
+## C1-0.1 — Search Results V2 Contract Amendment
+
+**Status:** Complete at `4cec85b32d5ac5a83d89f7fd880d2de22ffa5761`.
+
+C1-0.1 preserves the frozen V1 contract, documents V2 as the expanded non-backward-compatible universal discovery-run contract, and reserves—but does not implement—a future V1-to-V2 adapter boundary.
+
+## C1-C — Evidence Engine fixture-contract version
+
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
+
+Consumes validated, clearly labeled fixture `search_results.v2` and produces `evidence_findings.v1`. It preserves result/query IDs, URLs, provider provenance, `sourceZone`, `searchMethod`, `signalIntent`, citations, warnings, and coverage limitations while separating positive, negative, weak, stale, and risk evidence.
+
+## C1-D — Identity + Enrichment fixture-contract version
+
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
+
+Consumes evidence findings and produces `identity_enrichment.v1` with role hypotheses and public/manual contact-route suggestions only. It does not guess private contacts, identify real people, scrape LinkedIn, or add paid enrichment.
+
+## C1-E — Opportunity Ranker
+
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
+
+Produces `ranked_opportunities.v1` using an explicit deterministic scorecard over pain, recency, hiring, workaround, company identity, manual contactability, exclusions, and weak/stale evidence. It does not reinterpret provider `raw` payloads or erase V2 coverage limitations.
+
+## C1-F — Buyer Map Output
+
+**Status:** Implemented in `feature/c1-c-to-c1-f-downstream-fixture-pipeline`.
+
+Produces `buyer_map.v1` and a responsive run-page presentation of ranked fixture opportunities, evidence, buyer rationale, public manual routes, confidence, score components, risks, limitations, citations, and coverage gaps. Fixture-derived output remains explicitly labeled and is never presented as live customers or complete market coverage.
+
+## C1 V1/V2 compatibility boundary
+
+- V1 and V2 validate independently.
+- V1 remains unchanged and separately valid.
+- C1-C through C1-F consume fixture V2, not V1.
+- A V2 consumer must reject V1 rather than guess missing planning or coverage data.
+- No V1-to-V2 adapter exists in C1-0.1 or Project B.
+- A future adapter requires a separate reviewed mapping, provenance rules, and tests.
+- Cluvvi must not create a permanent runtime import or filesystem dependency on the standalone Project A repository.
+
+The final compatibility gate has passed locally:
+
+1. Project A validates its V2 artifact.
+2. Project B validates the same byte-identical artifact with an independent Cluvvi V2 schema.
+3. The Evidence Engine consumes validated V2 and preserves citations and limitations.
+4. Frozen V1 remains unchanged and separately valid.
 
 ## Future phases
 
-- **C2:** Versioned bounded source plans only; no search execution.
-- **C3:** One real provider and one strong signal family; first ten real candidate companies.
-- **C4:** Source-backed passed/rejected/uncertain investigation.
-- **C5:** Current, relevant buyer identification; do not default to CEO.
-- **C6:** Enrich only investigated candidates; never guess emails.
-- **C7:** Deterministic scoring with hard gates and limitations.
-- **C8:** Human labels and `Precision@20`; no outreach before quality threshold.
+- **C1-G:** Add an approved runtime bridge from standalone Project A V2 output into Cluvvi without importing provider implementations.
+- **C2:** Research and approve the first live discovery providers and integration path.
+- **C3:** Execute a narrow real discovery slice with preserved provenance.
+- **C4:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
 
 ## Git workflow
 
