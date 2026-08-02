@@ -1877,3 +1877,409 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved; only `origin`'s push URL will use the existing authenticated SSH key, while the normal HTTPS fetch URL remains unchanged.
 
 **One-line solution:** Use the already authenticated GitHub SSH key for non-interactive pushes when HTTPS credential prompting is unavailable.
+
+## 103. Harness MCP returned repeated 502 errors during C1-G browser verification
+
+**What failed:** Harness task, command, status, and process calls temporarily returned upstream HTTP 502 errors during the first real local-engine browser run.
+
+**Where:** The ChatGPT Harness connector, not Cluvvi or Project A code.
+
+**When:** After the C1-G bridge, unit tests, engine resume tests, and real cross-project integration test were already passing.
+
+**Why:** The external Harness service became temporarily unavailable while a tracked local development process was active.
+
+**How it appeared:** Task resume, session status, browser execution, and server-stop calls all failed with `502 Upstream or external service errors`.
+
+**What was tried:** Stopped making untracked edits, preserved the task ID and checkpoint, waited for the connector to recover, then resumed by inspecting task status, Git diff, background processes, and port ownership before continuing.
+
+**Current status:** Resolved; the same tracked task resumed without losing repository changes or test evidence.
+
+**One-line solution:** On connector failure, stop untracked work, preserve the task/checkpoint, and verify process and Git state before resuming.
+
+## 104. Windows could not spawn the `pnpm` shim with `shell: false`
+
+**What failed:** The first local process-adapter tests could not start `pnpm` on Windows even though the command worked interactively.
+
+**Where:** `LocalProcessDiscoveryRuntime` child-process startup.
+
+**When:** During the controlled process tests for successful execution and validation.
+
+**Why:** Windows exposes pnpm through a `.cmd` shim, and `spawn("pnpm", args, { shell: false })` did not resolve that shim automatically in this environment.
+
+**How it appeared:** The child process emitted an executable-not-found startup error before Project A received the request.
+
+**What was tried:** Added trusted command resolution through Windows `where.exe`, selected the resolved `.cmd` path, and retained `shell: false` plus a fixed argument array.
+
+**Current status:** Resolved; success, nonzero exit, missing output, invalid output, timeout, cancellation, and real Project A execution pass on Windows without shell interpolation.
+
+**One-line solution:** Resolve trusted command shims explicitly on Windows while keeping child execution shell-free and argument-array based.
+
+## 105. PowerShell `$home` collided with its read-only built-in variable
+
+**What failed:** A browser-test cleanup command assigned a test directory to `$home`, which PowerShell treats as the built-in user-home variable.
+
+**Where:** Test-environment cleanup command, not application code.
+
+**When:** Before the first dedicated local-engine browser run.
+
+**Why:** PowerShell variable names are case-insensitive, so `$home` referred to the protected `$HOME` variable instead of a new local variable.
+
+**How it appeared:** Assignment failed and the subsequent cleanup targeted the wrong resolved value. Windows refused deletion because files were in use; no repository or user files were deleted.
+
+**What was tried:** Stopped the command, verified the actual target and filesystem state, then used unambiguous names such as `$testHome` with strict error handling.
+
+**Current status:** Resolved; all later cleanup commands use explicit test-directory variables and verify the result.
+
+**One-line solution:** Never reuse PowerShell automatic-variable names for temporary paths.
+
+## 106. Real Project A fixture did not match Project B fixture cardinality
+
+**What failed:** The first real local-engine browser assertion expected exactly three Buyer Map opportunities.
+
+**Where:** `tests/browser-local/cluvvi-local-discovery.spec.ts`.
+
+**When:** The actual Project A CLI had completed successfully and Cluvvi had rendered a valid local-engine Buyer Map.
+
+**Why:** Cluvvi's richer internal regression fixture produces three ranked entities, while Project A's canonical fixture currently produces one valid ranked opportunity. Contract compatibility does not require identical result cardinality across different fixture datasets.
+
+**How it appeared:** The browser displayed a complete valid Buyer Map, but Playwright reported one card instead of the hard-coded count of three.
+
+**What was tried:** Inspected the screenshot and artifact lineage, confirmed the bridge result was valid, and changed the real cross-project assertion to require at least one traced opportunity rather than internal-fixture cardinality.
+
+**Current status:** Resolved; desktop and mobile real-engine flows pass while remaining sensitive to missing Buyer Map output.
+
+**One-line solution:** Assert contract outcomes and provenance across projects, not incidental fixture row counts.
+
+## 107. Run page stopped polling after a failed run was resumed
+
+**What failed:** The controlled invalid-output run resumed and completed in SQLite, but the same browser page remained visually failed until refresh.
+
+**Where:** `apps/web/components/run-view-client.tsx`.
+
+**When:** During the dedicated invalid JSON → correction → Resume browser proof.
+
+**Why:** The run page correctly stopped polling at terminal states, but clicking Resume only performed one immediate refresh. If the runner had not claimed the request yet, the refreshed run still appeared failed and polling stayed disabled.
+
+**How it appeared:** Playwright waited for `data-run-status="completed"` while the UI remained `failed`; the API and execution record later proved all eleven stages had completed.
+
+**What was tried:** Added request-aware polling that continues when the newest resume request is `pending` or `claimed`, uses the latest fetched view to decide whether to schedule another poll, and disables duplicate Resume clicks while the request is active.
+
+**Current status:** Resolved; the same page now moves from visible failure through resumed execution to completion without optimistic fake status.
+
+**One-line solution:** Treat an active durable resume request as a polling state even while the last persisted run status is terminal.
+
+## 108. Same-file batch edits overwrote earlier C1-G polling changes
+
+**What failed:** A multi-edit batch against `run-view-client.tsx` reported five applied changes, but only the final button-label replacement survived.
+
+**Where:** The Harness same-file batch editing path.
+
+**When:** While fixing request-aware resume polling.
+
+**Why:** As previously recorded in failure 99, multiple replacements were evaluated from the same original file snapshot and later writes overwrote earlier mutations.
+
+**How it appeared:** TypeScript reported `resumeRequested` was undefined, and direct search showed the helper functions and effect changes were absent.
+
+**What was tried:** Re-read the current file after each mutation and applied each replacement sequentially with fresh SHA guards.
+
+**Current status:** Resolved; the web package type-checks and the full failure/resume browser proof passes.
+
+**One-line solution:** Use sequential fresh-state edits whenever multiple changes target one file.
+
+## 109. Interrupted local runs left stale port and SQLite ownership
+
+**What failed:** After the Harness interruption, port 3100 and a dedicated browser-test SQLite database remained owned by child processes even though the tracked parent process had disappeared.
+
+**Where:** Windows development process cleanup around `pnpm dev:local`.
+
+**When:** Before rerunning the real local-engine and controlled failure browser suites.
+
+**Why:** The interrupted supervisor left a Next.js child process and, later, a runner process/lease alive briefly after the visible parent ended.
+
+**How it appeared:** Port 3100 was already in use, runner leadership acquisition failed, and Windows refused to remove `cluvvi.sqlite` while it remained open.
+
+**What was tried:** Enumerated exact listening PIDs and command lines, terminated only processes belonging to this Cluvvi workspace, waited for handles to close, removed only dedicated `.cluvvi-test` homes, and verified clean startup.
+
+**Current status:** Resolved for the proof runs; final verification must still confirm port 3100 is free and no Cluvvi or standalone-engine child remains.
+
+**One-line solution:** Identify exact workspace process trees and wait for SQLite handles to close before deleting isolated test homes.
+
+## 110. The local bridge remains machine-local
+
+**Limitation:** `local_discovery_engine` requires a configured absolute Project A path and trusted local command on the same machine. It is not a remote API or deployment boundary.
+
+**Consequence:** A machine without Project A configured can use the default internal fixture mode but cannot execute local Project A fixture or live search.
+
+**Safety boundary:** C1-G fixture mode rejects non-fixture providers and paid credits. C1-H live mode permits only approved HN/Tavily/Brave search providers with strict telemetry, budgets, and secret allowlisting. Neither mode adds a crawler, extractor, contact enrichment, or arbitrary browser command configuration.
+
+**Next authorized milestone:** C1-I crawler/extractor research remains separate and unstarted.
+
+## 111. Finalization builder and schema disagreed after advancing the roadmap
+
+**What failed:** The finalization builder emitted the new C1-H next-phase label while `ProjectBFinalizationArtifactV1Schema` still required the old C1-G literal.
+
+**Where:** `packages/engine/src/downstream-fixture-data.ts` and `packages/core/src/local/buyer-map.ts`.
+
+**When:** During the first full Project B test run after release documentation and engine-version updates.
+
+**Why:** The roadmap marker was encoded in both the builder and the strict versioned schema, but only the builder was updated initially.
+
+**How it appeared:** Multiple otherwise-complete fixture and local-engine runs failed at finalization with a Zod invalid-literal error.
+
+**What was tried:** Searched for the old literal, updated the schema and builder together, and reran the four affected engine/application test files before the full suite.
+
+**Current status:** Resolved; focused tests pass 14/14 and the full workspace suite passes 63 tests with the opt-in integration test skipped by default.
+
+**One-line solution:** Treat duplicated strict contract literals as one release change and search for every occurrence before validation.
+
+## 112. Multi-process bridge tests exceeded Vitest's default timeout under full load
+
+**What failed:** Two process-runtime tests timed out at Vitest's default 5 seconds and teardown then encountered temporary Windows file locks.
+
+**Where:** `packages/engine/tests/local-process-discovery-runtime.test.ts` during the full parallel workspace suite.
+
+**When:** After the adapter already passed in focused execution but while all workspace tests were competing for Windows process and filesystem resources.
+
+**Why:** The tests intentionally launch multiple pnpm/Node child processes per case. Their assertions were correct, but four sequential validation launches and two failure launches can exceed five seconds under full-suite load.
+
+**How it appeared:** Vitest timed out at 5000 ms, followed by `EBUSY` while cleanup raced child-process handle release.
+
+**What was tried:** Added explicit bounded per-test budgets of 15–30 seconds without changing production timeouts or assertions, then reran focused and full suites.
+
+**Current status:** Resolved; all five process-runtime tests pass under full workspace load, including timeout and cancellation process-tree checks.
+
+**One-line solution:** Give real multi-process tests explicit realistic budgets while keeping production deadlines and behavioral assertions strict.
+
+## 113. Maintained Playwright suite was launched without its required external server
+
+**What failed:** The first final `pnpm test:browser-local` run reported connection refused for all five active tests.
+
+**Where:** Verification orchestration, not application code.
+
+**When:** After port 3100 had deliberately been freed following production builds.
+
+**Why:** `playwright.local.config.ts` intentionally has no `webServer` block; the maintained suite expects a separately running `pnpm dev:local` fixture environment.
+
+**How it appeared:** Every active test failed at `page.goto("/")` with `net::ERR_CONNECTION_REFUSED`; no UI assertion executed.
+
+**What was tried:** Read the Playwright configuration, started a clean isolated fixture-mode Cluvvi server, and reran the unchanged suite.
+
+**Current status:** Resolved; all five active maintained browser flows pass, with the two special failure/resume projects skipped as designed.
+
+**One-line solution:** Start the suite's documented external local server before invoking Playwright when no `webServer` configuration exists.
+
+## 114. Cold run-page compilation exceeded the failure proof's default URL timeout
+
+**What failed:** The final controlled failure proof created a run but the URL assertion expired before the cold run page finished loading.
+
+**Where:** `tests/browser-local/cluvvi-local-discovery-failure.spec.ts`.
+
+**When:** During the final invalid-output → failure → resume verification after a fresh Next.js startup.
+
+**Why:** Playwright's default assertion timeout was five seconds. Server logs showed `POST /api/runs` returned 201 promptly, then the first `/runs/<id>` cold compile/render required 4.3 seconds in addition to client transition time.
+
+**How it appeared:** The screenshot showed `Opening run...` and `Run created. Opening details...`, while the URL remained on `/` when the five-second assertion expired.
+
+**What was tried:** Verified the 201 response and successful run-page GET in server logs, increased only the navigation assertion to a bounded 20 seconds, restarted from a clean database, and reran the complete proof.
+
+**Current status:** Resolved; the controlled invalid-output, preserved diagnostics, corrected configuration, and same-page resume flow passes in 14.7 seconds.
+
+**One-line solution:** Give cold client navigation a bounded compile-aware timeout while keeping all functional failure/resume assertions unchanged.
+
+## 115. Runner shutdown did not initially reach an active discovery child
+
+**What failed:** The local process runtime accepted `AbortSignal`, but the long-running `LocalRunner.start(signal)` path used that signal only to stop its polling loop after the current request finished.
+
+**Where:** `packages/application/src/local-runner.ts`.
+
+**When:** During the final file-by-file C1-G cancellation review after all bridge and browser proofs were already passing.
+
+**Why:** `CluvviEngine` and `LocalProcessDiscoveryRuntime` had a signal parameter, but `LocalRunner` did not forward its supervisor shutdown signal into `engine.run` or `engine.resume`.
+
+**How it appeared:** Static review showed SIGINT/SIGTERM could wait for an active standalone CLI process instead of triggering the adapter's process-tree termination path. Browser cancellation through durable `shouldCancel` polling still worked.
+
+**What was tried:** Passed the optional runner signal through request processing into the engine execution options and added a durable integration test that observes the exact signal inside local discovery, aborts it, verifies the run becomes cancelled, and proves downstream evidence is not produced.
+
+**Current status:** Resolved; the focused application suite passes 6/6 and the complete workspace suite passes 63 tests with one opt-in cross-project test skipped by default.
+
+**One-line solution:** Forward supervisor cancellation through every layer to the process adapter, then prove it on the real durable runner path.
+
+## 116. C1-G controlled CLIs rejected the new provider-mode arguments
+
+**What failed:** Existing process tests returned command-exit code 9 after C1-H added `--provider-mode` to the trusted Project A CLI invocation.
+
+**Where:** The inline fake CLI in `local-process-discovery-runtime.test.ts` and `tests/fixtures/local-discovery-engine/fixture-cli.mjs`.
+
+**When:** First C1-H fixture-regression run.
+
+**Why:** The C1-G test doubles parsed exactly three arguments and treated the new fixed option as an invalid output flag.
+
+**How it appeared:** Fixture success, invalid JSON, schema mismatch, cancellation, and retry tests all failed at the command boundary before reaching their intended assertions.
+
+**What was tried:** Updated both controlled CLIs to parse the fixed argument list, kept `fixture_only` backward-compatible, and added deterministic live artifact/telemetry behaviors for C1-H tests.
+
+**Current status:** Resolved; the process suite passes fixture and live validation, timeout, cancellation, retry, partial coverage, and mismatch cases.
+
+**One-line solution:** Evolve controlled process fixtures with the public CLI contract instead of weakening the production invocation.
+
+## 117. The first bounded live bridge proof returned zero accepted results
+
+**What failed:** The first real Project A → Cluvvi live integration completed the full stage graph but the two-query cap produced no accepted search results.
+
+**Where:** `live-discovery-bridge.integration.test.ts` proof configuration.
+
+**When:** First real cross-project C1-H run.
+
+**Why:** The first two deterministic content-production plans were narrow Hacker News queries. They were valid but had no matching current hits; the first broad-web plan was third.
+
+**How it appeared:** Project A and Cluvvi contracts validated and the run completed, but the test's positive-result assertion failed.
+
+**What was tried:** Inspected only the deterministic plan order, increased the proof cap from two to three bounded queries so one broad-web plan executes, and kept assertions independent of exact titles, domains, rank order, or result count.
+
+**Current status:** Resolved; the actual Project A live integration returns current results, validates V2 and telemetry, and completes Buyer Map.
+
+**One-line solution:** Use a bounded proof input that reaches each intended provider family without asserting volatile search content.
+
+## 118. Invalid telemetry initially threatened run-page availability
+
+**What failed:** The application run view attempted to parse the live sidecar on every read, including after the discovery runtime had intentionally failed it as invalid.
+
+**Where:** `LocalCluvviApplicationService.getRun`.
+
+**When:** Before the controlled invalid-telemetry browser proof.
+
+**Why:** Provider telemetry is durable exchange evidence, but untrusted malformed JSON must not make the run-details API return 500 and hide the authoritative structured run failure.
+
+**How it appeared:** Static review showed the failed run page could become unreadable even though the engine had correctly persisted `DISCOVERY_ENGINE_TELEMETRY_INVALID_JSON`.
+
+**What was tried:** Kept runtime validation strict and failure evidence unchanged, but made the browser-facing optional telemetry view fall back to `null` when the preserved sidecar is untrusted.
+
+**Current status:** Resolved; the failed run page shows the exact error, downstream remains blocked, exchange files remain present, and the same run resumes after correction.
+
+**One-line solution:** Let the engine reject untrusted telemetry while keeping the structured failure page independent of optional sidecar rendering.
+
+## 119. Live screenshots exposed stale C1-G labels
+
+**What failed:** The first successful live screenshots still displayed “Local · no live data,” “future approved live bridge,” and “fixture findings.”
+
+**Where:** Mission Understanding presentation and deterministic downstream evidence summaries.
+
+**When:** First real desktop/mobile visual review.
+
+**Why:** The C1-G copy was accurate for fixture mode but had not been made provider-mode aware; two internal summary strings also unnecessarily used the word fixture.
+
+**How it appeared:** The surrounding live banner and provider telemetry were correct, but the stale labels contradicted the active run.
+
+**What was tried:** Passed provider mode into Mission Understanding, described the distinction between local query hypotheses and Project A's compiled provider queries, and renamed generic summary text to “evidence findings.”
+
+**Current status:** Resolved; regenerated desktop/mobile screenshots show consistent live-search language and manual-verification limitations.
+
+**One-line solution:** Treat runtime-mode copy as part of the contract and inspect complete visual states, not only API data.
+
+## 120. Hot-reloaded web code did not reload the separate runner
+
+**What failed:** After correcting downstream wording, the browser UI hot-reloaded but newly captured Buyer Maps still used the old worker text.
+
+**Where:** Multi-process `pnpm dev:local` environment.
+
+**When:** Regenerating final live screenshots.
+
+**Why:** Next.js hot reload applies only to the web process; the independent `tsx` runner is a long-running child without watch reload.
+
+**How it appeared:** Mission Understanding copy changed immediately, while downstream artifacts created by the existing runner retained the previous summary string.
+
+**What was tried:** Stopped the supervisor, identified and terminated only its detached workspace Next.js child, restarted from a clean isolated database, and reran the complete real-live desktop/mobile suite.
+
+**Current status:** Resolved; final screenshots and artifacts come from a fresh runner using the final source.
+
+**One-line solution:** Restart every process that executes changed code before accepting multi-process visual evidence.
+
+## 121. PowerShell reserved-variable collisions recurred during test cleanup
+
+**What failed:** One cleanup command assigned `$home`, and one process-inspection command assigned `$pid`; both are reserved case-insensitive PowerShell variables.
+
+**Where:** C1-H browser-test orchestration.
+
+**When:** Before the real live success proof and while checking a detached port owner.
+
+**Why:** PowerShell treats `$HOME` and `$PID` as read-only regardless of casing.
+
+**How it appeared:** The cleanup command attempted to target `C:\Users\Lenovo`, which Windows refused because it was in use; the inspection command reported the current PowerShell process instead of assigning the listener PID.
+
+**What was tried:** Confirmed no user file was deleted, replaced the variables with `$cluvviTestHome` and `$owningProcess`, enabled strict error handling, and terminated only processes whose command line matched this workspace.
+
+**Current status:** Resolved; isolated test homes were cleaned and port 3100 was verified free after every suite.
+
+**One-line solution:** Never use PowerShell automatic variable names for local orchestration state.
+
+## 122. The maintained fixture browser suite was run without its required external server
+
+**What failed:** All five active browser tests returned `ERR_CONNECTION_REFUSED`.
+
+**Where:** `pnpm test:browser-local` using `playwright.local.config.ts`.
+
+**When:** Final C1-H fixture regression pass.
+
+**Why:** The maintained Playwright configuration intentionally does not declare `webServer`; it expects `pnpm dev:local` to be running separately on port 3100.
+
+**How it appeared:** Every failure occurred at the first `page.goto("/")`; no product assertion or application code ran.
+
+**What was tried:** Inspected the Playwright configuration, started a clean fixture-mode local environment on an isolated `CLUVVI_HOME`, and reran the unchanged suite.
+
+**Current status:** Resolved; five active tests passed and the two special-mode tests remained intentionally skipped.
+
+**One-line solution:** Start the externally managed local environment before invoking the maintained browser suite.
+
+## 123. The C1-G browser regression expected a superseded exact UI label
+
+**What failed:** Both C1-G success tests completed the full product flow but could not find the exact text `Local engine`.
+
+**Where:** `tests/browser-local/cluvvi-local-discovery.spec.ts` in `waitForLocalCompletion`.
+
+**When:** Final C1-G compatibility regression after C1-H UI wording improvements.
+
+**Why:** The final UI renamed the discovery-runtime metric to the more precise `Local fixture`; the regression assertion still encoded the old label.
+
+**How it appeared:** Runs completed, artifacts and Buyer Map were visible, and only the exact-text assertion failed.
+
+**What was tried:** Inspected Playwright's accessibility snapshot, confirmed the current truthful label, updated only the stale assertion, and reran the suite.
+
+**Current status:** Resolved; desktop and mobile C1-G tests pass 2/2.
+
+**One-line solution:** Assert the current stable semantic label when product copy is deliberately made more precise.
+
+## 124. The final release gate stopped on formatting after the last ledger and regression edits
+
+**What failed:** `pnpm check` stopped at `prettier --check` for two recently edited files.
+
+**Where:** `docs/FAILURES_AND_LIMITATIONS.md` and `tests/browser-local/cluvvi-local-discovery.spec.ts`.
+
+**When:** Final Project B release gate after browser regressions.
+
+**Why:** The last documentation append and one-line test assertion update had not yet been passed through Prettier.
+
+**How it appeared:** No lint, type, test, or build step ran because formatting is the first aggregate gate.
+
+**What was tried:** Limited formatting to the two reported files and reran the unchanged aggregate gate.
+
+**Current status:** Resolved by the focused formatting pass below.
+
+**One-line solution:** Format every last-minute documentation or test edit before the final aggregate gate.
+
+## 125. The first forbidden-scope scan matched protective boundary text
+
+**What failed:** The final C1-I scope scan reported forbidden runtime scope.
+
+**Where:** Added strings in `packages/engine/src/artifact-writer.ts`.
+
+**When:** Final security and scope audit.
+
+**Why:** The broad keyword scan matched sentences explicitly stating that crawling, extraction, contact enrichment, and outreach were not started.
+
+**How it appeared:** The scan found only negative boundary declarations, not implementations, imports, dependencies, or executable paths.
+
+**What was tried:** Inspected the exact added lines and refined the audit to distinguish protective declarations from executable forbidden-scope code.
+
+**Current status:** Resolved; no C1-I implementation or dependency is present.
+
+**One-line solution:** Review positive keyword hits semantically before treating boundary documentation as executable scope.

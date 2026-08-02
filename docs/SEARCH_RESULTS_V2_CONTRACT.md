@@ -254,9 +254,9 @@ The Discovery Engine does not:
 - hide provider failures;
 - claim complete source coverage.
 
-## Fixture usage for C1-C through C1-F
+## Fixture usage for C1-C through C1-G
 
-Project B must consume fixture `search_results.v2` for C1-C through C1-F.
+Project B must consume validated fixture-provider `search_results.v2` for C1-C through C1-G.
 
 Fixture artifacts must:
 
@@ -272,7 +272,32 @@ The canonical Project A compatibility artifact is produced from:
 C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine\fixtures\video-editing.search-results.v2.json
 ```
 
-Project B may copy a version-controlled fixture into Cluvvi tests. Cluvvi must not create a permanent runtime import or filesystem dependency on the standalone repository.
+Project B may copy a version-controlled fixture into Cluvvi tests. Cluvvi must not create a permanent source import or package dependency on the standalone repository.
+
+## C1-G local runtime import policy
+
+C1-G may execute the independently installed Project A CLI through a local process boundary. The bridge uses Project A's existing `discovery_request.v1` input contract and this unchanged `search_results.v2` output contract.
+
+The local adapter must:
+
+- keep internal fixture mode as the default;
+- write one isolated exchange directory per Cluvvi run;
+- pass mission content through the request JSON, not executable arguments;
+- invoke only a trusted configured command and project path;
+- provide explicit absolute input and output paths;
+- preserve stdout, stderr, exit status, timeout, cancellation, and execution metadata separately from V2;
+- preserve the exact returned output before downstream transformation;
+- parse and validate V2 without silently repairing malformed or incompatible output;
+- require `artifactKind: "search_results.v2"` and `schemaVersion: "2.0"`;
+- require the returned `requestId` to match the originating Cluvvi request/run identity;
+- in `fixture_only`, require every provider breakdown and result to use `providerCategory: "fixture"` and require zero paid credits;
+- in `live_search`, require approved HN/Tavily/Brave provider IDs, free/paid categories only, and no fixture provider;
+- validate `live_provider_run_telemetry.v1`, matching request ID/provider mode, and require V2 paid credits to equal API-reported Tavily credits;
+- preserve required warnings and coverage fields;
+- block Evidence and all later stages when validation fails;
+- reuse an already persisted valid V2 artifact on resume instead of relaunching the process unnecessarily.
+
+Local project paths, executable paths, log paths, and execution-record references are bridge provenance. They must not be added to the core V2 schema.
 
 ## V1 and V2 validation policy
 
@@ -283,13 +308,18 @@ Project B may copy a version-controlled fixture into Cluvvi tests. Cluvvi must n
 - No V1-to-V2 adapter exists in C1-0.1.
 - Any future adapter requires a separately reviewed mapping, tests, provenance rules, and its own versioned boundary.
 
-## Compatibility gate before live integration
+## Compatibility and live runtime gates
 
-The final cross-project compatibility gate must prove:
+The C1-G fixture gate and C1-H live gate pass independently and prove:
 
-1. Project A validates its V2 artifact with the Project A runtime schema.
-2. Project B independently validates the same artifact with the Cluvvi V2 schema.
-3. The Evidence Engine consumes validated V2 and preserves citations, semantic provenance, and limitations.
-4. Frozen V1 remains unchanged and separately valid.
+1. Cluvvi writes a valid Project A `discovery_request.v1` with a stable request ID and an explicit fixture or live provider preference.
+2. The actual Project A CLI validates that request and writes `search_results.v2`.
+3. Project A validates the resulting artifact and, for live runs, writes strict provider telemetry.
+4. Project B independently validates the exact returned artifact and telemetry with Cluvvi schemas.
+5. Request IDs and provider modes match; fixture runs remain zero-credit, while live runs contain only approved providers and telemetry-consistent Tavily credits.
+6. The Evidence Engine consumes validated V2 and preserves citations, semantic provenance, warnings, and limitations without depending on `raw`.
+7. Identity, Ranking, and Buyer Map complete for both fixture and live search input.
+8. Failure, timeout, cancellation, partial-provider disclosure, preserved exchange evidence, and same-run resume are proven.
+9. Frozen V1 remains unchanged and separately valid.
 
-Passing the fixture compatibility gate does not authorize live providers, network calls, crawling, scraping, enrichment, outreach, auth, billing, or deployment work.
+Passing C1-H does not authorize C1-I crawlers/extractors, page-body retrieval, thread traversal, contact enrichment, outreach, remote APIs, auth, billing, or deployment work.

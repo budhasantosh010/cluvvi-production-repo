@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DiscoveryProviderModeSchema, DiscoveryRuntimeModeSchema } from "./discovery-runtime";
 import { OpaqueIdSchema } from "./ids";
 
 export const LocalRunStatusSchema = z.enum([
@@ -124,6 +125,8 @@ export const LocalRunSchema = z
       .object({
         engineVersion: z.string().min(1),
         fixtureMode: z.literal(true),
+        discoveryRuntimeMode: DiscoveryRuntimeModeSchema.default("fixture"),
+        discoveryProviderMode: DiscoveryProviderModeSchema.default("fixture_only"),
       })
       .strict(),
     budget: RunBudgetSchema,

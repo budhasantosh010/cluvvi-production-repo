@@ -1,16 +1,18 @@
 import {
   BuyerHypothesesArtifactV1Schema,
   BuyerMapArtifactV1Schema,
+  CluvviError,
   DiscoveryCandidatesArtifactV1Schema,
+  DiscoveryRequestV1Schema,
   EvidenceFindingsArtifactV1Schema,
+  FixtureArtifactEnvelopeSchema,
   IdentityEnrichmentArtifactV1Schema,
+  MissionUnderstandingArtifactV1Schema,
   ProjectBFinalizationArtifactV1Schema,
   RankedOpportunitiesArtifactV1Schema,
   SearchResultsArtifactV2Schema,
   type ArtifactType,
 } from "@cluvvi/core";
-import projectAFixtureJson from "./fixtures/project-a-video-editing.search-results.v2.json";
-import pipelineFixtureJson from "./fixtures/video-editing-pipeline.search-results.v2.json";
 import {
   buildBuyerHypotheses,
   buildBuyerMap,
@@ -20,18 +22,17 @@ import {
   buildProjectBFinalization,
   buildRankedOpportunities,
 } from "./downstream-fixture-data";
+import {
+  createDiscoveryRequestV1,
+  type BridgeDiscoveryRequestV1,
+} from "./discovery-request-adapter";
+import { FixtureDiscoveryRuntime, type DiscoveryRuntime } from "./discovery-runtime";
 import type { EngineStage, RuntimeSchema, StageContext } from "./stage";
 
-const projectAFixture = SearchResultsArtifactV2Schema.parse(projectAFixtureJson);
-const pipelineFixture = SearchResultsArtifactV2Schema.parse(pipelineFixtureJson);
-
-export function loadProjectACompatibilityFixture() {
-  return structuredClone(projectAFixture);
-}
-
-export function loadProjectBPipelineFixture() {
-  return structuredClone(pipelineFixture);
-}
+export {
+  loadProjectACompatibilityFixture,
+  loadProjectBPipelineFixture,
+} from "./discovery-fixtures";
 
 function requireArtifact<T>(
   schema: RuntimeSchema<T>,
@@ -55,6 +56,7 @@ function createDownstreamStage<TInput, TOutput>(input: {
   outputSchema: RuntimeSchema<TOutput>;
   loadInput: (context: StageContext) => Promise<unknown>;
   execute: (validated: TInput, context: StageContext) => TOutput | Promise<TOutput>;
+  toolName?: string | ((context: StageContext) => string);
 }): EngineStage<TInput, TOutput> {
   return {
     name: input.name,
@@ -66,24 +68,34 @@ function createDownstreamStage<TInput, TOutput>(input: {
     loadInput: input.loadInput,
     async execute(validated, context) {
       const output = await input.execute(validated, context);
+      const toolName =
+        typeof input.toolName === "function"
+          ? input.toolName(context)
+          : (input.toolName ?? `fixture_project_b_${input.name}`);
       await context.recordFixtureToolCall({
-        toolName: `fixture_project_b_${input.name}`,
+        toolName,
         request: {
           stage: input.name,
+          runtimeMode: context.run.config.discoveryRuntimeMode,
+          providerMode: context.run.config.discoveryProviderMode,
           inputArtifactKind:
             validated !== null &&
             typeof validated === "object" &&
             "artifactKind" in validated &&
             typeof validated.artifactKind === "string"
               ? validated.artifactKind
-              : "source_plan.v1",
+              : input.name === "discovery"
+                ? "discovery_request.v1"
+                : "source_plan.v1",
           fixture: true,
         },
         response: {
           status: "ok",
           artifactType: input.artifactType,
           schemaVersion: input.schemaVersion,
-          fixture: true,
+          runtimeMode: context.run.config.discoveryRuntimeMode,
+          providerMode: context.run.config.discoveryProviderMode,
+          fixture: context.run.config.discoveryProviderMode === "fixture_only",
         },
       });
       return output;
@@ -100,18 +112,88 @@ const AnyObjectSchema: RuntimeSchema<Record<string, unknown>> = {
   },
 };
 
-export function createDownstreamFixtureStages(): readonly EngineStage<unknown, unknown>[] {
+interface DiscoveryStageInput {
+  request: BridgeDiscoveryRequestV1;
+  sourcePlan: Record<string, unknown>;
+}
+
+const DiscoveryStageInputSchema: RuntimeSchema<DiscoveryStageInput> = {
+  parse(value: unknown): DiscoveryStageInput {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Discovery stage requires a request and source plan.");
+    }
+    const record = value as Record<string, unknown>;
+    const request = DiscoveryRequestV1Schema.parse(record["request"]);
+    if (request.requestId === undefined) {
+      throw new Error("Discovery bridge request requires requestId.");
+    }
+    return {
+      request: request as BridgeDiscoveryRequestV1,
+      sourcePlan: AnyObjectSchema.parse(record["sourcePlan"]),
+    };
+  },
+};
+
+async function loadDiscoveryInput(context: StageContext): Promise<DiscoveryStageInput> {
+  const [understandingArtifact, sourcePlanArtifact] = await Promise.all([
+    context.getLatestArtifact("mission_understanding"),
+    context.getLatestArtifact("source_plan"),
+  ]);
+  if (understandingArtifact === null || sourcePlanArtifact === null) {
+    throw new Error("Discovery requires mission_understanding and source_plan artifacts.");
+  }
+  const understandingEnvelope = FixtureArtifactEnvelopeSchema.parse(understandingArtifact.data);
+  const sourcePlanEnvelope = FixtureArtifactEnvelopeSchema.parse(sourcePlanArtifact.data);
+  return {
+    request: createDiscoveryRequestV1({
+      runId: context.run.id,
+      mission: context.mission,
+      understanding: MissionUnderstandingArtifactV1Schema.parse(understandingEnvelope.data),
+      providerMode: context.run.config.discoveryProviderMode,
+    }),
+    sourcePlan: sourcePlanEnvelope.data,
+  };
+}
+
+export function createDownstreamFixtureStages(
+  input: { discoveryRuntime?: DiscoveryRuntime } = {},
+): readonly EngineStage<unknown, unknown>[] {
+  const discoveryRuntime = input.discoveryRuntime ?? new FixtureDiscoveryRuntime();
   return [
     createDownstreamStage({
       name: "discovery",
       artifactType: "search_results",
-      version: "2.0.0",
+      version: "4.0.0",
       schemaVersion: "2.0",
-      inputSchema: AnyObjectSchema,
+      inputSchema: DiscoveryStageInputSchema,
       outputSchema: SearchResultsArtifactV2Schema,
-      loadInput: requireArtifact(AnyObjectSchema, "source_plan"),
-      execute() {
-        return loadProjectBPipelineFixture();
+      loadInput: loadDiscoveryInput,
+      toolName: () =>
+        discoveryRuntime.mode === "fixture"
+          ? "fixture_internal_discovery_results"
+          : discoveryRuntime.providerMode === "live_search"
+            ? "local_discovery_engine_cli_live_providers"
+            : "local_discovery_engine_cli_fixture_provider",
+      execute(discoveryInput, context) {
+        if (
+          context.run.config.discoveryRuntimeMode !== discoveryRuntime.mode ||
+          context.run.config.discoveryProviderMode !== discoveryRuntime.providerMode
+        ) {
+          throw new CluvviError({
+            code: "DISCOVERY_ENGINE_NOT_CONFIGURED",
+            category: "configuration",
+            message: `Run ${context.run.id} requires ${context.run.config.discoveryRuntimeMode}/${context.run.config.discoveryProviderMode}, but the active runner is configured for ${discoveryRuntime.mode}/${discoveryRuntime.providerMode}.`,
+            retryable: true,
+            stage: "discovery",
+            context: { retrySafe: true, resumeSupported: true },
+          });
+        }
+        return discoveryRuntime.execute({
+          runId: context.run.id,
+          request: discoveryInput.request,
+          ...(context.signal === undefined ? {} : { signal: context.signal }),
+          ...(context.shouldCancel === undefined ? {} : { shouldCancel: context.shouldCancel }),
+        });
       },
     }),
     createDownstreamStage({

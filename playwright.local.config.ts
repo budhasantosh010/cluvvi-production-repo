@@ -16,6 +16,7 @@ if (executablePath === undefined) {
 
 export default defineConfig({
   testDir: "./tests/browser-local",
+  testIgnore: ["**/cluvvi-local-discovery*.spec.ts", "**/cluvvi-live-discovery*.spec.ts"],
   fullyParallel: false,
   workers: 1,
   retries: 0,

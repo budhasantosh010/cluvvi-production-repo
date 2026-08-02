@@ -2,6 +2,8 @@ export * from "./application/mission-compile-handler";
 export * from "./domain/run";
 export * from "./local/artifact";
 export * from "./local/buyer-map";
+export * from "./local/discovery-request";
+export * from "./local/discovery-runtime";
 export * from "./local/evidence-findings";
 export * from "./local/error";
 export * from "./local/fingerprint";

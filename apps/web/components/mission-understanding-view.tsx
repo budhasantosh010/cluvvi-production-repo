@@ -2,11 +2,13 @@ import {
   FixtureArtifactEnvelopeSchema,
   MissionUnderstandingArtifactV1Schema,
   type ArtifactRecord,
+  type DiscoveryProviderMode,
   type MissionUnderstandingArtifactV1,
 } from "@cluvvi/core";
 
 interface MissionUnderstandingViewProps {
   artifact: ArtifactRecord;
+  discoveryProviderMode: DiscoveryProviderMode;
 }
 
 function formatConfidence(value: number): string {
@@ -26,7 +28,10 @@ function parseUnderstanding(artifact: ArtifactRecord): MissionUnderstandingArtif
   return understanding.success ? understanding.data : null;
 }
 
-export function MissionUnderstandingView({ artifact }: MissionUnderstandingViewProps) {
+export function MissionUnderstandingView({
+  artifact,
+  discoveryProviderMode,
+}: MissionUnderstandingViewProps) {
   const understanding = parseUnderstanding(artifact);
   if (understanding === null) return null;
 
@@ -55,13 +60,15 @@ export function MissionUnderstandingView({ artifact }: MissionUnderstandingViewP
               Mission understanding
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
-              Cluvvi understood your market and generated a search plan locally. These planned
-              queries were not sent to external sources. Project B uses a separate synthetic V2
-              fixture to exercise the downstream pipeline.
+              {discoveryProviderMode === "live_search"
+                ? "Cluvvi understood your market locally and used this plan to create a versioned request for the standalone Discovery Engine. That engine compiled and executed a bounded live search plan; this panel remains the local planning artifact, not a claim that every displayed query was sent unchanged."
+                : "Cluvvi understood your market and generated a search plan locally. These planned queries were not sent to external sources. Project B uses a separate synthetic V2 fixture to exercise the downstream pipeline."}
             </p>
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
-            Local · no live data
+            {discoveryProviderMode === "live_search"
+              ? "Local plan · live bridge active"
+              : "Local · no live data"}
           </span>
         </div>
       </div>
@@ -207,7 +214,9 @@ export function MissionUnderstandingView({ artifact }: MissionUnderstandingViewP
             <div>
               <p className="eyebrow">Search query plan</p>
               <h3 id="search-plan-heading" className="mt-2 text-xl font-semibold">
-                Queries reserved for a future approved live bridge
+                {discoveryProviderMode === "live_search"
+                  ? "Query hypotheses that informed live discovery"
+                  : "Queries reserved for a future approved live bridge"}
               </h3>
             </div>
             <span className="text-xs text-neutral-500">

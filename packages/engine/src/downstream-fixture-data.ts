@@ -364,7 +364,7 @@ export function buildBuyerHypotheses(
       likelyDepartment: rolePlan.department,
       likelyDecisionMakerTitles: rolePlan.titles,
       confidence,
-      rationale: `${positive.length} positive and ${findings.length - positive.length} negative fixture findings support this role hypothesis. No real person was identified.`,
+      rationale: `${positive.length} positive and ${findings.length - positive.length} negative evidence findings support this role hypothesis. No real person was identified.`,
       sourceResultIds: [...new Set(findings.map((finding) => finding.searchResultId))],
       evidenceFindingIds: findings.map((finding) => finding.id),
     };
@@ -558,7 +558,7 @@ export function buildRankedOpportunities(input: {
       score,
       confidence,
       scoreComponents: components,
-      evidenceSummary: `${positive.length} positive and ${negative.length} negative fixture findings.`,
+      evidenceSummary: `${positive.length} positive and ${negative.length} negative evidence findings.`,
       positiveEvidenceFindingIds: positive.map((finding) => finding.id),
       negativeEvidenceFindingIds: negative.map((finding) => finding.id),
       identityHypothesisId: hypothesis.id,
@@ -703,6 +703,6 @@ export function buildProjectBFinalization(input: {
     identityHypothesisCount: identity.hypotheses.length,
     coverageGapCount: buyerMap.coverageGaps.length,
     realOpportunitiesProduced: 0,
-    nextPhase: "C1-G compatibility bridge or approved live-provider research",
+    nextPhase: "C1-H researched live-provider integration path",
   });
 }

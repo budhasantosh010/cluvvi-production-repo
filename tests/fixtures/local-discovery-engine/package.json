@@ -1,0 +1,8 @@
+{
+  "name": "cluvvi-local-discovery-test-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "discover": "node fixture-cli.mjs"
+  }
+}

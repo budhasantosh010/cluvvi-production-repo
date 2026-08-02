@@ -1,6 +1,12 @@
 import { LocalRunner } from "@cluvvi/application";
 import { RunPhaseSchema } from "@cluvvi/core";
-import { CluvviEngine, LocalArtifactWriter, createDefaultStageRegistry } from "@cluvvi/engine";
+import {
+  CluvviEngine,
+  LocalArtifactWriter,
+  createDefaultStageRegistry,
+  createDiscoveryRuntime,
+  parseDiscoveryRuntimeConfig,
+} from "@cluvvi/engine";
 import { SqliteCluvviStore, resolveLocalCluvviPaths } from "@cluvvi/storage";
 import { hostname } from "node:os";
 import process from "node:process";
@@ -8,12 +14,16 @@ import process from "node:process";
 async function main(): Promise<void> {
   const mode = process.env["CLUVVI_ENGINE_MODE"] ?? "fixture";
   if (mode !== "fixture") {
-    throw new Error(`Unsupported CLUVVI_ENGINE_MODE: ${mode}. C0.5 supports fixture only.`);
+    throw new Error(
+      `Unsupported CLUVVI_ENGINE_MODE: ${mode}. The local Cluvvi engine remains fixture-safe.`,
+    );
   }
 
   const paths = resolveLocalCluvviPaths();
   const store = new SqliteCluvviStore({ databasePath: paths.databasePath });
   const artifactWriter = new LocalArtifactWriter(paths.runsDirectory);
+  const discoveryConfig = parseDiscoveryRuntimeConfig();
+  const discoveryRuntime = createDiscoveryRuntime({ config: discoveryConfig, artifactWriter });
   const failStageValue = process.env["CLUVVI_FIXTURE_FAIL_STAGE"]?.trim();
   const failStage =
     failStageValue === undefined || failStageValue.length === 0
@@ -26,12 +36,17 @@ async function main(): Promise<void> {
     engine: new CluvviEngine({
       store,
       artifactWriter,
-      stages: createDefaultStageRegistry(),
+      stages: createDefaultStageRegistry({ discoveryRuntime }),
+      discoveryRuntimeMode: discoveryRuntime.mode,
+      discoveryProviderMode: discoveryRuntime.providerMode,
+      providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
       stageDelayMs: Number(process.env["CLUVVI_FIXTURE_STAGE_DELAY_MS"] ?? 120),
     }),
     runnerId,
     hostname: hostname(),
     processId: process.pid,
+    discoveryRuntimeMode: discoveryRuntime.mode,
+    discoveryProviderMode: discoveryRuntime.providerMode,
     pollIntervalMs: Number(process.env["CLUVVI_RUNNER_POLL_MS"] ?? 750),
     ...(failStage === undefined ? {} : { failStage }),
     onReady: async () => {
@@ -41,7 +56,13 @@ async function main(): Promise<void> {
           `Runner: ${runnerId}`,
           `SQLite: ${paths.databasePath}`,
           `Database instance: ${await store.getDatabaseInstanceId()}`,
-          "Mode: fixture",
+          `Data mode: ${
+            discoveryRuntime.providerMode === "live_search"
+              ? "live search snippets with deterministic local downstream analysis"
+              : "fixture-only"
+          }`,
+          `Discovery runtime: ${discoveryRuntime.mode}`,
+          `Discovery providers: ${discoveryRuntime.providerMode}`,
         ].join("\n"),
       );
     },

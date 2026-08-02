@@ -10,6 +10,7 @@ import {
   type LocalRunPhase,
 } from "@cluvvi/core";
 import { createDownstreamFixtureStages } from "./downstream-stages";
+import { FixtureDiscoveryRuntime, type DiscoveryRuntime } from "./discovery-runtime";
 import { generateMissionUnderstandingArtifactV1 } from "./mission-understanding";
 import type { EngineStage, RuntimeSchema, StageContext } from "./stage";
 
@@ -95,15 +96,26 @@ function createFixtureStage(input: {
     async execute(source, context) {
       await context.recordFixtureToolCall({
         toolName: `fixture_${input.name}`,
-        request: { stage: input.name, fixture: true },
-        response: { status: "ok", fixture: true },
+        request: {
+          stage: input.name,
+          runtimeMode: context.run.config.discoveryRuntimeMode,
+          fixture: true,
+        },
+        response: {
+          status: "ok",
+          runtimeMode: context.run.config.discoveryRuntimeMode,
+          fixture: true,
+        },
       });
       return envelope(context, input.name, input.createData(source, context));
     },
   };
 }
 
-export function createPlaceholderStages(): readonly EngineStage<unknown, unknown>[] {
+export function createPlaceholderStages(
+  input: { discoveryRuntime?: DiscoveryRuntime } = {},
+): readonly EngineStage<unknown, unknown>[] {
+  const discoveryRuntime = input.discoveryRuntime ?? new FixtureDiscoveryRuntime();
   const stages: readonly EngineStage<unknown, unknown>[] = [
     createFixtureStage({
       name: "mission",
@@ -125,15 +137,17 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
     }),
     createFixtureStage({
       name: "source_planning",
-      version: "1.2.0",
+      version: "1.3.0",
       artifactType: "source_plan",
       previousArtifactType: "mission_understanding",
-      createData(source) {
+      createData(source, context) {
         const inputArtifact = FixtureArtifactEnvelopeSchema.parse(source);
         const understanding = MissionUnderstandingArtifactV1Schema.parse(inputArtifact.data);
+        const localMode = context.run.config.discoveryRuntimeMode === "local_discovery_engine";
         return {
-          strategySummary:
-            "Cluvvi generated a deterministic source and query plan. Project B consumes a separate version-controlled search_results.v2 fixture; no external query is executed.",
+          strategySummary: localMode
+            ? "Cluvvi generated a deterministic source and query plan. The discovery stage will pass a versioned JSON request to the standalone local Discovery Engine, which remains restricted to fixture providers in C1-G."
+            : "Cluvvi generated a deterministic source and query plan. Project B consumes a separate version-controlled search_results.v2 fixture; no external query is executed.",
           generatedQueryCount: understanding.searchQueries.length,
           highPriorityQueryCount: understanding.searchQueries.filter(
             (query) => query.priority === "high",
@@ -145,14 +159,15 @@ export function createPlaceholderStages(): readonly EngineStage<unknown, unknown
           searchStrategies: understanding.searchQueries.slice(0, 15),
           stopConditions: {
             candidateTarget: understanding.inputSummary.desiredOpportunities,
-            candidateHardLimit: 9,
-            executionEnabled: false,
+            candidateHardLimit: localMode ? understanding.inputSummary.desiredOpportunities : 9,
+            executionEnabled: localMode,
             fixtureArtifactEnabled: true,
+            providerPreference: "fixture_only",
           },
         };
       },
     }),
-    ...createDownstreamFixtureStages(),
+    ...createDownstreamFixtureStages({ discoveryRuntime }),
   ];
 
   return stages.map((stage) => {

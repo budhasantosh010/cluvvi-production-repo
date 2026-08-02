@@ -85,7 +85,7 @@ export const ProjectBFinalizationArtifactV1Schema = z
     identityHypothesisCount: z.number().int().nonnegative(),
     coverageGapCount: z.number().int().nonnegative(),
     realOpportunitiesProduced: z.literal(0),
-    nextPhase: z.literal("C1-G compatibility bridge or approved live-provider research"),
+    nextPhase: z.literal("C1-H researched live-provider integration path"),
   })
   .strict();
 export type ProjectBFinalizationArtifactV1 = z.infer<typeof ProjectBFinalizationArtifactV1Schema>;

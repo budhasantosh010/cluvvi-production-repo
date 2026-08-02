@@ -160,7 +160,7 @@ while (!stopping && Date.now() < deadline) {
             "",
             "Runner:\nactive",
             "",
-            "Mode:\nfixture",
+            `Discovery providers:\n${environment.CLUVVI_DISCOVERY_PROVIDER_MODE ?? "fixture_only"}`,
             "",
             "Press Ctrl+C to stop.",
           ].join("\n"),

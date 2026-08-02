@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MissionInputSchemaV1, fingerprint } from "../src";
+import { LiveProviderRunTelemetryV1Schema, MissionInputSchemaV1, fingerprint } from "../src";
 
 const mission = {
   schemaVersion: "1.0",
@@ -36,5 +36,35 @@ describe("local engine contracts", () => {
     expect(fingerprint({ alpha: 1, nested: { beta: 2, gamma: 3 } })).toBe(
       fingerprint({ nested: { gamma: 3, beta: 2 }, alpha: 1 }),
     );
+  });
+
+  it("strictly validates live provider telemetry and rejects unknown fields", () => {
+    const telemetry = {
+      schemaVersion: "1.0",
+      artifactKind: "live_provider_run_telemetry.v1",
+      requestId: "run_1234567890abcdef1234567890abcdef",
+      providerMode: "live_search",
+      configurationFingerprint: "a".repeat(64),
+      generatedAt: "2026-08-02T10:00:00.000Z",
+      providerExecutions: [],
+      budget: {
+        hacker_news_algolia: { used: 0, limit: 4 },
+        hacker_news_firebase: { used: 0, limit: 8 },
+        tavily_search: { used: 1, limit: 3 },
+        brave_web_search: { used: 1, limit: 3 },
+      },
+      usage: {
+        tavilyRequests: 1,
+        tavilyCredits: 1,
+        braveRequests: 1,
+        hackerNewsAlgoliaRequests: 0,
+        hackerNewsFirebaseRequests: 0,
+      },
+      warnings: ["Search snippets were not crawled."],
+    };
+    expect(LiveProviderRunTelemetryV1Schema.parse(telemetry).usage.tavilyCredits).toBe(1);
+    expect(() =>
+      LiveProviderRunTelemetryV1Schema.parse({ ...telemetry, secret: "must-not-parse" }),
+    ).toThrow();
   });
 });

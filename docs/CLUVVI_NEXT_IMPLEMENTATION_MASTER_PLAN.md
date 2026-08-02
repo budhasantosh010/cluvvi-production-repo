@@ -40,7 +40,7 @@ Future API ┘
 - Facts and inferences are stored and displayed separately.
 - Fixture and live modes are explicit; live mission understanding must never flow into fixture discovery.
 
-## Current status after C0.9
+## Current status after C1-G
 
 - C0 application foundation: complete for the current local fixture-mode scope.
 - C0.7 + C1-A deterministic Mission Understanding: complete.
@@ -53,9 +53,10 @@ Future API ┘
 - C1-D Identity + Enrichment fixture-contract version: implemented with role hypotheses and public manual routes only.
 - C1-E Opportunity Ranker: implemented with a transparent deterministic scorecard and negative/stale penalties.
 - C1-F Buyer Map Output: implemented with citations, risks, warnings, coverage gaps, and responsive browser presentation.
-- C1-G Project A runtime bridge: not started.
+- C1-G Local Discovery-to-Cluvvi Bridge: implemented with fixture-default and `local_discovery_engine` runtime modes, Project A-compatible request export, safe process execution, exact V2 validation, durable exchange evidence, timeout/cancellation, resume, idempotency, and browser proof.
+- C1-H Live Discovery Providers: implemented with explicit `fixture_only`/`live_search` modes, approved HN/Tavily/Brave routing, safe provider-environment allowlisting, strict live telemetry and credit validation, partial-provider disclosure, same-run failure/resume, and real desktop/mobile proof.
 
-Cluvvi now understands and plans, independently validates synthetic V2 discovery artifacts, and runs the fixture downstream intelligence pipeline through one durable engine. It still does not discover real customers or call Project A at runtime.
+Cluvvi now understands and plans, can invoke the standalone Project A CLI through a local file/process adapter, validates the exact returned V2 artifact and live telemetry sidecar, and runs the downstream intelligence pipeline through one durable engine. C1-H performs real public search, but it remains search-snippet discovery rather than crawling, identity verification, contact enrichment, or confirmed customer intent.
 
 ## Ordered roadmap
 
@@ -72,10 +73,11 @@ Cluvvi now understands and plans, independently validates synthetic V2 discovery
 11. **C1-D** — Identity + Enrichment fixture-contract version preserving V2 lineage.
 12. **C1-E** — Opportunity Ranker over fixture-derived evidence.
 13. **C1-F** — Buyer Map Output with fixture labeling and V2 citations.
-14. **C1-G** — Approved runtime bridge from standalone Project A V2 output into Cluvvi.
-15. **C2** — First researched live discovery providers and approved integration path.
-16. **C3** — First real discovery slice.
-17. **C4** — Human evaluation and improvement loop.
+14. **C1-G** — Local file/process bridge from standalone Project A V2 output into Cluvvi — complete.
+15. **C1-H** — Approved HN/Tavily/Brave live search-provider integration — complete.
+16. **C1-I** — Research and approve crawler/extractor boundaries after the C1-H search-only gate.
+17. **C2** — First narrow real discovery slice with preserved provenance.
+18. **C3** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -294,11 +296,35 @@ Produces `ranked_opportunities.v1` using an explicit deterministic scorecard ove
 
 Produces `buyer_map.v1` and a responsive run-page presentation of ranked fixture opportunities, evidence, buyer rationale, public manual routes, confidence, score components, risks, limitations, citations, and coverage gaps. Fixture-derived output remains explicitly labeled and is never presented as live customers or complete market coverage.
 
+## C1-G — Local Discovery-to-Cluvvi Bridge
+
+**Status:** Implemented in `feature/c1-g-local-discovery-bridge`.
+
+C1-G adds one typed discovery runtime boundary with two modes:
+
+```text
+fixture
+→ load Cluvvi's existing deterministic V2 fixture
+
+local_discovery_engine
+→ derive Project A discovery_request.v1
+→ write an isolated per-run exchange workspace
+→ invoke the standalone CLI with explicit input/output paths
+→ capture stdout, stderr, exit status, timeout, and cancellation
+→ validate the exact returned search_results.v2
+→ persist the imported artifact and bridge provenance
+→ run Evidence, Identity, Ranking, and Buyer Map
+```
+
+Fixture mode remains the default and requires no external repository. Local mode uses only trusted configuration for the executable and project path; user content is written to JSON and never interpolated into shell commands or executable arguments. The adapter does not import Project A source files or create a package dependency.
+
+C1-G requires `providerPreference: "fixture_only"`, rejects non-fixture provider categories and paid-credit use, preserves invalid output and diagnostics on failure, terminates the child process tree on timeout/cancellation, and reuses valid completed artifacts during resume. The browser labels the bridge honestly: it is real local execution over synthetic fixture-provider data, not live customer discovery.
+
 ## C1 V1/V2 compatibility boundary
 
 - V1 and V2 validate independently.
 - V1 remains unchanged and separately valid.
-- C1-C through C1-F consume fixture V2, not V1.
+- C1-C through C1-H consume independently validated V2, not V1; C1-H additionally validates the live provider telemetry sidecar.
 - A V2 consumer must reject V1 rather than guess missing planning or coverage data.
 - No V1-to-V2 adapter exists in C1-0.1 or Project B.
 - A future adapter requires a separate reviewed mapping, provenance rules, and tests.
@@ -313,10 +339,10 @@ The final compatibility gate has passed locally:
 
 ## Future phases
 
-- **C1-G:** Add an approved runtime bridge from standalone Project A V2 output into Cluvvi without importing provider implementations.
-- **C2:** Research and approve the first live discovery providers and integration path.
-- **C3:** Execute a narrow real discovery slice with preserved provenance.
-- **C4:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
+- **C1-H:** Complete. Preserve the approved search-only HN/Tavily/Brave path, telemetry, budgets, and fixture regressions.
+- **C1-I:** Add crawler/extractor boundaries only after separate review of robots/terms, fetch limits, provenance, content storage, and cost controls.
+- **C2:** Execute a narrow real discovery slice with preserved provenance and honest coverage.
+- **C3:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
 
 ## Git workflow
 

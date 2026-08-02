@@ -1,4 +1,4 @@
-# Cluvvi C0.5 Architecture
+# Cluvvi C1-H Local Architecture
 
 ```text
 Browser
@@ -83,6 +83,28 @@ pnpm dev
 ```
 
 The supervisor validates Node, initializes migrations, binds to loopback by default, rejects a busy port, waits for web and runner health, compares database instance IDs, forwards termination, and force-cleans child trees only after a bounded graceful-stop window.
+
+## Discovery process boundary
+
+```text
+Cluvvi run
+  → discovery_request.v1
+  → trusted local Project A process
+      ├─ fixture_only
+      └─ live_search: HN Algolia + bounded Firebase enrichment + Tavily basic + Brave web
+  → search_results.v2
+  → live_provider_run_telemetry.v1 sidecar when live
+  → strict Cluvvi validation
+  → deterministic downstream stages
+```
+
+The runtime and provider mode are separate immutable run fields. They participate in stage fingerprints, so a fixture run cannot silently resume under live providers or vice versa.
+
+Mission text is written to a request file and never enters executable names, shell syntax, or child arguments. The child process receives only fixed arguments and an explicit provider-environment allowlist. Secret values are excluded from public fingerprints, execution records, logs, artifacts, diagnostics, and browser responses.
+
+Each run owns an isolated `discovery-exchange` directory. Live telemetry is preserved beside the exact imported V2 artifact and summarized into the bridge execution record. Invalid artifacts or telemetry fail the discovery stage before downstream execution. Partial provider failure can complete only when Project A returns a valid non-empty or honestly covered artifact with explicit warnings and telemetry; Cluvvi never turns missing or invalid provider evidence into false completeness.
+
+C1-H is search-only. Result pages are not fetched, rendered, crawled, or deeply extracted. C1-I requires a separate approval and contract.
 
 ## Security and server-only rules
 
