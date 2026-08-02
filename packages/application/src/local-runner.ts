@@ -4,6 +4,7 @@ import {
   RunnerHeartbeatSchema,
   classifyError,
   createOpaqueId,
+  type DiscoveryProviderMode,
   type DiscoveryRuntimeMode,
   type LocalRunPhase,
   type RunRequest,
@@ -24,6 +25,7 @@ export interface LocalRunnerOptions {
   leadershipLeaseDurationMs?: number;
   failStage?: LocalRunPhase;
   discoveryRuntimeMode?: DiscoveryRuntimeMode;
+  discoveryProviderMode?: DiscoveryProviderMode;
   now?: () => string;
   onReady?: () => void | Promise<void>;
 }
@@ -48,6 +50,7 @@ export class LocalRunner {
   readonly #leadershipLeaseDurationMs: number;
   readonly #failStage: LocalRunPhase | undefined;
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
+  readonly #discoveryProviderMode: DiscoveryProviderMode;
   readonly #now: () => string;
   readonly #startedAt: string;
   readonly #onReady: (() => void | Promise<void>) | undefined;
@@ -67,6 +70,7 @@ export class LocalRunner {
     this.#leadershipLeaseDurationMs = options.leadershipLeaseDurationMs ?? 20_000;
     this.#failStage = options.failStage;
     this.#discoveryRuntimeMode = options.discoveryRuntimeMode ?? "fixture";
+    this.#discoveryProviderMode = options.discoveryProviderMode ?? "fixture_only";
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#startedAt = this.#now();
     this.#onReady = options.onReady;
@@ -263,8 +267,9 @@ export class LocalRunner {
         startedAt: this.#startedAt,
         lastSeenAt: now,
         metadata: {
-          mode: "fixture",
+          mode: this.#discoveryProviderMode === "live_search" ? "live_search" : "fixture",
           discoveryRuntimeMode: this.#discoveryRuntimeMode,
+          discoveryProviderMode: this.#discoveryProviderMode,
           databaseInstanceId: await this.#store.getDatabaseInstanceId(),
         },
       }),

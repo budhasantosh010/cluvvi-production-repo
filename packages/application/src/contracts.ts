@@ -1,7 +1,9 @@
 import type {
   ArtifactRecord,
   ArtifactType,
+  DiscoveryProviderMode,
   DiscoveryRuntimeMode,
+  LiveProviderRunTelemetryV1,
   LocalMission,
   LocalRun,
   LocalRunEvent,
@@ -30,7 +32,8 @@ export interface RunView {
   events: LocalRunEvent[];
   artifacts: ArtifactRecord[];
   requests: RunRequest[];
-  fixture: true;
+  providerTelemetry: LiveProviderRunTelemetryV1 | null;
+  fixture: boolean;
 }
 
 export interface CreateRunResult {
@@ -40,12 +43,13 @@ export interface CreateRunResult {
 }
 
 export interface CapabilityReport {
-  mode: "fixture";
+  mode: "fixture" | "live_search";
   discoveryRuntimeMode: DiscoveryRuntimeMode;
+  discoveryProviderMode: DiscoveryProviderMode;
   capabilities: {
     localEngine: true;
     missionCompiler: false;
-    webSearch: false;
+    webSearch: boolean;
     webFetch: false;
     enrichment: false;
     youtube: false;
@@ -61,8 +65,9 @@ export interface LocalDiagnostics {
   databaseInstanceId: string;
   migrationVersion: string | null;
   engineVersion: string;
-  mode: "fixture";
+  mode: "fixture" | "live_search";
   discoveryRuntimeMode: DiscoveryRuntimeMode;
+  discoveryProviderMode: DiscoveryProviderMode;
   runner: {
     available: boolean;
     heartbeat: RunnerHeartbeat | null;

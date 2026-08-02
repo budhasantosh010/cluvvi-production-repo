@@ -5,6 +5,7 @@ import {
   LocalRunEventSchema,
   LocalRunSchema,
   createOpaqueId,
+  type DiscoveryProviderMode,
   type DiscoveryRuntimeMode,
   type LocalMission,
   type LocalRun,
@@ -26,6 +27,7 @@ export function createRunCreationRecords(input: {
   now?: string;
   budget?: RunBudget;
   discoveryRuntimeMode?: DiscoveryRuntimeMode;
+  discoveryProviderMode?: DiscoveryProviderMode;
 }): RunCreationRecords {
   const now = input.now ?? new Date().toISOString();
   const mission = LocalMissionSchema.parse({
@@ -44,6 +46,7 @@ export function createRunCreationRecords(input: {
       engineVersion: LOCAL_ENGINE_VERSION,
       fixtureMode: true,
       discoveryRuntimeMode: input.discoveryRuntimeMode ?? "fixture",
+      discoveryProviderMode: input.discoveryProviderMode ?? "fixture_only",
     },
     budget: input.budget ?? DEFAULT_RUN_BUDGET,
     usage: EMPTY_RUN_USAGE,
@@ -58,6 +61,7 @@ export function createRunCreationRecords(input: {
     data: {
       sourceFile: input.sourceFile,
       discoveryRuntimeMode: run.config.discoveryRuntimeMode,
+      discoveryProviderMode: run.config.discoveryProviderMode,
     },
     createdAt: now,
   });

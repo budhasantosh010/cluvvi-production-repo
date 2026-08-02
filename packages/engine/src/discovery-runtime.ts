@@ -1,4 +1,8 @@
-import type { DiscoveryRuntimeMode, SearchResultsArtifactV2 } from "@cluvvi/core";
+import type {
+  DiscoveryProviderMode,
+  DiscoveryRuntimeMode,
+  SearchResultsArtifactV2,
+} from "@cluvvi/core";
 import type { BridgeDiscoveryRequestV1 } from "./discovery-request-adapter";
 import { loadProjectBPipelineFixture } from "./discovery-fixtures";
 
@@ -11,12 +15,14 @@ export interface DiscoveryRuntimeExecutionInput {
 
 export interface DiscoveryRuntime {
   readonly mode: DiscoveryRuntimeMode;
+  readonly providerMode: DiscoveryProviderMode;
   readonly providerConfigurationFingerprint: string;
   execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2>;
 }
 
 export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly mode = "fixture" as const;
+  readonly providerMode = "fixture_only" as const;
   readonly providerConfigurationFingerprint = "fixture-project-b-v2";
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {

@@ -4,6 +4,7 @@ import {
   IdentityEnrichmentArtifactV1Schema,
   RankedOpportunitiesArtifactV1Schema,
   type ArtifactRecord,
+  type DiscoveryProviderMode,
   type DiscoveryRuntimeMode,
   type EvidenceFindingV1,
 } from "@cluvvi/core";
@@ -11,6 +12,7 @@ import {
 interface DownstreamFixtureViewProps {
   artifacts: ArtifactRecord[];
   discoveryRuntimeMode: DiscoveryRuntimeMode;
+  discoveryProviderMode: DiscoveryProviderMode;
 }
 
 function artifactData(artifacts: ArtifactRecord[], artifactType: ArtifactRecord["artifactType"]) {
@@ -34,6 +36,7 @@ function confidenceTone(confidence: "low" | "medium" | "high"): string {
 export function DownstreamFixtureView({
   artifacts,
   discoveryRuntimeMode,
+  discoveryProviderMode,
 }: DownstreamFixtureViewProps) {
   const evidenceResult = EvidenceFindingsArtifactV1Schema.safeParse(
     artifactData(artifacts, "evidence_findings"),
@@ -60,6 +63,7 @@ export function DownstreamFixtureView({
   const ranked = rankedResult.data;
   const buyerMap = buyerMapResult.data;
   const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
+  const liveDiscovery = discoveryProviderMode === "live_search";
   const rankingByEntity = new Map(
     ranked.opportunities.map((opportunity) => [opportunity.entityKey, opportunity] as const),
   );
@@ -74,16 +78,32 @@ export function DownstreamFixtureView({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="eyebrow">
-              {localDiscovery ? "Local Discovery Engine bridge" : "Project B fixture pipeline"}
+              {liveDiscovery
+                ? "Live search · deterministic local analysis"
+                : localDiscovery
+                  ? "Local Discovery Engine bridge"
+                  : "Project B fixture pipeline"}
             </p>
             <h2
               id="buyer-map-heading"
               className="mt-2 text-2xl font-semibold tracking-tight text-neutral-950"
             >
-              {localDiscovery ? "Local-engine Fixture Buyer Map" : "Fixture Buyer Map"}
+              {liveDiscovery
+                ? "Live-search Buyer Map"
+                : localDiscovery
+                  ? "Local-engine Fixture Buyer Map"
+                  : "Fixture Buyer Map"}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
-              {localDiscovery ? (
+              {liveDiscovery ? (
+                <>
+                  Cluvvi validated live <code>search_results.v2</code> and provider telemetry from
+                  the standalone Discovery Engine, then ran deterministic Evidence, Identity,
+                  Ranking, and Buyer Map logic. Search snippets are live; pages were not crawled or
+                  deeply extracted, and buyer identity or contact routes remain hypotheses for
+                  manual verification.
+                </>
+              ) : localDiscovery ? (
                 <>
                   Cluvvi validated <code>search_results.v2</code> returned by the standalone local
                   Discovery Engine in fixture-provider mode, then ran Evidence, Identity, Ranking,
@@ -99,7 +119,11 @@ export function DownstreamFixtureView({
             </p>
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
-            {localDiscovery ? "Local engine · fixture providers" : "Synthetic · no live discovery"}
+            {liveDiscovery
+              ? "Live snippets · manual verification"
+              : localDiscovery
+                ? "Local engine · fixture providers"
+                : "Synthetic · no live discovery"}
           </span>
         </div>
       </div>
@@ -132,7 +156,9 @@ export function DownstreamFixtureView({
                 id="ranked-fixture-opportunities-heading"
                 className="mt-2 text-xl font-semibold text-neutral-950"
               >
-                Ranked fixture opportunities
+                {liveDiscovery
+                  ? "Ranked live-search opportunities"
+                  : "Ranked fixture opportunities"}
               </h3>
             </div>
             <span className="text-xs text-neutral-500">

@@ -1,5 +1,6 @@
 import {
   DiscoveryRequestV1Schema,
+  LiveProviderRunTelemetryV1Schema,
   LocalDiscoveryExecutionRecordV1Schema,
   SearchResultsArtifactV2Schema,
   createOpaqueId,
@@ -16,20 +17,31 @@ const cleanupDirectories: string[] = [];
 const FAKE_CLI = `
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-const [inputPath, outputFlag, outputPath] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const inputPath = args[0];
+const providerModeIndex = args.indexOf("--provider-mode");
+const outputIndex = args.indexOf("--output");
+const providerMode = providerModeIndex >= 0 ? args[providerModeIndex + 1] : "fixture_only";
+const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
 const behavior = JSON.parse(await readFile(resolve("behavior.json"), "utf8"));
 console.log("fixture cli stdout");
 console.error("fixture cli stderr");
 if (behavior.delayMs) await new Promise((resolveDelay) => setTimeout(resolveDelay, behavior.delayMs));
 if (behavior.mode === "nonzero") process.exit(7);
 if (behavior.mode === "missing") process.exit(0);
-if (outputFlag !== "--output" || !inputPath || !outputPath) process.exit(9);
+if (!inputPath || !outputPath || !["fixture_only", "live_search"].includes(providerMode)) process.exit(9);
 if (behavior.mode === "invalid-json") {
   await writeFile(outputPath, "{not-json", "utf8");
   process.exit(0);
 }
 const request = JSON.parse(await readFile(inputPath, "utf8"));
-const providerCategory = behavior.mode === "unexpected-provider" ? "paid" : "fixture";
+const live = providerMode === "live_search";
+const providerId = behavior.mode === "unexpected-provider"
+  ? "unexpected_live_provider"
+  : live
+    ? "brave_web_search"
+    : "fixture_test_provider";
+const providerCategory = live || behavior.mode === "unexpected-provider" ? "paid" : "fixture";
 const artifact = {
   schemaVersion: behavior.mode === "wrong-schema" ? "1.0" : "2.0",
   artifactKind: behavior.mode === "wrong-schema" ? "search_results.v1" : "search_results.v2",
@@ -40,15 +52,15 @@ const artifact = {
   summary: {
     queriesPlanned: 1,
     queriesExecuted: 1,
-    providersUsed: ["fixture_test_provider"],
+    providersUsed: [providerId],
     rawResults: 0,
     dedupedResults: 0,
-    paidCreditsUsed: behavior.mode === "unexpected-provider" ? 1 : 0,
+    paidCreditsUsed: behavior.mode === "usage-mismatch" ? 1 : 0,
     startedAt: "2026-08-01T10:00:00.000Z",
     completedAt: "2026-08-01T10:00:01.000Z"
   },
   providerBreakdown: [{
-    providerId: "fixture_test_provider",
+    providerId,
     providerCategory,
     sourceZone: "general_web",
     searchMethod: "keyword_search",
@@ -60,15 +72,63 @@ const artifact = {
   coverage: {
     searchedSourceZones: ["general_web"],
     skippedSourceZones: [],
-    providersUsed: ["fixture_test_provider"],
-    providersUnavailable: [],
+    providersUsed: [providerId],
+    providersUnavailable: behavior.mode === "partial-live" ? ["tavily_search:PROVIDER_RATE_LIMITED"] : [],
     manualReviewRecommended: [],
-    confidenceLimitations: ["Fixture-only controlled test output."],
+    confidenceLimitations: [live ? "Live snippets were not crawled." : "Fixture-only controlled test output."],
     nextBestSearches: []
   },
-  warnings: ["Fixture-only controlled test output; not live discovery."]
+  warnings: [live ? "Live snippets were not crawled or deeply extracted." : "Fixture-only controlled test output; not live discovery."]
 };
 await writeFile(outputPath, JSON.stringify(artifact, null, 2) + "\\n", "utf8");
+if (live && behavior.mode !== "telemetry-missing") {
+  const telemetryPath = outputPath + ".provider-executions.v1.json";
+  if (behavior.mode === "telemetry-invalid-json") {
+    await writeFile(telemetryPath, "{not-json", "utf8");
+  } else {
+    const telemetry = {
+      schemaVersion: "1.0",
+      artifactKind: "live_provider_run_telemetry.v1",
+      requestId: behavior.mode === "telemetry-wrong-request" ? "req_wrong" : request.requestId,
+      providerMode: behavior.mode === "provider-mode-mismatch" ? "fixture_only" : "live_search",
+      configurationFingerprint: "a".repeat(64),
+      generatedAt: "2026-08-01T10:00:01.000Z",
+      providerExecutions: [{
+        providerId: "brave_web_search",
+        queryId: "plan_test",
+        sourceZone: "general_web",
+        searchMethod: "keyword_search",
+        operation: "search",
+        startedAt: "2026-08-01T10:00:00.000Z",
+        completedAt: "2026-08-01T10:00:01.000Z",
+        durationMs: 1000,
+        attempts: 1,
+        statusCode: 200,
+        resultsReceived: 0,
+        resultsAccepted: 0,
+        rateLimited: false,
+        success: true,
+        providerUsage: { braveRequests: 1 }
+      }],
+      budget: {
+        hacker_news_algolia: { used: 0, limit: 4 },
+        hacker_news_firebase: { used: 0, limit: 8 },
+        tavily_search: { used: behavior.mode === "partial-live" ? 1 : 0, limit: 3 },
+        brave_web_search: { used: 1, limit: 3 }
+      },
+      usage: {
+        tavilyRequests: behavior.mode === "partial-live" ? 1 : 0,
+        tavilyCredits: 0,
+        braveRequests: 1,
+        hackerNewsAlgoliaRequests: 0,
+        hackerNewsFirebaseRequests: 0
+      },
+      warnings: artifact.warnings
+    };
+    if (behavior.mode === "telemetry-schema-mismatch") delete telemetry.usage;
+    await writeFile(telemetryPath, JSON.stringify(telemetry, null, 2) + "\\n", "utf8");
+  }
+}
 `;
 
 afterEach(async () => {
@@ -131,13 +191,20 @@ function bridgeRequest(runId: string): BridgeDiscoveryRequestV1 {
   return request as BridgeDiscoveryRequestV1;
 }
 
-function runtime(input: { projectPath: string; runsDirectory: string; timeoutMs?: number }) {
+function runtime(input: {
+  projectPath: string;
+  runsDirectory: string;
+  timeoutMs?: number;
+  providerMode?: "fixture_only" | "live_search";
+}) {
   return new LocalProcessDiscoveryRuntime({
     config: {
       projectPath: input.projectPath,
       command: "pnpm",
       timeoutMs: input.timeoutMs ?? 60_000,
       keepExchangeFiles: true,
+      providerMode: input.providerMode ?? "fixture_only",
+      providerEnvironment: {},
     },
     runsDirectory: input.runsDirectory,
   });
@@ -191,6 +258,8 @@ describe("LocalProcessDiscoveryRuntime", () => {
     expect(execution.arguments).toEqual([
       "discover",
       resolve(exchange, "discovery-request.v1.json"),
+      "--provider-mode",
+      "fixture_only",
       "--output",
       resolve(exchange, "search-results.v2.json"),
     ]);
@@ -257,5 +326,72 @@ describe("LocalProcessDiscoveryRuntime", () => {
     await runtime(fixture).execute({ runId, request: bridgeRequest(runId) });
     const history = resolve(fixture.runsDirectory, runId, "discovery-exchange", "history");
     expect((await readdir(history)).length).toBeGreaterThan(0);
+  }, 15_000);
+
+  it("imports valid live provider telemetry and preserves bounded usage", async () => {
+    const fixture = await fakeProject("success");
+    const runId = createOpaqueId("run");
+    const liveRuntime = runtime({ ...fixture, providerMode: "live_search" });
+    const artifact = await liveRuntime.execute({ runId, request: bridgeRequest(runId) });
+    expect(artifact.summary.providersUsed).toEqual(["brave_web_search"]);
+    const exchange = resolve(fixture.runsDirectory, runId, "discovery-exchange");
+    const telemetry = LiveProviderRunTelemetryV1Schema.parse(
+      JSON.parse(
+        await readFile(
+          resolve(exchange, "search-results.v2.json.provider-executions.v1.json"),
+          "utf8",
+        ),
+      ),
+    );
+    expect(telemetry.usage.braveRequests).toBe(1);
+    const execution = LocalDiscoveryExecutionRecordV1Schema.parse(
+      JSON.parse(await readFile(resolve(exchange, "discovery-execution.json"), "utf8")),
+    );
+    expect(execution.providerMode).toBe("live_search");
+    expect(execution.providerTelemetryImported).toBe(true);
+    expect(execution.providerConfigurationFingerprint).toBe("a".repeat(64));
+    expect(execution.providerUsage?.braveRequests).toBe(1);
+  }, 15_000);
+
+  it("rejects missing, malformed, mismatched, unsupported, and inconsistent live telemetry", async () => {
+    const fixture = await fakeProject("telemetry-missing");
+    const runId = createOpaqueId("run");
+    const testCase = async (mode: string, code: string) => {
+      await setBehavior(fixture.projectPath, mode);
+      await expectFailure(
+        runtime({ ...fixture, providerMode: "live_search" }).execute({
+          runId,
+          request: bridgeRequest(runId),
+        }),
+        code,
+      );
+    };
+    await testCase("telemetry-missing", "DISCOVERY_ENGINE_TELEMETRY_MISSING");
+    await testCase("telemetry-invalid-json", "DISCOVERY_ENGINE_TELEMETRY_INVALID_JSON");
+    await testCase("telemetry-schema-mismatch", "DISCOVERY_ENGINE_TELEMETRY_SCHEMA_MISMATCH");
+    await testCase("telemetry-wrong-request", "DISCOVERY_ENGINE_TELEMETRY_REQUEST_ID_MISMATCH");
+    await testCase("provider-mode-mismatch", "DISCOVERY_ENGINE_PROVIDER_MODE_MISMATCH");
+    await testCase("unexpected-provider", "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER");
+    await testCase("usage-mismatch", "DISCOVERY_ENGINE_USAGE_MISMATCH");
+  }, 45_000);
+
+  it("accepts honest partial live-provider coverage with warnings", async () => {
+    const fixture = await fakeProject("partial-live");
+    const runId = createOpaqueId("run");
+    const artifact = await runtime({ ...fixture, providerMode: "live_search" }).execute({
+      runId,
+      request: bridgeRequest(runId),
+    });
+    expect(artifact.coverage.providersUnavailable).toContain("tavily_search:PROVIDER_RATE_LIMITED");
+    const record = LocalDiscoveryExecutionRecordV1Schema.parse(
+      JSON.parse(
+        await readFile(
+          resolve(fixture.runsDirectory, runId, "discovery-exchange", "discovery-execution.json"),
+          "utf8",
+        ),
+      ),
+    );
+    expect(record.providerWarnings?.join(" ")).toContain("not crawled");
+    expect(record.providerUsage?.tavilyRequests).toBe(1);
   }, 15_000);
 });

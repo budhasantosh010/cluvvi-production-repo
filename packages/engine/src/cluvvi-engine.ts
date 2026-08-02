@@ -11,6 +11,7 @@ import {
   fingerprint,
   type ArtifactRecord,
   type ArtifactType,
+  type DiscoveryProviderMode,
   type DiscoveryRuntimeMode,
   type LocalMission,
   type LocalRun,
@@ -64,6 +65,7 @@ export class CluvviEngine {
   readonly #now: () => string;
   readonly #stageDelayMs: number;
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
+  readonly #discoveryProviderMode: DiscoveryProviderMode;
   readonly #providerConfigurationFingerprint: string;
 
   constructor(input: {
@@ -75,6 +77,7 @@ export class CluvviEngine {
     now?: () => string;
     stageDelayMs?: number;
     discoveryRuntimeMode?: DiscoveryRuntimeMode;
+    discoveryProviderMode?: DiscoveryProviderMode;
     providerConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
@@ -85,6 +88,7 @@ export class CluvviEngine {
     this.#now = input.now ?? (() => new Date().toISOString());
     this.#stageDelayMs = input.stageDelayMs ?? 0;
     this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
+    this.#discoveryProviderMode = input.discoveryProviderMode ?? "fixture_only";
     this.#providerConfigurationFingerprint =
       input.providerConfigurationFingerprint ?? "fixture-project-b-v2";
   }
@@ -101,6 +105,7 @@ export class CluvviEngine {
       sourceFile: input.sourceFile,
       now: this.#now(),
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
+      discoveryProviderMode: this.#discoveryProviderMode,
       ...(input.budget === undefined ? {} : { budget: input.budget }),
     });
     await this.#artifactWriter.ensureRunDirectory(run.id);
@@ -174,6 +179,7 @@ export class CluvviEngine {
         input: validatedInput,
         engineVersion: LOCAL_ENGINE_VERSION,
         discoveryRuntimeMode: run.config.discoveryRuntimeMode,
+        discoveryProviderMode: run.config.discoveryProviderMode,
         providerConfiguration: this.#providerConfigurationFingerprint,
       });
       const previous = await this.#store.findCompletedStageExecution(

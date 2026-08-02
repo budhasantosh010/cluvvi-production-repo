@@ -90,13 +90,14 @@ Add paid provider adapters only after the free flow works and only with explicit
 
 C1-0.1 is the committed documentation-only bridge between completed Project A and Project B. It preserves frozen V1, documents V2, and reserves—but does not implement—a future V1-to-V2 adapter boundary.
 
-## Track B — Cluvvi downstream engines and fixture-only runtime bridge — implemented
+## Track B — Cluvvi downstream engines, fixture bridge, and live search bridge — implemented
 
 **Implementation branches:**
 
 ```text
 feature/c1-c-to-c1-f-downstream-fixture-pipeline
 feature/c1-g-local-discovery-bridge
+feature/c1-h-live-discovery-providers
 ```
 
 **Goal:** Build and test Cluvvi's evidence, identity, ranking, output, and standalone-runtime adapter contracts without pretending fixture data is live discovery.
@@ -121,7 +122,13 @@ Produces `buyer_map.v1` and a responsive run-page display of ranked fixture oppo
 
 Adds `fixture` and `local_discovery_engine` runtime adapters behind one interface. The local adapter writes Project A's existing `discovery_request.v1`, invokes the standalone CLI with explicit file paths, captures an execution record and logs, validates exact `search_results.v2`, enforces matching request IDs and fixture-only/zero-credit output, then passes the imported artifact into the existing downstream stages.
 
-The bridge is a process plus JSON contract boundary. It does not import Project A source, expose arbitrary commands through the UI, pass mission text in executable arguments, call the network, or add a live provider. Timeout, cancellation, invalid output, failure diagnostics, resume, and idempotent reuse are proven independently.
+The bridge is a process plus JSON contract boundary. It does not import Project A source, expose arbitrary commands through the UI, or pass mission text in executable arguments. Timeout, cancellation, invalid output, failure diagnostics, resume, and idempotent reuse are proven independently.
+
+### B6 / C1-H — Live Discovery Providers — complete
+
+Adds explicit `fixture_only` and `live_search` provider modes behind the same C1-G runtime. Live mode invokes Project A's approved HN Algolia/Firebase, Tavily basic-search, and Brave web-search adapters; imports exact `search_results.v2`; validates `live_provider_run_telemetry.v1`; checks request IDs, provider IDs/categories, partial-failure warnings, request budgets, and Tavily credit consistency; then runs the unchanged downstream stage graph.
+
+Secrets remain in Project A's ignored `.env.local` or an explicit Cluvvi allowlist. They are never included in commands, fingerprints, logs, artifacts, diagnostics, screenshots, or Git. Live search retrieves snippets and result metadata only; result pages are not crawled or deeply extracted.
 
 ## Parallel-track rule
 
@@ -150,24 +157,24 @@ V2 makes that boundary more explicit by carrying the run's planning context, sem
 
 ## Integration gates
 
-Project A's fixture gate, Project B's downstream gates, and the C1-G runtime gate have passed locally:
+Project A's fixture/live gates, Project B's downstream gates, and the C1-G/C1-H runtime gates have passed locally:
 
 - Project A validates `discovery_request.v1` and emits fixture-provider `search_results.v2` through its real CLI;
 - Cluvvi exports the same request contract, invokes the actual standalone process, and independently validates the exact returned artifact;
-- request IDs match and provider categories remain `fixture` with zero paid-credit use;
+- request IDs match; fixture runs remain fixture/zero-credit, while live runs use only approved free/paid provider categories and telemetry-consistent Tavily credits;
 - the Evidence Engine accepts only validated V2;
-- fixture labels and V2 limitations survive Evidence, Identity, Ranking, Buyer Map, persistence, CLI, and browser presentation;
+- fixture labels or live search limitations survive Evidence, Identity, Ranking, Buyer Map, persistence, CLI, and browser presentation;
 - frozen V1 remains unchanged and separately valid;
 - timeout, cancellation, malformed output, nonzero exit, missing output, idempotency, failure, and resume behavior are tested;
 - browser desktop/mobile and controlled failure/resume proofs pass without claiming live discovery.
 
-Track B may move from fixtures to live artifacts only when:
+The C1-H move from fixtures to live artifacts is complete because:
 
-- C1-H researches and explicitly approves a live provider boundary;
+- the approved provider boundary is explicit and search-only;
 - the same `search_results.v2` schema is used;
-- live provenance and coverage survive downstream processing;
-- UI language stops short of claims not supported by the evidence;
-- regression fixtures remain available for deterministic testing.
+- live telemetry, provenance, cost, warnings, and coverage survive downstream processing;
+- UI language stops short of claims not supported by snippets;
+- regression fixtures remain available and are still the default for deterministic testing.
 
 ## Final compatibility and runtime gate
 
@@ -195,11 +202,11 @@ C1-0.1 and Project B must not implement that adapter, silently upgrade V1, or gu
 This plan does not authorize:
 
 - live crawling inside the Cluvvi production repository;
-- SocialCrawl, Firecrawl, Apify, SerpAPI, Tavily, Reddit API, or other provider integration;
+- SocialCrawl, Firecrawl, Apify, SerpAPI, Reddit API, or additional unapproved provider integration;
+- Tavily Extract/Crawl/Map/Research or Brave Local/News/Answers;
 - LinkedIn scraping;
 - login-wall bypass;
 - V1-to-V2 migration code;
-- C1-H live search providers;
 - C1-I crawlers or extractors;
 - remote Discovery APIs;
 - contact enrichment;

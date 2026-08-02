@@ -48,17 +48,22 @@ function shouldPollRun(view: RunView): boolean {
 function stageStatusLabel(
   stage: RunView["stages"][number],
   discoveryRuntimeMode: RunView["run"]["config"]["discoveryRuntimeMode"],
+  discoveryProviderMode: RunView["run"]["config"]["discoveryProviderMode"],
 ): string {
   if (stage.name === "discovery") {
     if (stage.status === "running") {
-      return discoveryRuntimeMode === "local_discovery_engine"
-        ? "Running the local Discovery Engine in fixture-provider mode"
-        : "Loading fixture discovery results";
+      return discoveryProviderMode === "live_search"
+        ? "Running HN, Tavily, and Brave search through the local Discovery Engine"
+        : discoveryRuntimeMode === "local_discovery_engine"
+          ? "Running the local Discovery Engine in fixture-provider mode"
+          : "Loading fixture discovery results";
     }
     if (stage.status === "completed" || stage.status === "reused") {
-      return discoveryRuntimeMode === "local_discovery_engine"
-        ? "Ran the local Discovery Engine in fixture-provider mode"
-        : "Loaded fixture discovery results";
+      return discoveryProviderMode === "live_search"
+        ? "Imported and validated live search results and provider telemetry"
+        : discoveryRuntimeMode === "local_discovery_engine"
+          ? "Ran the local Discovery Engine in fixture-provider mode"
+          : "Loaded fixture discovery results";
     }
   }
   if (stage.status === "running") return "Running locally";
@@ -134,6 +139,13 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
     [view.artifacts],
   );
   const localDiscovery = view.run.config.discoveryRuntimeMode === "local_discovery_engine";
+  const liveDiscovery = view.run.config.discoveryProviderMode === "live_search";
+  const telemetry = view.providerTelemetry;
+  const telemetryProviders = telemetry
+    ? [...new Set(telemetry.providerExecutions.map((execution) => execution.providerId))]
+    : [];
+  const failedProviderExecutions =
+    telemetry?.providerExecutions.filter((execution) => !execution.success).length ?? 0;
   const resumeRequested = hasActiveResumeRequest(view);
 
   async function runAction(action: "resume" | "cancel") {
@@ -178,14 +190,18 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
     <div className="grid gap-6" data-testid="run-view" data-run-status={view.run.status}>
       <div className="fixture-banner" data-testid="fixture-provider-warning">
         <strong>
-          {localDiscovery
-            ? "Local Discovery Engine · fixture providers only."
-            : "Fixture Buyer Map — no live market results."}
+          {liveDiscovery
+            ? "Live search · local Discovery Engine."
+            : localDiscovery
+              ? "Local Discovery Engine · fixture providers only."
+              : "Fixture Buyer Map — no live market results."}
         </strong>
         <span>
-          {localDiscovery
-            ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
-            : "Cluvvi generated mission understanding locally, then processed a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every company and URL is synthetic."}
+          {liveDiscovery
+            ? "This run used live search snippets from Hacker News, Tavily, and Brave. Cluvvi validated search_results.v2 and the provider telemetry sidecar before running deterministic Evidence, Identity, Ranking, and Buyer Map logic. Pages were not crawled or deeply extracted, and identity or contact details were not verified."
+            : localDiscovery
+              ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
+              : "Cluvvi generated mission understanding locally, then processed a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every company and URL is synthetic."}
         </span>
       </div>
 
@@ -209,7 +225,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                 {view.run.status.replaceAll("_", " ")}
               </span>
               <span className="fixture-badge">
-                {localDiscovery ? "Fixture · local engine" : "Fixture"}
+                {liveDiscovery
+                  ? "Live search · local engine"
+                  : localDiscovery
+                    ? "Fixture · local engine"
+                    : "Fixture"}
               </span>
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl">
@@ -228,7 +248,13 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
             </div>
             <div className="metric-card">
               <span>Discovery runtime</span>
-              <strong>{localDiscovery ? "Local engine" : "Internal fixture"}</strong>
+              <strong>
+                {liveDiscovery
+                  ? "Local live search"
+                  : localDiscovery
+                    ? "Local fixture"
+                    : "Internal fixture"}
+              </strong>
             </div>
             <div className="metric-card">
               <span>Started</span>
@@ -286,6 +312,74 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         </section>
       )}
 
+      {liveDiscovery && telemetry !== null && (
+        <section
+          className="surface-card smooth-panel p-6 sm:p-8"
+          data-testid="live-provider-telemetry"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="eyebrow">Live provider telemetry</p>
+              <h2 className="mt-2 text-xl font-semibold text-neutral-950">
+                Search coverage and bounded usage
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
+                Provider attempts are imported from the standalone Discovery Engine sidecar. A
+                failed provider can coexist with a valid partial result set; warnings and unsearched
+                zones remain visible rather than being converted into false completeness.
+              </p>
+            </div>
+            <span className="fixture-badge">
+              {failedProviderExecutions > 0 ? "Partial provider coverage" : "Providers completed"}
+            </span>
+          </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="metric-card">
+              <span>Providers attempted</span>
+              <strong>{telemetryProviders.length}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Failed attempts</span>
+              <strong>{failedProviderExecutions}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Tavily credits</span>
+              <strong>{telemetry.usage.tavilyCredits}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Brave requests</span>
+              <strong>{telemetry.usage.braveRequests}</strong>
+            </div>
+            <div className="metric-card">
+              <span>HN requests</span>
+              <strong>
+                {telemetry.usage.hackerNewsAlgoliaRequests +
+                  telemetry.usage.hackerNewsFirebaseRequests}
+              </strong>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2" data-testid="live-provider-list">
+            {telemetryProviders.map((provider) => (
+              <span className="status-pill status-completed" key={provider}>
+                {provider.replaceAll("_", " ")}
+              </span>
+            ))}
+          </div>
+          {telemetry.warnings.length > 0 && (
+            <details className="mt-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-neutral-900">
+                Coverage warnings ({telemetry.warnings.length})
+              </summary>
+              <ul className="mt-3 grid gap-2 text-sm leading-6 text-neutral-600">
+                {telemetry.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
+      )}
+
       {understandingArtifact === null && (
         <section
           className="surface-card smooth-panel p-6 sm:p-8"
@@ -314,12 +408,16 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
       )}
 
       {understandingArtifact !== null && (
-        <MissionUnderstandingView artifact={understandingArtifact} />
+        <MissionUnderstandingView
+          artifact={understandingArtifact}
+          discoveryProviderMode={view.run.config.discoveryProviderMode}
+        />
       )}
 
       <DownstreamFixtureView
         artifacts={view.artifacts}
         discoveryRuntimeMode={view.run.config.discoveryRuntimeMode}
+        discoveryProviderMode={view.run.config.discoveryProviderMode}
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.4fr)]">
@@ -354,7 +452,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                     {labels[stage.name]}
                   </strong>
                   <span className="text-xs text-neutral-500">
-                    {stageStatusLabel(stage, view.run.config.discoveryRuntimeMode)}
+                    {stageStatusLabel(
+                      stage,
+                      view.run.config.discoveryRuntimeMode,
+                      view.run.config.discoveryProviderMode,
+                    )}
                     {stage.attempt ? ` · attempt ${stage.attempt}` : ""}
                   </span>
                 </span>
@@ -405,7 +507,13 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                 <div>
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="fixture-badge inline-flex">Fixture output</p>
+                      <p className="fixture-badge inline-flex">
+                        {liveDiscovery && selectedArtifact.artifactType === "search_results"
+                          ? "Live search output"
+                          : liveDiscovery
+                            ? "Deterministic local analysis"
+                            : "Fixture output"}
+                      </p>
                       <h3 className="mt-3 text-lg font-semibold capitalize">
                         {selectedArtifact.artifactType.replaceAll("_", " ")}
                       </h3>

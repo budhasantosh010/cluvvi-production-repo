@@ -41,6 +41,7 @@ const mission = MissionInputSchemaV1.parse({
 
 class ControlledLocalRuntime implements DiscoveryRuntime {
   readonly mode = "local_discovery_engine" as const;
+  readonly providerMode = "fixture_only" as const;
   readonly providerConfigurationFingerprint = "controlled-local-fixture-runtime";
   calls = 0;
   fail = false;
@@ -77,6 +78,7 @@ function testRuntime(discoveryRuntime: ControlledLocalRuntime) {
     artifactWriter,
     stages: createDefaultStageRegistry({ discoveryRuntime }),
     discoveryRuntimeMode: discoveryRuntime.mode,
+    discoveryProviderMode: discoveryRuntime.providerMode,
     providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
   });
   return { store, engine };

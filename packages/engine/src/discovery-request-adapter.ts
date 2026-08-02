@@ -1,5 +1,6 @@
 import {
   DiscoveryRequestV1Schema,
+  type DiscoveryProviderMode,
   type DiscoveryRequestV1,
   type LocalMission,
   type MissionUnderstandingArtifactV1,
@@ -55,8 +56,10 @@ export function createDiscoveryRequestV1(input: {
   runId: string;
   mission: LocalMission;
   understanding: MissionUnderstandingArtifactV1;
+  providerMode?: DiscoveryProviderMode;
 }): BridgeDiscoveryRequestV1 {
   const { mission, understanding } = input;
+  const providerMode = input.providerMode ?? "fixture_only";
   const geography = explicitGeography(mission.input.geographies);
   const domainSource = [
     understanding.productUnderstanding.productCategory,
@@ -96,8 +99,8 @@ export function createDiscoveryRequestV1(input: {
     ...(geography === undefined ? {} : { geography }),
     ...(exclusions.length === 0 ? {} : { exclusions }),
     domainPackIds: domainPackIdsFor(domainSource),
-    discoveryMode: "free_only",
-    providerPreference: "fixture_only",
+    discoveryMode: providerMode === "live_search" ? "balanced" : "free_only",
+    providerPreference: providerMode === "live_search" ? "paid_allowed" : "fixture_only",
   });
   if (request.requestId === undefined) {
     throw new Error("The Cluvvi bridge must produce a stable discovery request ID.");

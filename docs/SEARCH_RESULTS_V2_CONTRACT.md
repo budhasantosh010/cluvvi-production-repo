@@ -290,8 +290,9 @@ The local adapter must:
 - parse and validate V2 without silently repairing malformed or incompatible output;
 - require `artifactKind: "search_results.v2"` and `schemaVersion: "2.0"`;
 - require the returned `requestId` to match the originating Cluvvi request/run identity;
-- require every provider breakdown and result to use `providerCategory: "fixture"` in C1-G;
-- require zero paid-credit use;
+- in `fixture_only`, require every provider breakdown and result to use `providerCategory: "fixture"` and require zero paid credits;
+- in `live_search`, require approved HN/Tavily/Brave provider IDs, free/paid categories only, and no fixture provider;
+- validate `live_provider_run_telemetry.v1`, matching request ID/provider mode, and require V2 paid credits to equal API-reported Tavily credits;
 - preserve required warnings and coverage fields;
 - block Evidence and all later stages when validation fails;
 - reuse an already persisted valid V2 artifact on resume instead of relaunching the process unnecessarily.
@@ -307,17 +308,18 @@ Local project paths, executable paths, log paths, and execution-record reference
 - No V1-to-V2 adapter exists in C1-0.1.
 - Any future adapter requires a separately reviewed mapping, tests, provenance rules, and its own versioned boundary.
 
-## Compatibility and runtime gate before live integration
+## Compatibility and live runtime gates
 
-The C1-G cross-project gate passed locally and proves:
+The C1-G fixture gate and C1-H live gate pass independently and prove:
 
-1. Cluvvi writes a valid Project A `discovery_request.v1` with a stable request ID and `providerPreference: "fixture_only"`.
+1. Cluvvi writes a valid Project A `discovery_request.v1` with a stable request ID and an explicit fixture or live provider preference.
 2. The actual Project A CLI validates that request and writes `search_results.v2`.
-3. Project A validates the resulting artifact with its runtime schema.
-4. Project B independently validates the exact returned artifact with the Cluvvi V2 schema.
-5. Request IDs match and only fixture providers with zero paid credits are present.
-6. The Evidence Engine consumes validated V2 and preserves citations, semantic provenance, and limitations without depending on `raw`.
-7. Identity, Ranking, and Buyer Map complete.
-8. Frozen V1 remains unchanged and separately valid.
+3. Project A validates the resulting artifact and, for live runs, writes strict provider telemetry.
+4. Project B independently validates the exact returned artifact and telemetry with Cluvvi schemas.
+5. Request IDs and provider modes match; fixture runs remain zero-credit, while live runs contain only approved providers and telemetry-consistent Tavily credits.
+6. The Evidence Engine consumes validated V2 and preserves citations, semantic provenance, warnings, and limitations without depending on `raw`.
+7. Identity, Ranking, and Buyer Map complete for both fixture and live search input.
+8. Failure, timeout, cancellation, partial-provider disclosure, preserved exchange evidence, and same-run resume are proven.
+9. Frozen V1 remains unchanged and separately valid.
 
-Passing the fixture compatibility and runtime gate does not authorize C1-H live providers, C1-I crawlers/extractors, network calls, enrichment, outreach, auth, billing, or deployment work.
+Passing C1-H does not authorize C1-I crawlers/extractors, page-body retrieval, thread traversal, contact enrichment, outreach, remote APIs, auth, billing, or deployment work.

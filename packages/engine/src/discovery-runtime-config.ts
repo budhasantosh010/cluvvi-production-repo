@@ -1,15 +1,42 @@
+import type { DiscoveryProviderMode } from "@cluvvi/core";
 import { existsSync, statSync } from "node:fs";
 import { isAbsolute, normalize, resolve } from "node:path";
+
+export const DISCOVERY_PROVIDER_ENV_ALLOWLIST = [
+  "DISCOVERY_LIVE_PROVIDERS",
+  "DISCOVERY_HTTP_TIMEOUT_MS",
+  "DISCOVERY_HTTP_MAX_ATTEMPTS",
+  "DISCOVERY_HTTP_CONCURRENCY",
+  "DISCOVERY_LIVE_MAX_QUERIES",
+  "DISCOVERY_MAX_RESULTS_PER_PROVIDER",
+  "DISCOVERY_HN_ALGOLIA_MAX_REQUESTS_PER_RUN",
+  "DISCOVERY_HN_FIREBASE_MAX_ITEMS_PER_RUN",
+  "DISCOVERY_TAVILY_MAX_REQUESTS_PER_RUN",
+  "DISCOVERY_BRAVE_MAX_REQUESTS_PER_RUN",
+  "DISCOVERY_TAVILY_SEARCH_DEPTH",
+  "DISCOVERY_BROAD_PROVIDER_STRATEGY",
+  "DISCOVERY_TAVILY_API_KEY",
+  "DISCOVERY_BRAVE_API_KEY",
+] as const;
+
+export type DiscoveryProviderEnvironmentKey = (typeof DISCOVERY_PROVIDER_ENV_ALLOWLIST)[number];
 
 export interface LocalDiscoveryEngineConfig {
   projectPath: string;
   command: string;
   timeoutMs: number;
   keepExchangeFiles: boolean;
+  providerMode: DiscoveryProviderMode;
+  providerEnvironment: Record<string, string | undefined>;
 }
 
 export type DiscoveryRuntimeConfig =
-  { mode: "fixture" } | { mode: "local_discovery_engine"; local: LocalDiscoveryEngineConfig };
+  | { mode: "fixture"; providerMode: "fixture_only" }
+  | {
+      mode: "local_discovery_engine";
+      providerMode: DiscoveryProviderMode;
+      local: LocalDiscoveryEngineConfig;
+    };
 
 export class DiscoveryRuntimeConfigurationError extends Error {
   readonly code: string;
@@ -43,6 +70,15 @@ function parseKeepExchangeFiles(value: string | undefined): boolean {
   );
 }
 
+function parseProviderMode(value: string | undefined): DiscoveryProviderMode {
+  const mode = value ?? "fixture_only";
+  if (mode === "fixture_only" || mode === "live_search") return mode;
+  throw new DiscoveryRuntimeConfigurationError(
+    "LOCAL_DISCOVERY_PROVIDER_MODE_INVALID",
+    "CLUVVI_DISCOVERY_PROVIDER_MODE must be fixture_only or live_search.",
+  );
+}
+
 function pathIsDirectory(path: string): boolean {
   try {
     return statSync(path).isDirectory();
@@ -51,11 +87,48 @@ function pathIsDirectory(path: string): boolean {
   }
 }
 
+export function allowedDiscoveryProviderEnvironment(
+  environment: Readonly<Record<string, string | undefined>>,
+): Record<string, string | undefined> {
+  const allowed: Record<string, string | undefined> = {};
+  for (const key of DISCOVERY_PROVIDER_ENV_ALLOWLIST) {
+    const value = environment[key];
+    if (value !== undefined) allowed[key] = value;
+  }
+  return allowed;
+}
+
+export function publicDiscoveryProviderEnvironment(
+  environment: Readonly<Record<string, string | undefined>>,
+): Record<string, string | boolean> {
+  const publicValues: Record<string, string | boolean> = {};
+  for (const key of DISCOVERY_PROVIDER_ENV_ALLOWLIST) {
+    const value = environment[key];
+    if (key === "DISCOVERY_TAVILY_API_KEY" || key === "DISCOVERY_BRAVE_API_KEY") {
+      publicValues[key] = value !== undefined && value.trim().length > 0;
+    } else if (value !== undefined) {
+      publicValues[key] = value;
+    }
+  }
+  return publicValues;
+}
+
 export function parseDiscoveryRuntimeConfig(
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): DiscoveryRuntimeConfig {
   const rawMode = configuredValue(environment, "CLUVVI_DISCOVERY_MODE") ?? "fixture";
-  if (rawMode === "fixture") return { mode: "fixture" };
+  const providerMode = parseProviderMode(
+    configuredValue(environment, "CLUVVI_DISCOVERY_PROVIDER_MODE"),
+  );
+  if (rawMode === "fixture") {
+    if (providerMode !== "fixture_only") {
+      throw new DiscoveryRuntimeConfigurationError(
+        "DISCOVERY_ENGINE_NOT_CONFIGURED",
+        "CLUVVI_DISCOVERY_PROVIDER_MODE=live_search requires CLUVVI_DISCOVERY_MODE=local_discovery_engine.",
+      );
+    }
+    return { mode: "fixture", providerMode: "fixture_only" };
+  }
   if (rawMode !== "local_discovery_engine") {
     throw new DiscoveryRuntimeConfigurationError(
       "DISCOVERY_ENGINE_NOT_CONFIGURED",
@@ -105,10 +178,13 @@ export function parseDiscoveryRuntimeConfig(
 
   return {
     mode: "local_discovery_engine",
+    providerMode,
     local: {
       projectPath,
       command,
       timeoutMs,
+      providerMode,
+      providerEnvironment: allowedDiscoveryProviderEnvironment(environment),
       keepExchangeFiles: parseKeepExchangeFiles(
         configuredValue(environment, "CLUVVI_DISCOVERY_KEEP_EXCHANGE_FILES"),
       ),

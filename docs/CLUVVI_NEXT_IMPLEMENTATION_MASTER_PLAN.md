@@ -54,8 +54,9 @@ Future API ┘
 - C1-E Opportunity Ranker: implemented with a transparent deterministic scorecard and negative/stale penalties.
 - C1-F Buyer Map Output: implemented with citations, risks, warnings, coverage gaps, and responsive browser presentation.
 - C1-G Local Discovery-to-Cluvvi Bridge: implemented with fixture-default and `local_discovery_engine` runtime modes, Project A-compatible request export, safe process execution, exact V2 validation, durable exchange evidence, timeout/cancellation, resume, idempotency, and browser proof.
+- C1-H Live Discovery Providers: implemented with explicit `fixture_only`/`live_search` modes, approved HN/Tavily/Brave routing, safe provider-environment allowlisting, strict live telemetry and credit validation, partial-provider disclosure, same-run failure/resume, and real desktop/mobile proof.
 
-Cluvvi now understands and plans, can invoke the standalone Project A CLI through a local file/process adapter, independently validates the exact returned V2 artifact, and runs the downstream intelligence pipeline through one durable engine. C1-G still uses fixture providers only and does not discover real customers.
+Cluvvi now understands and plans, can invoke the standalone Project A CLI through a local file/process adapter, validates the exact returned V2 artifact and live telemetry sidecar, and runs the downstream intelligence pipeline through one durable engine. C1-H performs real public search, but it remains search-snippet discovery rather than crawling, identity verification, contact enrichment, or confirmed customer intent.
 
 ## Ordered roadmap
 
@@ -73,8 +74,8 @@ Cluvvi now understands and plans, can invoke the standalone Project A CLI throug
 12. **C1-E** — Opportunity Ranker over fixture-derived evidence.
 13. **C1-F** — Buyer Map Output with fixture labeling and V2 citations.
 14. **C1-G** — Local file/process bridge from standalone Project A V2 output into Cluvvi — complete.
-15. **C1-H** — Research and approve the first live search-provider integration path.
-16. **C1-I** — Research and approve crawler/extractor boundaries only after C1-H.
+15. **C1-H** — Approved HN/Tavily/Brave live search-provider integration — complete.
+16. **C1-I** — Research and approve crawler/extractor boundaries after the C1-H search-only gate.
 17. **C2** — First narrow real discovery slice with preserved provenance.
 18. **C3** — Human evaluation and improvement loop.
 
@@ -323,7 +324,7 @@ C1-G requires `providerPreference: "fixture_only"`, rejects non-fixture provider
 
 - V1 and V2 validate independently.
 - V1 remains unchanged and separately valid.
-- C1-C through C1-G consume validated fixture-provider V2, not V1.
+- C1-C through C1-H consume independently validated V2, not V1; C1-H additionally validates the live provider telemetry sidecar.
 - A V2 consumer must reject V1 rather than guess missing planning or coverage data.
 - No V1-to-V2 adapter exists in C1-0.1 or Project B.
 - A future adapter requires a separate reviewed mapping, provenance rules, and tests.
@@ -338,8 +339,8 @@ The final compatibility gate has passed locally:
 
 ## Future phases
 
-- **C1-H:** Research, compare, and explicitly approve the first live search-provider integration path. Do not start it as part of C1-G.
-- **C1-I:** Add approved crawler/extractor boundaries only after C1-H provider behavior, safety, provenance, and cost controls are proven.
+- **C1-H:** Complete. Preserve the approved search-only HN/Tavily/Brave path, telemetry, budgets, and fixture regressions.
+- **C1-I:** Add crawler/extractor boundaries only after separate review of robots/terms, fetch limits, provenance, content storage, and cost controls.
 - **C2:** Execute a narrow real discovery slice with preserved provenance and honest coverage.
 - **C3:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
 

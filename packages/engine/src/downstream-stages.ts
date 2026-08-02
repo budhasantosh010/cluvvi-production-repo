@@ -77,6 +77,7 @@ function createDownstreamStage<TInput, TOutput>(input: {
         request: {
           stage: input.name,
           runtimeMode: context.run.config.discoveryRuntimeMode,
+          providerMode: context.run.config.discoveryProviderMode,
           inputArtifactKind:
             validated !== null &&
             typeof validated === "object" &&
@@ -93,7 +94,8 @@ function createDownstreamStage<TInput, TOutput>(input: {
           artifactType: input.artifactType,
           schemaVersion: input.schemaVersion,
           runtimeMode: context.run.config.discoveryRuntimeMode,
-          fixture: true,
+          providerMode: context.run.config.discoveryProviderMode,
+          fixture: context.run.config.discoveryProviderMode === "fixture_only",
         },
       });
       return output;
@@ -147,6 +149,7 @@ async function loadDiscoveryInput(context: StageContext): Promise<DiscoveryStage
       runId: context.run.id,
       mission: context.mission,
       understanding: MissionUnderstandingArtifactV1Schema.parse(understandingEnvelope.data),
+      providerMode: context.run.config.discoveryProviderMode,
     }),
     sourcePlan: sourcePlanEnvelope.data,
   };
@@ -160,7 +163,7 @@ export function createDownstreamFixtureStages(
     createDownstreamStage({
       name: "discovery",
       artifactType: "search_results",
-      version: "3.0.0",
+      version: "4.0.0",
       schemaVersion: "2.0",
       inputSchema: DiscoveryStageInputSchema,
       outputSchema: SearchResultsArtifactV2Schema,
@@ -168,13 +171,18 @@ export function createDownstreamFixtureStages(
       toolName: () =>
         discoveryRuntime.mode === "fixture"
           ? "fixture_internal_discovery_results"
-          : "local_discovery_engine_cli_fixture_provider",
+          : discoveryRuntime.providerMode === "live_search"
+            ? "local_discovery_engine_cli_live_providers"
+            : "local_discovery_engine_cli_fixture_provider",
       execute(discoveryInput, context) {
-        if (context.run.config.discoveryRuntimeMode !== discoveryRuntime.mode) {
+        if (
+          context.run.config.discoveryRuntimeMode !== discoveryRuntime.mode ||
+          context.run.config.discoveryProviderMode !== discoveryRuntime.providerMode
+        ) {
           throw new CluvviError({
             code: "DISCOVERY_ENGINE_NOT_CONFIGURED",
             category: "configuration",
-            message: `Run ${context.run.id} requires discovery mode ${context.run.config.discoveryRuntimeMode}, but the active runner is configured for ${discoveryRuntime.mode}.`,
+            message: `Run ${context.run.id} requires ${context.run.config.discoveryRuntimeMode}/${context.run.config.discoveryProviderMode}, but the active runner is configured for ${discoveryRuntime.mode}/${discoveryRuntime.providerMode}.`,
             retryable: true,
             stage: "discovery",
             context: { retrySafe: true, resumeSupported: true },

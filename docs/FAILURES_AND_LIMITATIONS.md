@@ -2004,15 +2004,15 @@ The parked Supabase implementation still contains migrations and database-backed
 
 **One-line solution:** Identify exact workspace process trees and wait for SQLite handles to close before deleting isolated test homes.
 
-## 110. C1-G remains a machine-local fixture-only bridge
+## 110. The local bridge remains machine-local
 
-**Limitation:** `local_discovery_engine` requires a configured absolute Project A path and trusted local command on the same machine. It is not a remote API, deployment boundary, or live-discovery capability.
+**Limitation:** `local_discovery_engine` requires a configured absolute Project A path and trusted local command on the same machine. It is not a remote API or deployment boundary.
 
-**Consequence:** A machine without Project A configured can use the default internal fixture mode but cannot execute the local bridge. Even when configured, Project A uses fixture providers only and produces synthetic data.
+**Consequence:** A machine without Project A configured can use the default internal fixture mode but cannot execute local Project A fixture or live search.
 
-**Safety boundary:** C1-G rejects non-fixture provider categories and paid-credit use, performs no network search, adds no crawler or extractor, and exposes no arbitrary command configuration through the browser.
+**Safety boundary:** C1-G fixture mode rejects non-fixture providers and paid credits. C1-H live mode permits only approved HN/Tavily/Brave search providers with strict telemetry, budgets, and secret allowlisting. Neither mode adds a crawler, extractor, contact enrichment, or arbitrary browser command configuration.
 
-**Next authorized milestone:** C1-H may research and explicitly approve a live search-provider integration path. C1-I crawlers/extractors remain separate and unstarted.
+**Next authorized milestone:** C1-I crawler/extractor research remains separate and unstarted.
 
 ## 111. Finalization builder and schema disagreed after advancing the roadmap
 
@@ -2103,3 +2103,183 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved; the focused application suite passes 6/6 and the complete workspace suite passes 63 tests with one opt-in cross-project test skipped by default.
 
 **One-line solution:** Forward supervisor cancellation through every layer to the process adapter, then prove it on the real durable runner path.
+
+## 116. C1-G controlled CLIs rejected the new provider-mode arguments
+
+**What failed:** Existing process tests returned command-exit code 9 after C1-H added `--provider-mode` to the trusted Project A CLI invocation.
+
+**Where:** The inline fake CLI in `local-process-discovery-runtime.test.ts` and `tests/fixtures/local-discovery-engine/fixture-cli.mjs`.
+
+**When:** First C1-H fixture-regression run.
+
+**Why:** The C1-G test doubles parsed exactly three arguments and treated the new fixed option as an invalid output flag.
+
+**How it appeared:** Fixture success, invalid JSON, schema mismatch, cancellation, and retry tests all failed at the command boundary before reaching their intended assertions.
+
+**What was tried:** Updated both controlled CLIs to parse the fixed argument list, kept `fixture_only` backward-compatible, and added deterministic live artifact/telemetry behaviors for C1-H tests.
+
+**Current status:** Resolved; the process suite passes fixture and live validation, timeout, cancellation, retry, partial coverage, and mismatch cases.
+
+**One-line solution:** Evolve controlled process fixtures with the public CLI contract instead of weakening the production invocation.
+
+## 117. The first bounded live bridge proof returned zero accepted results
+
+**What failed:** The first real Project A → Cluvvi live integration completed the full stage graph but the two-query cap produced no accepted search results.
+
+**Where:** `live-discovery-bridge.integration.test.ts` proof configuration.
+
+**When:** First real cross-project C1-H run.
+
+**Why:** The first two deterministic content-production plans were narrow Hacker News queries. They were valid but had no matching current hits; the first broad-web plan was third.
+
+**How it appeared:** Project A and Cluvvi contracts validated and the run completed, but the test's positive-result assertion failed.
+
+**What was tried:** Inspected only the deterministic plan order, increased the proof cap from two to three bounded queries so one broad-web plan executes, and kept assertions independent of exact titles, domains, rank order, or result count.
+
+**Current status:** Resolved; the actual Project A live integration returns current results, validates V2 and telemetry, and completes Buyer Map.
+
+**One-line solution:** Use a bounded proof input that reaches each intended provider family without asserting volatile search content.
+
+## 118. Invalid telemetry initially threatened run-page availability
+
+**What failed:** The application run view attempted to parse the live sidecar on every read, including after the discovery runtime had intentionally failed it as invalid.
+
+**Where:** `LocalCluvviApplicationService.getRun`.
+
+**When:** Before the controlled invalid-telemetry browser proof.
+
+**Why:** Provider telemetry is durable exchange evidence, but untrusted malformed JSON must not make the run-details API return 500 and hide the authoritative structured run failure.
+
+**How it appeared:** Static review showed the failed run page could become unreadable even though the engine had correctly persisted `DISCOVERY_ENGINE_TELEMETRY_INVALID_JSON`.
+
+**What was tried:** Kept runtime validation strict and failure evidence unchanged, but made the browser-facing optional telemetry view fall back to `null` when the preserved sidecar is untrusted.
+
+**Current status:** Resolved; the failed run page shows the exact error, downstream remains blocked, exchange files remain present, and the same run resumes after correction.
+
+**One-line solution:** Let the engine reject untrusted telemetry while keeping the structured failure page independent of optional sidecar rendering.
+
+## 119. Live screenshots exposed stale C1-G labels
+
+**What failed:** The first successful live screenshots still displayed “Local · no live data,” “future approved live bridge,” and “fixture findings.”
+
+**Where:** Mission Understanding presentation and deterministic downstream evidence summaries.
+
+**When:** First real desktop/mobile visual review.
+
+**Why:** The C1-G copy was accurate for fixture mode but had not been made provider-mode aware; two internal summary strings also unnecessarily used the word fixture.
+
+**How it appeared:** The surrounding live banner and provider telemetry were correct, but the stale labels contradicted the active run.
+
+**What was tried:** Passed provider mode into Mission Understanding, described the distinction between local query hypotheses and Project A's compiled provider queries, and renamed generic summary text to “evidence findings.”
+
+**Current status:** Resolved; regenerated desktop/mobile screenshots show consistent live-search language and manual-verification limitations.
+
+**One-line solution:** Treat runtime-mode copy as part of the contract and inspect complete visual states, not only API data.
+
+## 120. Hot-reloaded web code did not reload the separate runner
+
+**What failed:** After correcting downstream wording, the browser UI hot-reloaded but newly captured Buyer Maps still used the old worker text.
+
+**Where:** Multi-process `pnpm dev:local` environment.
+
+**When:** Regenerating final live screenshots.
+
+**Why:** Next.js hot reload applies only to the web process; the independent `tsx` runner is a long-running child without watch reload.
+
+**How it appeared:** Mission Understanding copy changed immediately, while downstream artifacts created by the existing runner retained the previous summary string.
+
+**What was tried:** Stopped the supervisor, identified and terminated only its detached workspace Next.js child, restarted from a clean isolated database, and reran the complete real-live desktop/mobile suite.
+
+**Current status:** Resolved; final screenshots and artifacts come from a fresh runner using the final source.
+
+**One-line solution:** Restart every process that executes changed code before accepting multi-process visual evidence.
+
+## 121. PowerShell reserved-variable collisions recurred during test cleanup
+
+**What failed:** One cleanup command assigned `$home`, and one process-inspection command assigned `$pid`; both are reserved case-insensitive PowerShell variables.
+
+**Where:** C1-H browser-test orchestration.
+
+**When:** Before the real live success proof and while checking a detached port owner.
+
+**Why:** PowerShell treats `$HOME` and `$PID` as read-only regardless of casing.
+
+**How it appeared:** The cleanup command attempted to target `C:\Users\Lenovo`, which Windows refused because it was in use; the inspection command reported the current PowerShell process instead of assigning the listener PID.
+
+**What was tried:** Confirmed no user file was deleted, replaced the variables with `$cluvviTestHome` and `$owningProcess`, enabled strict error handling, and terminated only processes whose command line matched this workspace.
+
+**Current status:** Resolved; isolated test homes were cleaned and port 3100 was verified free after every suite.
+
+**One-line solution:** Never use PowerShell automatic variable names for local orchestration state.
+
+## 122. The maintained fixture browser suite was run without its required external server
+
+**What failed:** All five active browser tests returned `ERR_CONNECTION_REFUSED`.
+
+**Where:** `pnpm test:browser-local` using `playwright.local.config.ts`.
+
+**When:** Final C1-H fixture regression pass.
+
+**Why:** The maintained Playwright configuration intentionally does not declare `webServer`; it expects `pnpm dev:local` to be running separately on port 3100.
+
+**How it appeared:** Every failure occurred at the first `page.goto("/")`; no product assertion or application code ran.
+
+**What was tried:** Inspected the Playwright configuration, started a clean fixture-mode local environment on an isolated `CLUVVI_HOME`, and reran the unchanged suite.
+
+**Current status:** Resolved; five active tests passed and the two special-mode tests remained intentionally skipped.
+
+**One-line solution:** Start the externally managed local environment before invoking the maintained browser suite.
+
+## 123. The C1-G browser regression expected a superseded exact UI label
+
+**What failed:** Both C1-G success tests completed the full product flow but could not find the exact text `Local engine`.
+
+**Where:** `tests/browser-local/cluvvi-local-discovery.spec.ts` in `waitForLocalCompletion`.
+
+**When:** Final C1-G compatibility regression after C1-H UI wording improvements.
+
+**Why:** The final UI renamed the discovery-runtime metric to the more precise `Local fixture`; the regression assertion still encoded the old label.
+
+**How it appeared:** Runs completed, artifacts and Buyer Map were visible, and only the exact-text assertion failed.
+
+**What was tried:** Inspected Playwright's accessibility snapshot, confirmed the current truthful label, updated only the stale assertion, and reran the suite.
+
+**Current status:** Resolved; desktop and mobile C1-G tests pass 2/2.
+
+**One-line solution:** Assert the current stable semantic label when product copy is deliberately made more precise.
+
+## 124. The final release gate stopped on formatting after the last ledger and regression edits
+
+**What failed:** `pnpm check` stopped at `prettier --check` for two recently edited files.
+
+**Where:** `docs/FAILURES_AND_LIMITATIONS.md` and `tests/browser-local/cluvvi-local-discovery.spec.ts`.
+
+**When:** Final Project B release gate after browser regressions.
+
+**Why:** The last documentation append and one-line test assertion update had not yet been passed through Prettier.
+
+**How it appeared:** No lint, type, test, or build step ran because formatting is the first aggregate gate.
+
+**What was tried:** Limited formatting to the two reported files and reran the unchanged aggregate gate.
+
+**Current status:** Resolved by the focused formatting pass below.
+
+**One-line solution:** Format every last-minute documentation or test edit before the final aggregate gate.
+
+## 125. The first forbidden-scope scan matched protective boundary text
+
+**What failed:** The final C1-I scope scan reported forbidden runtime scope.
+
+**Where:** Added strings in `packages/engine/src/artifact-writer.ts`.
+
+**When:** Final security and scope audit.
+
+**Why:** The broad keyword scan matched sentences explicitly stating that crawling, extraction, contact enrichment, and outreach were not started.
+
+**How it appeared:** The scan found only negative boundary declarations, not implementations, imports, dependencies, or executable paths.
+
+**What was tried:** Inspected the exact added lines and refined the audit to distinguish protective declarations from executable forbidden-scope code.
+
+**Current status:** Resolved; no C1-I implementation or dependency is present.
+
+**One-line solution:** Review positive keyword hits semantically before treating boundary documentation as executable scope.

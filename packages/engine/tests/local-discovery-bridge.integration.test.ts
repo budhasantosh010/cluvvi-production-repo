@@ -45,6 +45,8 @@ integration("C1-G real Project A bridge", () => {
         command: process.env["CLUVVI_DISCOVERY_ENGINE_COMMAND"]?.trim() || "pnpm",
         timeoutMs: 60_000,
         keepExchangeFiles: true,
+        providerMode: "fixture_only",
+        providerEnvironment: {},
       },
       runsDirectory,
     });
@@ -53,6 +55,7 @@ integration("C1-G real Project A bridge", () => {
       artifactWriter,
       stages: createDefaultStageRegistry({ discoveryRuntime }),
       discoveryRuntimeMode: discoveryRuntime.mode,
+      discoveryProviderMode: discoveryRuntime.providerMode,
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
     });
 

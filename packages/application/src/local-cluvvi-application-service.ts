@@ -8,13 +8,18 @@ import {
   createOpaqueId,
   type ArtifactRecord,
   type ArtifactType,
+  type DiscoveryProviderMode,
   type DiscoveryRuntimeMode,
   type LocalRun,
   type LocalRunEvent,
   type MissionInputV1,
   type RunRequest,
 } from "@cluvvi/core";
-import { LOCAL_ENGINE_VERSION, createRunCreationRecords } from "@cluvvi/engine";
+import {
+  LOCAL_ENGINE_VERSION,
+  createRunCreationRecords,
+  readLiveProviderTelemetry,
+} from "@cluvvi/engine";
 import type { LocalCluvviPaths, LocalRuntimeStore } from "@cluvvi/storage";
 import type {
   CapabilityReport,
@@ -29,6 +34,8 @@ const FIXTURE_WARNING =
   "The current workflow processes a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. It does not contain live market discovery.";
 const LOCAL_DISCOVERY_WARNING =
   "This run uses the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery.";
+const LIVE_DISCOVERY_WARNING =
+  "This run uses live search snippets from Hacker News, Tavily, and Brave through the local Discovery Engine. Pages are not crawled or deeply extracted, and identity or contact details are not verified.";
 
 export class ApplicationServiceError extends Error {
   readonly code: string;
@@ -48,17 +55,20 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
   readonly #store: LocalRuntimeStore;
   readonly #paths: LocalCluvviPaths;
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
+  readonly #discoveryProviderMode: DiscoveryProviderMode;
   readonly #now: () => string;
 
   constructor(input: {
     store: LocalRuntimeStore;
     paths: LocalCluvviPaths;
     discoveryRuntimeMode?: DiscoveryRuntimeMode;
+    discoveryProviderMode?: DiscoveryProviderMode;
     now?: () => string;
   }) {
     this.#store = input.store;
     this.#paths = input.paths;
     this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
+    this.#discoveryProviderMode = input.discoveryProviderMode ?? "fixture_only";
     this.#now = input.now ?? (() => new Date().toISOString());
   }
 
@@ -80,6 +90,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       sourceFile: "browser://mission-form",
       now,
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
+      discoveryProviderMode: this.#discoveryProviderMode,
     });
     const request = RunRequestSchema.parse({
       id: createOpaqueId("request"),
@@ -119,6 +130,13 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
     const reused = new Set(
       events.filter((event) => event.eventType === "stage_reused").map((event) => event.phase),
     );
+    const providerTelemetry =
+      run.config.discoveryProviderMode === "live_search"
+        ? await readLiveProviderTelemetry({
+            runsDirectory: this.#paths.runsDirectory,
+            runId,
+          }).catch(() => null)
+        : null;
     const stages: RunStageView[] = ORDERED_RUN_PHASES.map((name) => {
       const attempts = executions.filter((execution) => execution.stageName === name);
       const latest = attempts.at(-1);
@@ -139,7 +157,16 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       }
       return { name, status: "pending" };
     });
-    return { run, mission, stages, events, artifacts, requests, fixture: true };
+    return {
+      run,
+      mission,
+      stages,
+      events,
+      artifacts,
+      requests,
+      providerTelemetry,
+      fixture: run.config.discoveryProviderMode === "fixture_only",
+    };
   }
 
   async listRuns(input: { limit?: number; status?: LocalRun["status"] } = {}): Promise<LocalRun[]> {
@@ -208,21 +235,24 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
 
   async getCapabilities(): Promise<CapabilityReport> {
     return {
-      mode: "fixture",
+      mode: this.#discoveryProviderMode === "live_search" ? "live_search" : "fixture",
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
+      discoveryProviderMode: this.#discoveryProviderMode,
       capabilities: {
         localEngine: true,
         missionCompiler: false,
-        webSearch: false,
+        webSearch: this.#discoveryProviderMode === "live_search",
         webFetch: false,
         enrichment: false,
         youtube: false,
         outreach: false,
       },
       warnings: [
-        this.#discoveryRuntimeMode === "local_discovery_engine"
-          ? LOCAL_DISCOVERY_WARNING
-          : FIXTURE_WARNING,
+        this.#discoveryProviderMode === "live_search"
+          ? LIVE_DISCOVERY_WARNING
+          : this.#discoveryRuntimeMode === "local_discovery_engine"
+            ? LOCAL_DISCOVERY_WARNING
+            : FIXTURE_WARNING,
       ],
     };
   }
@@ -238,8 +268,9 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       databaseInstanceId: await this.#store.getDatabaseInstanceId(),
       migrationVersion: await this.#store.getMigrationVersion(),
       engineVersion: LOCAL_ENGINE_VERSION,
-      mode: "fixture",
+      mode: this.#discoveryProviderMode === "live_search" ? "live_search" : "fixture",
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
+      discoveryProviderMode: this.#discoveryProviderMode,
       runner: { available, heartbeat },
     };
   }

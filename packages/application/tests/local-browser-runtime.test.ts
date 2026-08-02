@@ -8,10 +8,11 @@ import {
   CluvviEngine,
   LocalArtifactWriter,
   createDefaultStageRegistry,
+  discoveryExchangePaths,
   type DiscoveryRuntime,
 } from "@cluvvi/engine";
 import { SqliteCluvviStore, type LocalCluvviPaths } from "@cluvvi/storage";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -225,6 +226,7 @@ describe("C0.5 local browser runtime", () => {
       });
       const discoveryRuntime: DiscoveryRuntime = {
         mode: "local_discovery_engine",
+        providerMode: "fixture_only",
         providerConfigurationFingerprint: "test-local-discovery-abort",
         async execute(input) {
           observedSignal = input.signal;
@@ -312,6 +314,77 @@ describe("C0.5 local browser runtime", () => {
       );
     } finally {
       await store.releaseRunnerLeadership("runner-existing");
+      await store.close();
+    }
+  });
+
+  it("loads durable live-provider telemetry into the run view without exposing secrets", async () => {
+    const { paths, store } = await runtime();
+    const service = new LocalCluvviApplicationService({
+      store,
+      paths,
+      discoveryRuntimeMode: "local_discovery_engine",
+      discoveryProviderMode: "live_search",
+    });
+    try {
+      const created = await service.createRun(mission, "browser-live-telemetry-0001");
+      const exchange = discoveryExchangePaths(paths.runsDirectory, created.view.run.id);
+      await mkdir(exchange.directory, { recursive: true });
+      await writeFile(
+        exchange.providerTelemetryPath,
+        `${JSON.stringify(
+          {
+            schemaVersion: "1.0",
+            artifactKind: "live_provider_run_telemetry.v1",
+            requestId: created.view.run.id,
+            providerMode: "live_search",
+            configurationFingerprint: "a".repeat(64),
+            generatedAt: "2026-08-02T10:00:00.000Z",
+            providerExecutions: [
+              {
+                providerId: "brave_web_search",
+                queryId: "plan_live",
+                sourceZone: "general_web",
+                searchMethod: "keyword_search",
+                operation: "search",
+                startedAt: "2026-08-02T10:00:00.000Z",
+                completedAt: "2026-08-02T10:00:01.000Z",
+                durationMs: 1000,
+                attempts: 1,
+                statusCode: 200,
+                resultsReceived: 1,
+                resultsAccepted: 1,
+                rateLimited: false,
+                success: true,
+                providerUsage: { braveRequests: 1 },
+              },
+            ],
+            budget: {
+              hacker_news_algolia: { used: 0, limit: 4 },
+              hacker_news_firebase: { used: 0, limit: 8 },
+              tavily_search: { used: 0, limit: 3 },
+              brave_web_search: { used: 1, limit: 3 },
+            },
+            usage: {
+              tavilyRequests: 0,
+              tavilyCredits: 0,
+              braveRequests: 1,
+              hackerNewsAlgoliaRequests: 0,
+              hackerNewsFirebaseRequests: 0,
+            },
+            warnings: ["Live snippets were not crawled."],
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+      const view = await service.getRun(created.view.run.id);
+      expect(view?.run.config.discoveryProviderMode).toBe("live_search");
+      expect(view?.fixture).toBe(false);
+      expect(view?.providerTelemetry?.usage.braveRequests).toBe(1);
+      expect(JSON.stringify(view?.providerTelemetry)).not.toContain("secret");
+    } finally {
       await store.close();
     }
   });

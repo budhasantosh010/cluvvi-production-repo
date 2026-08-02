@@ -1,43 +1,40 @@
 import {
   CluvviError,
+  LIVE_DISCOVERY_PROVIDER_IDS,
+  LiveProviderRunTelemetryV1Schema,
   LocalDiscoveryExecutionRecordV1Schema,
   SearchResultsArtifactV2Schema,
+  type LiveProviderRunTelemetryV1,
   type LocalDiscoveryExecutionRecordV1,
   type SearchResultsArtifactV2,
 } from "@cluvvi/core";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createWriteStream, existsSync } from "node:fs";
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, isAbsolute, resolve } from "node:path";
 import { finished } from "node:stream/promises";
 import { setTimeout as delay } from "node:timers/promises";
-import type { LocalDiscoveryEngineConfig } from "./discovery-runtime-config";
+import {
+  publicDiscoveryProviderEnvironment,
+  type LocalDiscoveryEngineConfig,
+} from "./discovery-runtime-config";
+import {
+  DISCOVERY_EXCHANGE_FILE_NAMES,
+  discoveryExchangePaths,
+  type DiscoveryExchangePaths,
+} from "./discovery-exchange";
 import type { DiscoveryRuntime, DiscoveryRuntimeExecutionInput } from "./discovery-runtime";
-
-const EXCHANGE_FILE_NAMES = [
-  "discovery-request.v1.json",
-  "search-results.v2.json",
-  "discovery-stdout.log",
-  "discovery-stderr.log",
-  "discovery-execution.json",
-] as const;
-
-interface ExchangePaths {
-  directory: string;
-  requestPath: string;
-  outputPath: string;
-  stdoutPath: string;
-  stderrPath: string;
-  executionPath: string;
-}
 
 interface ChildOutcome {
   exitCode: number | null;
   error?: Error;
 }
 
-function safeChildEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+function safeChildEnvironment(
+  environment: NodeJS.ProcessEnv,
+  providerEnvironment: Readonly<Record<string, string | undefined>> = {},
+): NodeJS.ProcessEnv {
   const safe: NodeJS.ProcessEnv = {
     CI: "1",
     NO_COLOR: "1",
@@ -59,6 +56,9 @@ function safeChildEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv
     "PNPM_HOME",
   ]) {
     const value = environment[key];
+    if (value !== undefined) safe[key] = value;
+  }
+  for (const [key, value] of Object.entries(providerEnvironment)) {
     if (value !== undefined) safe[key] = value;
   }
   return safe;
@@ -125,9 +125,9 @@ async function writeAtomically(path: string, content: string | Buffer): Promise<
   await rename(temporaryPath, path);
 }
 
-async function archivePreviousExchange(paths: ExchangePaths): Promise<void> {
+async function archivePreviousExchange(paths: DiscoveryExchangePaths): Promise<void> {
   const existing: string[] = [];
-  for (const name of EXCHANGE_FILE_NAMES) {
+  for (const name of DISCOVERY_EXCHANGE_FILE_NAMES) {
     const path = resolve(paths.directory, name);
     if (await pathExists(path)) existing.push(path);
   }
@@ -212,23 +212,106 @@ function failureCategory(
 ): "configuration" | "validation" | "provider" | "timeout" | "storage" | "security" | "internal" {
   if (code === "DISCOVERY_ENGINE_TIMEOUT") return "timeout";
   if (code === "DISCOVERY_ENGINE_ARTIFACT_PERSISTENCE_FAILED") return "storage";
-  if (code === "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER") return "security";
+  if (
+    code === "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER" ||
+    code === "DISCOVERY_ENGINE_PROVIDER_MODE_MISMATCH"
+  ) {
+    return "security";
+  }
   if (
     code === "DISCOVERY_ENGINE_OUTPUT_INVALID_JSON" ||
     code === "DISCOVERY_ENGINE_SCHEMA_MISMATCH" ||
-    code === "DISCOVERY_ENGINE_REQUEST_ID_MISMATCH"
+    code === "DISCOVERY_ENGINE_REQUEST_ID_MISMATCH" ||
+    code === "DISCOVERY_ENGINE_TELEMETRY_INVALID_JSON" ||
+    code === "DISCOVERY_ENGINE_TELEMETRY_SCHEMA_MISMATCH" ||
+    code === "DISCOVERY_ENGINE_TELEMETRY_REQUEST_ID_MISMATCH" ||
+    code === "DISCOVERY_ENGINE_USAGE_MISMATCH"
   ) {
     return "validation";
   }
-  if (code === "DISCOVERY_ENGINE_COMMAND_FAILED" || code === "DISCOVERY_ENGINE_OUTPUT_MISSING") {
+  if (
+    code === "DISCOVERY_ENGINE_COMMAND_FAILED" ||
+    code === "DISCOVERY_ENGINE_OUTPUT_MISSING" ||
+    code === "DISCOVERY_ENGINE_TELEMETRY_MISSING"
+  ) {
     return "provider";
   }
   if (code === "DISCOVERY_ENGINE_CANCELLED") return "internal";
   return "configuration";
 }
 
+interface ProviderValidationFailure {
+  code: string;
+  message: string;
+}
+
+function providerIdsFor(artifact: SearchResultsArtifactV2): string[] {
+  return [
+    ...new Set([
+      ...artifact.summary.providersUsed,
+      ...artifact.providerBreakdown.map((provider) => provider.providerId),
+      ...artifact.results.map((result) => result.providerId),
+    ]),
+  ];
+}
+
+function validateFixtureProviderOutput(
+  artifact: SearchResultsArtifactV2,
+): ProviderValidationFailure | undefined {
+  const providerIds = providerIdsFor(artifact);
+  const fixtureOnly =
+    providerIds.length > 0 &&
+    artifact.summary.paidCreditsUsed === 0 &&
+    artifact.providerBreakdown.every((provider) => provider.providerCategory === "fixture") &&
+    artifact.results.every((result) => result.providerCategory === "fixture");
+  return fixtureOnly
+    ? undefined
+    : {
+        code: "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
+        message:
+          "Fixture-provider mode rejected Discovery Engine output that used live providers or paid credits.",
+      };
+}
+
+function validateLiveProviderOutput(
+  artifact: SearchResultsArtifactV2,
+  telemetry: LiveProviderRunTelemetryV1,
+): ProviderValidationFailure | undefined {
+  const providerIds = providerIdsFor(artifact);
+  const allowed = new Set<string>(LIVE_DISCOVERY_PROVIDER_IDS);
+  if (providerIds.length === 0 || providerIds.some((providerId) => !allowed.has(providerId))) {
+    return {
+      code: "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
+      message: "Live-provider mode received an unsupported or missing Discovery Engine provider.",
+    };
+  }
+  if (
+    artifact.providerBreakdown.some(
+      (provider) =>
+        !(["free", "paid"] as const).includes(provider.providerCategory as "free" | "paid"),
+    ) ||
+    artifact.results.some(
+      (result) => !(["free", "paid"] as const).includes(result.providerCategory as "free" | "paid"),
+    )
+  ) {
+    return {
+      code: "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
+      message: "Live-provider mode rejected fixture or manual provider categories.",
+    };
+  }
+  if (artifact.summary.paidCreditsUsed !== telemetry.usage.tavilyCredits) {
+    return {
+      code: "DISCOVERY_ENGINE_USAGE_MISMATCH",
+      message:
+        "The Discovery Engine artifact paid-credit total does not match its provider telemetry.",
+    };
+  }
+  return undefined;
+}
+
 export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly mode = "local_discovery_engine" as const;
+  readonly providerMode: LocalDiscoveryEngineConfig["providerMode"];
   readonly providerConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
@@ -245,18 +328,32 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.#runsDirectory = input.runsDirectory;
     this.#now = input.now ?? (() => new Date().toISOString());
     this.#environment = input.environment ?? process.env;
-    this.providerConfigurationFingerprint = [
-      this.mode,
-      this.#config.projectPath,
-      this.#config.command,
-      this.#config.timeoutMs,
-      this.#config.keepExchangeFiles,
-    ].join(":");
+    this.providerMode = this.#config.providerMode;
+    this.providerConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          providerMode: this.providerMode,
+          projectPath: this.#config.projectPath,
+          command: this.#config.command,
+          timeoutMs: this.#config.timeoutMs,
+          keepExchangeFiles: this.#config.keepExchangeFiles,
+          providerEnvironment: publicDiscoveryProviderEnvironment(this.#config.providerEnvironment),
+        }),
+      )
+      .digest("hex");
   }
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {
-    const paths = this.#paths(input.runId);
-    const arguments_ = ["discover", paths.requestPath, "--output", paths.outputPath];
+    const paths = discoveryExchangePaths(this.#runsDirectory, input.runId);
+    const arguments_ = [
+      "discover",
+      paths.requestPath,
+      "--provider-mode",
+      this.providerMode,
+      "--output",
+      paths.outputPath,
+    ];
     try {
       await mkdir(paths.directory, { recursive: true });
       await archivePreviousExchange(paths);
@@ -284,7 +381,10 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     );
     const stdout = createWriteStream(paths.stdoutPath, { flags: "w" });
     const stderr = createWriteStream(paths.stderrPath, { flags: "w" });
-    const childEnvironment = safeChildEnvironment(this.#environment);
+    const childEnvironment = safeChildEnvironment(
+      this.#environment,
+      this.#config.providerEnvironment,
+    );
     const invocation = resolveSpawnInvocation(this.#config.command, arguments_, childEnvironment);
     let child;
     try {
@@ -503,18 +603,107 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       });
     }
 
-    const providerIds = [
-      ...new Set([
-        ...artifact.summary.providersUsed,
-        ...artifact.providerBreakdown.map((provider) => provider.providerId),
-      ]),
-    ];
-    const fixtureOnly =
-      providerIds.length > 0 &&
-      artifact.summary.paidCreditsUsed === 0 &&
-      artifact.providerBreakdown.every((provider) => provider.providerCategory === "fixture") &&
-      artifact.results.every((result) => result.providerCategory === "fixture");
-    if (!fixtureOnly) {
+    let providerTelemetry: LiveProviderRunTelemetryV1 | undefined;
+    if (this.providerMode === "live_search") {
+      if (!(await pathExists(paths.providerTelemetryPath))) {
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "DISCOVERY_ENGINE_TELEMETRY_MISSING",
+          message: "The live Discovery Engine run did not create its provider telemetry sidecar.",
+        });
+      }
+      let untrustedTelemetry: unknown;
+      try {
+        untrustedTelemetry = JSON.parse(
+          (await readFile(paths.providerTelemetryPath)).toString("utf8"),
+        ) as unknown;
+      } catch (error) {
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "DISCOVERY_ENGINE_TELEMETRY_INVALID_JSON",
+          message: "The live Discovery Engine provider telemetry is not valid JSON.",
+          cause: error,
+        });
+      }
+      const telemetryValidation = LiveProviderRunTelemetryV1Schema.safeParse(untrustedTelemetry);
+      if (!telemetryValidation.success) {
+        const issue = telemetryValidation.error.issues[0];
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "DISCOVERY_ENGINE_TELEMETRY_SCHEMA_MISMATCH",
+          message: `The provider telemetry does not satisfy live_provider_run_telemetry.v1${
+            issue === undefined ? "." : `: ${issue.path.join(".")} ${issue.message}`
+          }`,
+        });
+      }
+      providerTelemetry = telemetryValidation.data;
+      if (providerTelemetry.requestId !== input.request.requestId) {
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "DISCOVERY_ENGINE_TELEMETRY_REQUEST_ID_MISMATCH",
+          message: `The provider telemetry returned requestId ${providerTelemetry.requestId}, expected ${input.request.requestId}.`,
+        });
+      }
+      if (providerTelemetry.providerMode !== this.providerMode) {
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "DISCOVERY_ENGINE_PROVIDER_MODE_MISMATCH",
+          message: `The provider telemetry reported ${providerTelemetry.providerMode}, expected ${this.providerMode}.`,
+        });
+      }
+    }
+
+    const providerValidation =
+      this.providerMode === "fixture_only"
+        ? validateFixtureProviderOutput(artifact)
+        : providerTelemetry === undefined
+          ? {
+              code: "DISCOVERY_ENGINE_TELEMETRY_MISSING",
+              message:
+                "The live Discovery Engine run completed without validated provider telemetry.",
+            }
+          : validateLiveProviderOutput(artifact, providerTelemetry);
+    if (providerValidation !== undefined) {
       return await this.#fail({
         input,
         paths,
@@ -525,11 +714,11 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         exitCode: 0,
         timedOut: false,
         cancelled: false,
-        code: "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
-        message:
-          "C1-G rejected Discovery Engine output that was not fixture-only or used paid credits.",
+        code: providerValidation.code,
+        message: providerValidation.message,
       });
     }
+    const providerIds = providerIdsFor(artifact);
 
     const completedAt = this.#now();
     const record = LocalDiscoveryExecutionRecordV1Schema.parse({
@@ -541,6 +730,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       ...(projectCommitSha === undefined ? {} : { projectCommitSha }),
       command: this.#config.command,
       arguments: arguments_,
+      providerMode: this.providerMode,
       startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - startedAtMs),
@@ -551,6 +741,15 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       outputPath: paths.outputPath,
       stdoutPath: paths.stdoutPath,
       stderrPath: paths.stderrPath,
+      ...(providerTelemetry === undefined
+        ? { providerTelemetryImported: false }
+        : {
+            providerTelemetryPath: paths.providerTelemetryPath,
+            providerTelemetryImported: true,
+            providerConfigurationFingerprint: providerTelemetry.configurationFingerprint,
+            providerUsage: providerTelemetry.usage,
+            providerWarnings: providerTelemetry.warnings,
+          }),
       providerIds,
       success: true,
     });
@@ -583,21 +782,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     return artifact;
   }
 
-  #paths(runId: string): ExchangePaths {
-    const directory = resolve(this.#runsDirectory, runId, "discovery-exchange");
-    return {
-      directory,
-      requestPath: resolve(directory, "discovery-request.v1.json"),
-      outputPath: resolve(directory, "search-results.v2.json"),
-      stdoutPath: resolve(directory, "discovery-stdout.log"),
-      stderrPath: resolve(directory, "discovery-stderr.log"),
-      executionPath: resolve(directory, "discovery-execution.json"),
-    };
-  }
-
   async #fail(input: {
     input: DiscoveryRuntimeExecutionInput;
-    paths: ExchangePaths;
+    paths: DiscoveryExchangePaths;
     arguments_: string[];
     startedAt: string;
     startedAtMs: number;
@@ -619,6 +806,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       ...(input.projectCommitSha === undefined ? {} : { projectCommitSha: input.projectCommitSha }),
       command: this.#config.command,
       arguments: input.arguments_,
+      providerMode: this.providerMode,
       startedAt: input.startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - input.startedAtMs),
@@ -629,6 +817,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       outputPath: input.paths.outputPath,
       stdoutPath: input.paths.stdoutPath,
       stderrPath: input.paths.stderrPath,
+      ...(this.providerMode === "live_search"
+        ? {
+            providerTelemetryPath: input.paths.providerTelemetryPath,
+            providerTelemetryImported: false,
+          }
+        : { providerTelemetryImported: false }),
       success: false,
       errorCode: input.code,
       errorMessage: input.message,
@@ -644,15 +838,26 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         code: input.code,
         category: failureCategory(input.code),
         message: input.message,
-        retryable: input.code !== "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
+        retryable: ![
+          "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
+          "DISCOVERY_ENGINE_PROVIDER_MODE_MISMATCH",
+          "DISCOVERY_ENGINE_USAGE_MISMATCH",
+        ].includes(input.code),
         stage: "discovery",
         context: {
           executionRecordPath: input.paths.executionPath,
           requestPath: input.paths.requestPath,
           outputPath: input.paths.outputPath,
+          ...(this.providerMode === "live_search"
+            ? { providerTelemetryPath: input.paths.providerTelemetryPath }
+            : {}),
           stdoutPath: input.paths.stdoutPath,
           stderrPath: input.paths.stderrPath,
-          retrySafe: input.code !== "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
+          retrySafe: ![
+            "DISCOVERY_ENGINE_UNEXPECTED_PROVIDER",
+            "DISCOVERY_ENGINE_PROVIDER_MODE_MISMATCH",
+            "DISCOVERY_ENGINE_USAGE_MISMATCH",
+          ].includes(input.code),
           resumeSupported: true,
         },
         ...(input.cause === undefined

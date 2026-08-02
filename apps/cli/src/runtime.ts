@@ -20,6 +20,7 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
     stages: createDefaultStageRegistry({ discoveryRuntime }),
     artifactWriter,
     discoveryRuntimeMode: discoveryRuntime.mode,
+    discoveryProviderMode: discoveryRuntime.providerMode,
     providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
     ...(eventSink === undefined ? {} : { eventSink }),
   });

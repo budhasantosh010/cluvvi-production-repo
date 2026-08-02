@@ -51,6 +51,19 @@ describe("Mission Understanding to discovery_request.v1 adapter", () => {
     expect(request.geography).toBeUndefined();
   });
 
+  it("selects balanced paid-allowed discovery only for explicit live mode", () => {
+    const mission = localMission(["global"]);
+    const request = createDiscoveryRequestV1({
+      runId: createOpaqueId("run"),
+      mission,
+      understanding: generateMissionUnderstandingArtifactV1(mission.input),
+      providerMode: "live_search",
+    });
+    expect(request.discoveryMode).toBe("balanced");
+    expect(request.providerPreference).toBe("paid_allowed");
+    expect(request.geography).toBeUndefined();
+  });
+
   it("maps only explicitly structured geography", () => {
     const mission = localMission(["country: US", "region: California", "city: Los Angeles"]);
     const request = createDiscoveryRequestV1({

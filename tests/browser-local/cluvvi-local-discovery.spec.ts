@@ -28,7 +28,7 @@ async function waitForLocalCompletion(page: Page): Promise<void> {
   await expect(page.getByTestId("fixture-provider-warning")).toContainText(
     "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery.",
   );
-  await expect(page.getByText("Local engine", { exact: true })).toBeVisible();
+  await expect(page.getByText("Local fixture", { exact: true })).toBeVisible();
   const buyerMap = page.getByTestId("project-b-fixture-pipeline");
   await expect(
     buyerMap.getByRole("heading", { name: "Local-engine Fixture Buyer Map" }),

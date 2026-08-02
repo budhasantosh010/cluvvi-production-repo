@@ -38,6 +38,7 @@ async function main(): Promise<void> {
       artifactWriter,
       stages: createDefaultStageRegistry({ discoveryRuntime }),
       discoveryRuntimeMode: discoveryRuntime.mode,
+      discoveryProviderMode: discoveryRuntime.providerMode,
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
       stageDelayMs: Number(process.env["CLUVVI_FIXTURE_STAGE_DELAY_MS"] ?? 120),
     }),
@@ -45,6 +46,7 @@ async function main(): Promise<void> {
     hostname: hostname(),
     processId: process.pid,
     discoveryRuntimeMode: discoveryRuntime.mode,
+    discoveryProviderMode: discoveryRuntime.providerMode,
     pollIntervalMs: Number(process.env["CLUVVI_RUNNER_POLL_MS"] ?? 750),
     ...(failStage === undefined ? {} : { failStage }),
     onReady: async () => {
@@ -54,8 +56,13 @@ async function main(): Promise<void> {
           `Runner: ${runnerId}`,
           `SQLite: ${paths.databasePath}`,
           `Database instance: ${await store.getDatabaseInstanceId()}`,
-          "Data mode: fixture-only",
+          `Data mode: ${
+            discoveryRuntime.providerMode === "live_search"
+              ? "live search snippets with deterministic local downstream analysis"
+              : "fixture-only"
+          }`,
           `Discovery runtime: ${discoveryRuntime.mode}`,
+          `Discovery providers: ${discoveryRuntime.providerMode}`,
         ].join("\n"),
       );
     },
