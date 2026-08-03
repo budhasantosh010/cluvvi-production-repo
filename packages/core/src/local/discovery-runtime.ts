@@ -8,9 +8,15 @@ export type DiscoveryRuntimeMode = z.infer<typeof DiscoveryRuntimeModeSchema>;
 export const DiscoveryProviderModeSchema = z.enum(["fixture_only", "live_search"]);
 export type DiscoveryProviderMode = z.infer<typeof DiscoveryProviderModeSchema>;
 
+export const DiscoveryProviderPolicySchema = z.enum(["free_only", "balanced", "paid_deep"]);
+export type DiscoveryProviderPolicy = z.infer<typeof DiscoveryProviderPolicySchema>;
+
 export const LIVE_DISCOVERY_PROVIDER_IDS = [
   "hacker_news_algolia",
   "hacker_news_firebase",
+  "searxng_search",
+  "duckduckgo_html_search",
+  "startpage_html_search",
   "tavily_search",
   "brave_web_search",
 ] as const;
@@ -38,6 +44,7 @@ export const LiveProviderExecutionRecordV1Schema = z
         tavilyCredits: z.number().nonnegative().optional(),
         braveRequests: z.number().int().nonnegative().optional(),
         hnRequests: z.number().int().nonnegative().optional(),
+        freeRequests: z.number().int().nonnegative().optional(),
       })
       .strict()
       .optional(),
@@ -61,6 +68,9 @@ export const LiveProviderUsageV1Schema = z
     braveRequests: z.number().int().nonnegative(),
     hackerNewsAlgoliaRequests: z.number().int().nonnegative(),
     hackerNewsFirebaseRequests: z.number().int().nonnegative(),
+    searxngRequests: z.number().int().nonnegative().optional(),
+    duckDuckGoRequests: z.number().int().nonnegative().optional(),
+    startpageRequests: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type LiveProviderUsageV1 = z.infer<typeof LiveProviderUsageV1Schema>;
@@ -80,6 +90,9 @@ export const LiveProviderRunTelemetryV1Schema = z
         hacker_news_firebase: LiveProviderBudgetEntrySchema,
         tavily_search: LiveProviderBudgetEntrySchema,
         brave_web_search: LiveProviderBudgetEntrySchema,
+        searxng_search: LiveProviderBudgetEntrySchema.optional(),
+        duckduckgo_html_search: LiveProviderBudgetEntrySchema.optional(),
+        startpage_html_search: LiveProviderBudgetEntrySchema.optional(),
       })
       .strict(),
     usage: LiveProviderUsageV1Schema,
@@ -87,6 +100,58 @@ export const LiveProviderRunTelemetryV1Schema = z
   })
   .strict();
 export type LiveProviderRunTelemetryV1 = z.infer<typeof LiveProviderRunTelemetryV1Schema>;
+
+export const ProviderPolicyAttemptV1Schema = z
+  .object({
+    providerId: z.string().min(1),
+    order: z.number().int().positive(),
+    attempted: z.boolean(),
+    skippedReason: z.string().min(1).optional(),
+    outcome: z.enum([
+      "success",
+      "zero_results",
+      "insufficient_coverage",
+      "failed",
+      "blocked_by_policy",
+      "budget_exhausted",
+    ]),
+    acceptedResults: z.number().int().nonnegative(),
+    uniqueDomains: z.number().int().nonnegative(),
+    duplicateRatio: z.number().min(0).max(1),
+    paid: z.boolean(),
+    safeFailureCode: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const ProviderPolicyQueryTraceV1Schema = z
+  .object({
+    queryId: z.string().min(1),
+    sourceZone: SourceZoneSchema,
+    searchMethod: SearchMethodSchema,
+    attempts: z.array(ProviderPolicyAttemptV1Schema),
+    finalDecision: z.enum([
+      "sufficient_free_coverage",
+      "incomplete_free_coverage",
+      "paid_fallback_used",
+      "all_providers_failed",
+    ]),
+    paidFallbackReason: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const ProviderPolicyTraceV1Schema = z
+  .object({
+    schemaVersion: z.literal("1.0"),
+    artifactKind: z.literal("provider_policy_trace.v1"),
+    requestId: z.string().min(1),
+    providerPolicy: DiscoveryProviderPolicySchema,
+    queries: z.array(ProviderPolicyQueryTraceV1Schema),
+    paidProviderAttempted: z.boolean(),
+    paidFallbackUsed: z.boolean(),
+    warnings: z.array(z.string().min(1)),
+  })
+  .strict();
+export type ProviderPolicyTraceV1 = z.infer<typeof ProviderPolicyTraceV1Schema>;
 
 export const LocalDiscoveryExecutionRecordV1Schema = z
   .object({
@@ -102,6 +167,7 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     command: z.string().min(1),
     arguments: z.array(z.string()),
     providerMode: DiscoveryProviderModeSchema.default("fixture_only"),
+    providerPolicy: DiscoveryProviderPolicySchema.default("free_only"),
     startedAt: z.iso.datetime({ offset: true }),
     completedAt: z.iso.datetime({ offset: true }).optional(),
     durationMs: z.number().int().nonnegative().optional(),
@@ -114,6 +180,8 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     stderrPath: z.string().min(1),
     providerTelemetryPath: z.string().min(1).optional(),
     providerTelemetryImported: z.boolean().default(false),
+    providerPolicyTracePath: z.string().min(1).optional(),
+    providerPolicyTraceImported: z.boolean().default(false),
     providerConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)

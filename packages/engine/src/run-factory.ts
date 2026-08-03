@@ -6,6 +6,7 @@ import {
   LocalRunSchema,
   createOpaqueId,
   type DiscoveryProviderMode,
+  type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
   type LocalMission,
   type LocalRun,
@@ -28,6 +29,7 @@ export function createRunCreationRecords(input: {
   budget?: RunBudget;
   discoveryRuntimeMode?: DiscoveryRuntimeMode;
   discoveryProviderMode?: DiscoveryProviderMode;
+  discoveryProviderPolicy?: DiscoveryProviderPolicy;
 }): RunCreationRecords {
   const now = input.now ?? new Date().toISOString();
   const mission = LocalMissionSchema.parse({
@@ -47,6 +49,7 @@ export function createRunCreationRecords(input: {
       fixtureMode: true,
       discoveryRuntimeMode: input.discoveryRuntimeMode ?? "fixture",
       discoveryProviderMode: input.discoveryProviderMode ?? "fixture_only",
+      discoveryProviderPolicy: input.discoveryProviderPolicy ?? "free_only",
     },
     budget: input.budget ?? DEFAULT_RUN_BUDGET,
     usage: EMPTY_RUN_USAGE,
@@ -62,6 +65,7 @@ export function createRunCreationRecords(input: {
       sourceFile: input.sourceFile,
       discoveryRuntimeMode: run.config.discoveryRuntimeMode,
       discoveryProviderMode: run.config.discoveryProviderMode,
+      discoveryProviderPolicy: run.config.discoveryProviderPolicy,
     },
     createdAt: now,
   });

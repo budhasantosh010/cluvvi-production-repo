@@ -96,14 +96,14 @@ export class LocalArtifactWriter {
       ? "# Cluvvi live-search discovery run"
       : "# Cluvvi fixture-only discovery run";
     const warning = liveSearch
-      ? "This run used live search snippets from the standalone Discovery Engine. Search-result pages were not crawled or deeply extracted, and identity or contact details were not verified. Downstream Evidence, Identity, Ranking, and Buyer Map logic remains deterministic and local."
+      ? `This run used ${input.run.config.discoveryProviderPolicy} provider policy through the standalone Discovery Engine. Search-result pages were not crawled or deeply extracted, and identity or contact details were not verified. Downstream Evidence, Identity, Ranking, and Buyer Map logic remains deterministic and local.`
       : localDiscovery
         ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery."
         : "This run used Cluvvi's internal version-controlled search_results.v2 fixture. It does not represent live customer discovery.";
     const scopeBoundary = liveSearch
-      ? "C1-H connects opt-in live HN, Tavily, and Brave search providers through the local Discovery Engine. C1-I crawling, page extraction, contact enrichment, and outreach were not started."
+      ? "C1-HF connects provider-policy-controlled HN, SearXNG, DuckDuckGo, Startpage, Tavily, and Brave search through the local Discovery Engine. C1-I crawling, page extraction, contact enrichment, and outreach were not started."
       : "C1-G proves the local file-and-process bridge with fixture providers only. Live providers require explicit C1-H configuration; C1-I crawlers/extractors were not started.";
-    const report = `${heading}\n\n> ${warning}\n\n- Run: ${input.run.id}\n- Mission: ${input.run.missionName}\n- Status: ${input.run.status}\n- Discovery runtime: ${input.run.config.discoveryRuntimeMode}\n- Discovery providers: ${input.run.config.discoveryProviderMode}\n- Events: ${input.events.length}\n- Tool-call records: ${input.toolCalls.length}\n\n## Persisted stages\n\n${completedStages}\n\n## Scope boundary\n\n${scopeBoundary}\n`;
+    const report = `${heading}\n\n> ${warning}\n\n- Run: ${input.run.id}\n- Mission: ${input.run.missionName}\n- Status: ${input.run.status}\n- Discovery runtime: ${input.run.config.discoveryRuntimeMode}\n- Discovery providers: ${input.run.config.discoveryProviderMode}\n- Discovery policy: ${input.run.config.discoveryProviderPolicy}\n- Events: ${input.events.length}\n- Tool-call records: ${input.toolCalls.length}\n\n## Persisted stages\n\n${completedStages}\n\n## Scope boundary\n\n${scopeBoundary}\n`;
     await atomicWrite(resolve(this.runDirectory(input.run.id), "run-report.md"), report);
   }
 }

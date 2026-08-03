@@ -1,5 +1,6 @@
 import type {
   DiscoveryProviderMode,
+  DiscoveryProviderPolicy,
   DiscoveryRuntimeMode,
   SearchResultsArtifactV2,
 } from "@cluvvi/core";
@@ -16,6 +17,7 @@ export interface DiscoveryRuntimeExecutionInput {
 export interface DiscoveryRuntime {
   readonly mode: DiscoveryRuntimeMode;
   readonly providerMode: DiscoveryProviderMode;
+  readonly providerPolicy: DiscoveryProviderPolicy;
   readonly providerConfigurationFingerprint: string;
   execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2>;
 }
@@ -23,6 +25,7 @@ export interface DiscoveryRuntime {
 export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly mode = "fixture" as const;
   readonly providerMode = "fixture_only" as const;
+  readonly providerPolicy = "free_only" as const;
   readonly providerConfigurationFingerprint = "fixture-project-b-v2";
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {

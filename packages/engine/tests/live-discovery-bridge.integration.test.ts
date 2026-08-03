@@ -44,6 +44,7 @@ integration("C1-H real Project A live bridge", () => {
         timeoutMs: 90_000,
         keepExchangeFiles: true,
         providerMode: "live_search",
+        providerPolicy: "balanced",
         providerEnvironment: {
           DISCOVERY_BROAD_PROVIDER_STRATEGY: "fanout",
           DISCOVERY_LIVE_MAX_QUERIES: "3",
@@ -66,6 +67,7 @@ integration("C1-H real Project A live bridge", () => {
       stages: createDefaultStageRegistry({ discoveryRuntime }),
       discoveryRuntimeMode: discoveryRuntime.mode,
       discoveryProviderMode: discoveryRuntime.providerMode,
+      discoveryProviderPolicy: discoveryRuntime.providerPolicy,
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
     });
 

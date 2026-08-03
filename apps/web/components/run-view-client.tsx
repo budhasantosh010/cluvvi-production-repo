@@ -53,14 +53,14 @@ function stageStatusLabel(
   if (stage.name === "discovery") {
     if (stage.status === "running") {
       return discoveryProviderMode === "live_search"
-        ? "Running HN, Tavily, and Brave search through the local Discovery Engine"
+        ? "Running provider-policy-controlled search through the local Discovery Engine"
         : discoveryRuntimeMode === "local_discovery_engine"
           ? "Running the local Discovery Engine in fixture-provider mode"
           : "Loading fixture discovery results";
     }
     if (stage.status === "completed" || stage.status === "reused") {
       return discoveryProviderMode === "live_search"
-        ? "Imported and validated live search results and provider telemetry"
+        ? "Imported and validated live search results, provider telemetry, and policy trace"
         : discoveryRuntimeMode === "local_discovery_engine"
           ? "Ran the local Discovery Engine in fixture-provider mode"
           : "Loaded fixture discovery results";
@@ -141,6 +141,14 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   const localDiscovery = view.run.config.discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = view.run.config.discoveryProviderMode === "live_search";
   const telemetry = view.providerTelemetry;
+  const policyTrace = view.providerPolicyTrace;
+  const providerPolicy = view.run.config.discoveryProviderPolicy;
+  const policyLabel =
+    providerPolicy === "free_only"
+      ? "Free only"
+      : providerPolicy === "balanced"
+        ? "Balanced"
+        : "Paid deep";
   const telemetryProviders = telemetry
     ? [...new Set(telemetry.providerExecutions.map((execution) => execution.providerId))]
     : [];
@@ -191,14 +199,18 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
       <div className="fixture-banner" data-testid="fixture-provider-warning">
         <strong>
           {liveDiscovery
-            ? "Live search · local Discovery Engine."
+            ? `Live search · ${policyLabel}.`
             : localDiscovery
               ? "Local Discovery Engine · fixture providers only."
               : "Fixture Buyer Map — no live market results."}
         </strong>
         <span>
           {liveDiscovery
-            ? "This run used live search snippets from Hacker News, Tavily, and Brave. Cluvvi validated search_results.v2 and the provider telemetry sidecar before running deterministic Evidence, Identity, Ranking, and Buyer Map logic. Pages were not crawled or deeply extracted, and identity or contact details were not verified."
+            ? providerPolicy === "free_only"
+              ? "This run used free search providers only. Paid providers were blocked by policy. Cluvvi validated search_results.v2, provider telemetry, and the provider policy trace before deterministic downstream analysis. Search snippets were retrieved; full pages were not extracted, and coverage may be incomplete."
+              : providerPolicy === "balanced"
+                ? "This run used free providers first and permitted paid fallback only when configured coverage thresholds were not met. Cluvvi preserved the exact provider order, fallback reason, and paid usage. Full pages were not opened or extracted."
+                : "This run used explicit paid-deep provider routing with bounded request and credit budgets. Cluvvi validated provider telemetry and the policy trace before deterministic downstream analysis. Full pages were not opened or extracted."
             : localDiscovery
               ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
               : "Cluvvi generated mission understanding locally, then processed a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every company and URL is synthetic."}
@@ -226,7 +238,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
               </span>
               <span className="fixture-badge">
                 {liveDiscovery
-                  ? "Live search · local engine"
+                  ? `${policyLabel} · local engine`
                   : localDiscovery
                     ? "Fixture · local engine"
                     : "Fixture"}
@@ -377,6 +389,109 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
               </ul>
             </details>
           )}
+        </section>
+      )}
+
+      {liveDiscovery && policyTrace !== null && (
+        <section
+          className="surface-card smooth-panel p-6 sm:p-8"
+          data-testid="provider-policy-trace"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="eyebrow">Provider policy</p>
+              <h2 className="mt-2 text-xl font-semibold text-neutral-950">
+                {policyLabel} provider ladder
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
+                {providerPolicy === "free_only"
+                  ? "This run used free search providers only. Paid providers were blocked by policy."
+                  : providerPolicy === "balanced"
+                    ? policyTrace.paidFallbackUsed
+                      ? "Free coverage was below the configured threshold, so an allowed paid fallback was used."
+                      : "Free providers produced sufficient coverage. No paid search provider was used."
+                    : "Paid providers were permitted for this run under the explicit paid-deep policy."}
+              </p>
+            </div>
+            <span className="fixture-badge">{policyLabel}</span>
+          </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="metric-card">
+              <span>SearXNG requests</span>
+              <strong>{telemetry?.usage.searxngRequests ?? 0}</strong>
+            </div>
+            <div className="metric-card">
+              <span>DuckDuckGo requests</span>
+              <strong>{telemetry?.usage.duckDuckGoRequests ?? 0}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Startpage requests</span>
+              <strong>{telemetry?.usage.startpageRequests ?? 0}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Paid fallback</span>
+              <strong>{policyTrace.paidFallbackUsed ? "Used" : "Not used"}</strong>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-3" data-testid="provider-ladder">
+            {policyTrace.queries.flatMap((query) =>
+              query.attempts.map((attempt) => (
+                <article
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4"
+                  key={`${query.queryId}-${attempt.order}-${attempt.providerId}`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                        Attempt {attempt.order}
+                      </p>
+                      <h3 className="mt-1 font-semibold text-neutral-950">
+                        {attempt.providerId.replaceAll("_", " ")}
+                      </h3>
+                    </div>
+                    <span className="status-pill status-completed">
+                      {attempt.outcome.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                    <div>
+                      <dt className="text-neutral-500">Accepted results</dt>
+                      <dd className="font-medium text-neutral-900">{attempt.acceptedResults}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-neutral-500">Unique domains</dt>
+                      <dd className="font-medium text-neutral-900">{attempt.uniqueDomains}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-neutral-500">Duplicate ratio</dt>
+                      <dd className="font-medium text-neutral-900">
+                        {(attempt.duplicateRatio * 100).toFixed(0)}%
+                      </dd>
+                    </div>
+                  </dl>
+                  {(attempt.skippedReason || attempt.safeFailureCode) && (
+                    <p className="mt-3 text-sm leading-6 text-neutral-600">
+                      {attempt.safeFailureCode ? `${attempt.safeFailureCode}: ` : ""}
+                      {attempt.skippedReason ?? "Provider attempt failed safely."}
+                    </p>
+                  )}
+                </article>
+              )),
+            )}
+          </div>
+          {policyTrace.queries.some((query) => query.paidFallbackReason) && (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <strong>Coverage threshold:</strong>{" "}
+              {policyTrace.queries
+                .map((query) => query.paidFallbackReason)
+                .filter((value): value is string => Boolean(value))
+                .join(" ")}
+            </div>
+          )}
+          <p className="mt-5 text-sm leading-6 text-neutral-600">
+            Search snippets only. Full pages were not extracted. Coverage may be incomplete, and
+            free-provider availability may vary by network.
+          </p>
         </section>
       )}
 

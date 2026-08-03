@@ -2283,3 +2283,123 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved; no C1-I implementation or dependency is present.
 
 **One-line solution:** Review positive keyword hits semantically before treating boundary documentation as executable scope.
+
+## 126. C1-HF resumed with incomplete provider-policy threading
+
+**What failed:** The first Project B compile found that the request adapter referenced `providerPolicy` without defining it, the process adapter lacked canonical policy-trace imports, and older test doubles did not declare a policy.
+
+**Where:** Request adaptation, local process execution, and C1-G/C1-H tests.
+
+**When:** Resuming the existing `feature/c1-hf-free-search-mode` branch.
+
+**Why:** The previous interrupted implementation had added the policy contract in several layers but had not completed the single-source-of-truth wiring through every constructor and test fixture.
+
+**How it appeared:** Strict TypeScript reported undefined policy identifiers, missing interface properties, and incomplete execution records.
+
+**What was tried:** Added one validated `providerPolicy` value to runtime configuration, passed it through request creation and child arguments, imported the canonical core schema/type, and made all legacy test intentions explicit.
+
+**Current status:** Resolved; strict TypeScript passes across all workspace packages.
+
+**One-line solution:** Thread one validated policy value end to end and require every test double to declare its intended policy.
+
+## 127. Controlled CLI did not initially emit a policy-trace sidecar
+
+**What failed:** Existing live process tests failed with `PROVIDER_POLICY_TRACE_MISSING` after the bridge correctly began requiring all live sidecars.
+
+**Where:** The embedded process-test CLI and the shared controlled local Discovery Engine fixture.
+
+**When:** First focused C1-HF process run.
+
+**Why:** C1-H tests emitted only V2 and live telemetry; C1-HF adds a third required artifact.
+
+**How it appeared:** Valid legacy live output was rejected before provider validation because no `provider_policy_trace.v1` file existed.
+
+**What was tried:** Extended both controlled CLIs to parse the non-secret policy argument and emit internally consistent free-only, balanced, and paid-deep traces.
+
+**Current status:** Resolved; legacy process tests and new policy tests pass.
+
+**One-line solution:** Update every process double whenever a cross-process artifact becomes mandatory.
+
+## 128. Strict usage validation exposed incomplete controlled telemetry
+
+**What failed:** One partial-provider test declared a Tavily request count without a matching Tavily execution record.
+
+**Where:** Embedded live process fixture.
+
+**When:** After cross-artifact usage consistency was enforced.
+
+**Why:** The older fixture represented partial coverage only in summary usage and warnings.
+
+**How it appeared:** The validator correctly returned `DISCOVERY_ENGINE_USAGE_MISMATCH`.
+
+**What was tried:** Added the failed Tavily execution and matching trace attempt rather than weakening the validator.
+
+**Current status:** Resolved; partial-provider coverage remains accepted only when all artifacts agree.
+
+**One-line solution:** Repair incomplete fixtures instead of relaxing cross-artifact accounting.
+
+## 129. Free fallback fixture referenced mode variables before declaration
+
+**What failed:** After adding controlled DuckDuckGo-success and DuckDuckGo-insufficient browser modes, the copied fixture CLI exited with code 1.
+
+**Where:** `tests/fixtures/local-discovery-engine/fixture-cli.mjs`.
+
+**When:** First post-browser-fixture policy regression run.
+
+**Why:** A same-file edit updated downstream branches to use `freeDuckSuccess` and `freeDuckInsufficient`, but the declarations and provider selection had not survived the earlier batch mutation.
+
+**How it appeared:** Node reported `ReferenceError: freeDuckSuccess is not defined`, which the bridge truthfully surfaced as `DISCOVERY_ENGINE_COMMAND_FAILED`.
+
+**What was tried:** Ran the fixture directly from the same directory depth as the integration tests, restored the declarations and nested provider selection, then reran all policy/resume tests.
+
+**Current status:** Resolved; controlled free and balanced modes execute successfully.
+
+**One-line solution:** Directly execute copied process fixtures after structural edits, not only syntax-check them.
+
+## 130. First C1-HF browser run exposed stale free-only copy
+
+**What failed:** The first desktop browser assertion expected the final generic paid-block message, while the rendered page still named Tavily and Brave.
+
+**Where:** `apps/web/components/run-view-client.tsx`.
+
+**When:** First free-only browser suite.
+
+**Why:** An earlier same-file edit had not persisted even though other UI changes were present.
+
+**How it appeared:** The run completed correctly, but Playwright received `Tavily and Brave were blocked before execution` instead of `Paid providers were blocked by policy`.
+
+**What was tried:** Searched the actual source, applied fresh sequential replacements, and reran the complete free-only suite.
+
+**Current status:** Resolved; all five free-only browser flows pass.
+
+**One-line solution:** Verify user-visible source text directly before treating a successful edit response as final UI state.
+
+## 131. Stopping the tracked browser supervisor left child processes alive
+
+**What failed:** After the free-only browser suite, port 3100 remained owned by the detached Next.js child and the runner also remained active.
+
+**Where:** Windows process cleanup around `pnpm dev`.
+
+**When:** Between the free-only and balanced browser suites.
+
+**Why:** Stopping the Harness-tracked parent did not terminate the complete Windows child tree.
+
+**How it appeared:** `Get-NetTCPConnection` showed port 3100 still listening after the parent process stopped.
+
+**What was tried:** Identified exact child PIDs, terminated only those process trees with `taskkill /T /F`, waited, and verified the port was free before starting the next isolated suite.
+
+**Current status:** Resolved for the browser run; final release cleanup repeats the same exact verification.
+
+**One-line solution:** Verify port and child-tree state independently after stopping a multi-process supervisor.
+
+## 132. HTML free providers remain best-effort and SearXNG is optional
+
+**Limitation:** SearXNG requires an existing configured instance. DuckDuckGo and Startpage HTML endpoints can return challenges, consent pages, or markup that changes without notice.
+
+**Consequence:** A free-only run may have partial coverage or fail all broad-search providers even when the network is otherwise available.
+
+**Safety boundary:** Cluvvi and Project A classify unconfigured, challenge, content-type, oversized-response, and parser-drift states explicitly. They do not install SearXNG automatically or bypass provider controls.
+
+**Next authorized milestone:** C1-I may add a separately governed frontier and extraction layer, but it does not convert HTML search providers into crawlers.
+
+**One-line solution:** Treat free HTML search as bounded best-effort discovery and preserve honest provider health and coverage gaps.

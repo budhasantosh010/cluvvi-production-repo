@@ -34,7 +34,7 @@ export default async function HomePage() {
             <summary className="fixture-trigger">
               <span className="size-1.5 rounded-full bg-lime-600" />
               {diagnostics.discoveryProviderMode === "live_search"
-                ? "Local Discovery Engine live search"
+                ? `Local live search · ${diagnostics.discoveryProviderPolicy.replaceAll("_", " ")}`
                 : diagnostics.discoveryRuntimeMode === "local_discovery_engine"
                   ? "Local Discovery Engine fixture mode"
                   : "Local fixture mode"}
@@ -42,7 +42,11 @@ export default async function HomePage() {
           </details>
           <div className="fixture-popover" role="tooltip">
             {diagnostics.discoveryProviderMode === "live_search"
-              ? "Cluvvi sends a versioned JSON request to the standalone local Discovery Engine, which performs bounded Hacker News, Tavily, and Brave search. Cluvvi validates search_results.v2 and provider telemetry before deterministic downstream analysis. Search-result pages are not crawled or deeply extracted, and identity or contact details are not verified."
+              ? diagnostics.discoveryProviderPolicy === "free_only"
+                ? "Cluvvi sends a versioned JSON request to the standalone Discovery Engine using free search providers only. Paid providers are blocked by policy. Search snippets are validated before deterministic downstream analysis; full pages are not extracted and coverage may be incomplete."
+                : diagnostics.discoveryProviderPolicy === "balanced"
+                  ? "Cluvvi runs the free search ladder first and permits a paid fallback only when deterministic coverage thresholds fail. Provider order, fallback reason, and paid usage remain visible."
+                  : "Cluvvi uses explicit paid-deep routing with bounded request and credit budgets. Provider telemetry and policy decisions remain visible."
               : diagnostics.discoveryRuntimeMode === "local_discovery_engine"
                 ? "Mission understanding is real local logic. Cluvvi sends a versioned JSON request to the standalone local Discovery Engine, which uses fixture providers only, then validates its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map. No live market source is queried."
                 : "Mission understanding is real local logic. Evidence, identity, ranking, and Buyer Map use synthetic companies from a version-controlled search_results.v2 fixture. No live market source is queried."}

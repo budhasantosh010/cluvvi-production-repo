@@ -21,6 +21,7 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
     artifactWriter,
     discoveryRuntimeMode: discoveryRuntime.mode,
     discoveryProviderMode: discoveryRuntime.providerMode,
+    discoveryProviderPolicy: discoveryRuntime.providerPolicy,
     providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
     ...(eventSink === undefined ? {} : { eventSink }),
   });

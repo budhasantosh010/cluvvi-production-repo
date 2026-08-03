@@ -9,6 +9,7 @@ import {
   type ArtifactRecord,
   type ArtifactType,
   type DiscoveryProviderMode,
+  type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
   type LocalRun,
   type LocalRunEvent,
@@ -19,6 +20,7 @@ import {
   LOCAL_ENGINE_VERSION,
   createRunCreationRecords,
   readLiveProviderTelemetry,
+  readProviderPolicyTrace,
 } from "@cluvvi/engine";
 import type { LocalCluvviPaths, LocalRuntimeStore } from "@cluvvi/storage";
 import type {
@@ -35,7 +37,7 @@ const FIXTURE_WARNING =
 const LOCAL_DISCOVERY_WARNING =
   "This run uses the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery.";
 const LIVE_DISCOVERY_WARNING =
-  "This run uses live search snippets from Hacker News, Tavily, and Brave through the local Discovery Engine. Pages are not crawled or deeply extracted, and identity or contact details are not verified.";
+  "This run uses provider-policy-controlled search snippets through the local Discovery Engine. Full pages are not crawled or deeply extracted, and identity or contact details are not verified.";
 
 export class ApplicationServiceError extends Error {
   readonly code: string;
@@ -56,6 +58,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
   readonly #paths: LocalCluvviPaths;
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
   readonly #discoveryProviderMode: DiscoveryProviderMode;
+  readonly #discoveryProviderPolicy: DiscoveryProviderPolicy;
   readonly #now: () => string;
 
   constructor(input: {
@@ -63,12 +66,14 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
     paths: LocalCluvviPaths;
     discoveryRuntimeMode?: DiscoveryRuntimeMode;
     discoveryProviderMode?: DiscoveryProviderMode;
+    discoveryProviderPolicy?: DiscoveryProviderPolicy;
     now?: () => string;
   }) {
     this.#store = input.store;
     this.#paths = input.paths;
     this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
     this.#discoveryProviderMode = input.discoveryProviderMode ?? "fixture_only";
+    this.#discoveryProviderPolicy = input.discoveryProviderPolicy ?? "free_only";
     this.#now = input.now ?? (() => new Date().toISOString());
   }
 
@@ -91,6 +96,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       now,
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
+      discoveryProviderPolicy: this.#discoveryProviderPolicy,
     });
     const request = RunRequestSchema.parse({
       id: createOpaqueId("request"),
@@ -137,6 +143,13 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
             runId,
           }).catch(() => null)
         : null;
+    const providerPolicyTrace =
+      run.config.discoveryProviderMode === "live_search"
+        ? await readProviderPolicyTrace({
+            runsDirectory: this.#paths.runsDirectory,
+            runId,
+          }).catch(() => null)
+        : null;
     const stages: RunStageView[] = ORDERED_RUN_PHASES.map((name) => {
       const attempts = executions.filter((execution) => execution.stageName === name);
       const latest = attempts.at(-1);
@@ -165,6 +178,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       artifacts,
       requests,
       providerTelemetry,
+      providerPolicyTrace,
       fixture: run.config.discoveryProviderMode === "fixture_only",
     };
   }
@@ -238,6 +252,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       mode: this.#discoveryProviderMode === "live_search" ? "live_search" : "fixture",
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
+      discoveryProviderPolicy: this.#discoveryProviderPolicy,
       capabilities: {
         localEngine: true,
         missionCompiler: false,
@@ -271,6 +286,7 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       mode: this.#discoveryProviderMode === "live_search" ? "live_search" : "fixture",
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
+      discoveryProviderPolicy: this.#discoveryProviderPolicy,
       runner: { available, heartbeat },
     };
   }

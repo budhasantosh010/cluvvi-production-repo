@@ -12,6 +12,7 @@ import {
   type ArtifactRecord,
   type ArtifactType,
   type DiscoveryProviderMode,
+  type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
   type LocalMission,
   type LocalRun,
@@ -66,6 +67,7 @@ export class CluvviEngine {
   readonly #stageDelayMs: number;
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
   readonly #discoveryProviderMode: DiscoveryProviderMode;
+  readonly #discoveryProviderPolicy: DiscoveryProviderPolicy;
   readonly #providerConfigurationFingerprint: string;
 
   constructor(input: {
@@ -78,6 +80,7 @@ export class CluvviEngine {
     stageDelayMs?: number;
     discoveryRuntimeMode?: DiscoveryRuntimeMode;
     discoveryProviderMode?: DiscoveryProviderMode;
+    discoveryProviderPolicy?: DiscoveryProviderPolicy;
     providerConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
@@ -89,6 +92,7 @@ export class CluvviEngine {
     this.#stageDelayMs = input.stageDelayMs ?? 0;
     this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
     this.#discoveryProviderMode = input.discoveryProviderMode ?? "fixture_only";
+    this.#discoveryProviderPolicy = input.discoveryProviderPolicy ?? "free_only";
     this.#providerConfigurationFingerprint =
       input.providerConfigurationFingerprint ?? "fixture-project-b-v2";
   }
@@ -106,6 +110,7 @@ export class CluvviEngine {
       now: this.#now(),
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
+      discoveryProviderPolicy: this.#discoveryProviderPolicy,
       ...(input.budget === undefined ? {} : { budget: input.budget }),
     });
     await this.#artifactWriter.ensureRunDirectory(run.id);
@@ -180,6 +185,7 @@ export class CluvviEngine {
         engineVersion: LOCAL_ENGINE_VERSION,
         discoveryRuntimeMode: run.config.discoveryRuntimeMode,
         discoveryProviderMode: run.config.discoveryProviderMode,
+        discoveryProviderPolicy: run.config.discoveryProviderPolicy,
         providerConfiguration: this.#providerConfigurationFingerprint,
       });
       const previous = await this.#store.findCompletedStageExecution(

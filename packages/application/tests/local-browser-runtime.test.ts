@@ -227,6 +227,7 @@ describe("C0.5 local browser runtime", () => {
       const discoveryRuntime: DiscoveryRuntime = {
         mode: "local_discovery_engine",
         providerMode: "fixture_only",
+        providerPolicy: "free_only",
         providerConfigurationFingerprint: "test-local-discovery-abort",
         async execute(input) {
           observedSignal = input.signal;
@@ -325,6 +326,7 @@ describe("C0.5 local browser runtime", () => {
       paths,
       discoveryRuntimeMode: "local_discovery_engine",
       discoveryProviderMode: "live_search",
+      discoveryProviderPolicy: "paid_deep",
     });
     try {
       const created = await service.createRun(mission, "browser-live-telemetry-0001");
@@ -384,6 +386,32 @@ describe("C0.5 local browser runtime", () => {
       expect(view?.fixture).toBe(false);
       expect(view?.providerTelemetry?.usage.braveRequests).toBe(1);
       expect(JSON.stringify(view?.providerTelemetry)).not.toContain("secret");
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("persists and reloads the validated provider policy on the same run", async () => {
+    const { paths, store } = await runtime();
+    const service = new LocalCluvviApplicationService({
+      store,
+      paths,
+      discoveryRuntimeMode: "local_discovery_engine",
+      discoveryProviderMode: "live_search",
+      discoveryProviderPolicy: "balanced",
+    });
+    try {
+      const created = await service.createRun(mission, "browser-policy-persistence-0001");
+      expect(created.view.run.config.discoveryProviderPolicy).toBe("balanced");
+      const reloadedService = new LocalCluvviApplicationService({
+        store,
+        paths,
+        discoveryRuntimeMode: "local_discovery_engine",
+        discoveryProviderMode: "live_search",
+        discoveryProviderPolicy: "balanced",
+      });
+      const reloaded = await reloadedService.getRun(created.view.run.id);
+      expect(reloaded?.run.config.discoveryProviderPolicy).toBe("balanced");
     } finally {
       await store.close();
     }

@@ -11,7 +11,7 @@ async function hideDevelopmentUi(page: Page): Promise<void> {
 async function submitLiveMission(page: Page, description: string): Promise<void> {
   await page.goto("/", { waitUntil: "networkidle" });
   await hideDevelopmentUi(page);
-  await expect(page.getByText("Local Discovery Engine live search", { exact: true })).toBeVisible();
+  await expect(page.getByText("Local live search · paid deep", { exact: true })).toBeVisible();
   await page.getByLabel("Describe what you sell or paste your website").fill(description);
   await page.getByTestId("composer-submit").click();
   await expect(page).toHaveURL(/\/runs\/run_[a-f0-9]{32}$/, { timeout: 20_000 });
@@ -21,10 +21,13 @@ async function waitForLiveCompletion(page: Page): Promise<void> {
   const runView = page.getByTestId("run-view");
   await expect(runView).toHaveAttribute("data-run-status", "completed", { timeout: 100_000 });
   await expect(page.locator('[data-stage="discovery"]')).toContainText(
-    "Imported and validated live search results and provider telemetry",
+    "Imported and validated live search results, provider telemetry, and policy trace",
   );
   await expect(page.getByTestId("fixture-provider-warning")).toContainText(
-    "This run used live search snippets from Hacker News, Tavily, and Brave.",
+    "explicit paid-deep provider routing",
+  );
+  await expect(page.getByTestId("provider-policy-trace")).toContainText(
+    "Paid providers were permitted for this run",
   );
   await expect(page.getByTestId("live-provider-telemetry")).toBeVisible();
   await expect(page.getByTestId("live-provider-list")).toContainText(
@@ -56,7 +59,7 @@ test("real live Discovery Engine bridge completes with telemetry and Buyer Map",
   const discoveryStage = page.locator('[data-stage="discovery"]');
   await expect(discoveryStage).toHaveAttribute("data-stage-status", "running", { timeout: 45_000 });
   await expect(discoveryStage).toContainText(
-    "Running HN, Tavily, and Brave search through the local Discovery Engine",
+    "Running provider-policy-controlled search through the local Discovery Engine",
   );
   await page.screenshot({
     path: resolve(output, "c1-h-live-discovery-running-desktop.png"),

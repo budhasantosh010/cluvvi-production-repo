@@ -128,7 +128,11 @@ The bridge is a process plus JSON contract boundary. It does not import Project 
 
 Adds explicit `fixture_only` and `live_search` provider modes behind the same C1-G runtime. Live mode invokes Project A's approved HN Algolia/Firebase, Tavily basic-search, and Brave web-search adapters; imports exact `search_results.v2`; validates `live_provider_run_telemetry.v1`; checks request IDs, provider IDs/categories, partial-failure warnings, request budgets, and Tavily credit consistency; then runs the unchanged downstream stage graph.
 
-Secrets remain in Project A's ignored `.env.local` or an explicit Cluvvi allowlist. They are never included in commands, fingerprints, logs, artifacts, diagnostics, screenshots, or Git. Live search retrieves snippets and result metadata only; result pages are not crawled or deeply extracted.
+### B7 / C1-HF — Free Search Backbone — complete
+
+Adds one persisted policy source of truth: `free_only`, `balanced`, or `paid_deep`. Project A supplies HN plus optional SearXNG, DuckDuckGo HTML, and Startpage HTML. Cluvvi imports `provider_policy_trace.v1`, validates provider order, coverage decisions, fallback reasons, and usage against V2 and telemetry, and rejects every paid signal under `free_only`. Controlled and real cross-project runs prove zero-paid free search, free-first balanced fallback, policy-violation rejection, durable failure/resume, and policy-aware browser presentation.
+
+Secrets remain in Project A's ignored `.env.local`; Cluvvi does not forward provider keys. They are never included in commands, fingerprints, logs, artifacts, diagnostics, screenshots, or Git. Live search retrieves snippets and result metadata only; result pages are not crawled or deeply extracted.
 
 ## Parallel-track rule
 
@@ -157,18 +161,18 @@ V2 makes that boundary more explicit by carrying the run's planning context, sem
 
 ## Integration gates
 
-Project A's fixture/live gates, Project B's downstream gates, and the C1-G/C1-H runtime gates have passed locally:
+Project A's fixture/live/free-policy gates, Project B's downstream gates, and the C1-G/C1-H/C1-HF runtime gates have passed locally:
 
 - Project A validates `discovery_request.v1` and emits fixture-provider `search_results.v2` through its real CLI;
 - Cluvvi exports the same request contract, invokes the actual standalone process, and independently validates the exact returned artifact;
-- request IDs match; fixture runs remain fixture/zero-credit, while live runs use only approved free/paid provider categories and telemetry-consistent Tavily credits;
+- request IDs match; fixture runs remain fixture/zero-credit; free-only runs reject paid attempts/results/usage; balanced runs prove free-first fallback reasons; paid-deep runs retain approved bounded paid behavior;
 - the Evidence Engine accepts only validated V2;
 - fixture labels or live search limitations survive Evidence, Identity, Ranking, Buyer Map, persistence, CLI, and browser presentation;
 - frozen V1 remains unchanged and separately valid;
 - timeout, cancellation, malformed output, nonzero exit, missing output, idempotency, failure, and resume behavior are tested;
 - browser desktop/mobile and controlled failure/resume proofs pass without claiming live discovery.
 
-The C1-H move from fixtures to live artifacts is complete because:
+The C1-HF move from paid-capable live search to policy-controlled free-first live artifacts is complete because:
 
 - the approved provider boundary is explicit and search-only;
 - the same `search_results.v2` schema is used;

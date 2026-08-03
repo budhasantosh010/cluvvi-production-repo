@@ -21,6 +21,7 @@ Before implementing discovery, evidence, identity, enrichment, ranking, or Buyer
 14. `docs/C1_PARALLEL_BUILD_PLAN.md`
 15. `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`
 16. `docs/C1_H_LIVE_DISCOVERY_OPERATIONS.md`
+17. `docs/LIVE_DISCOVERY_OPERATIONS.md`
 
 ## Current product boundary
 
@@ -32,16 +33,17 @@ Command composer or CLI
 → deterministic mission understanding and source/query plan
 → fixture or local_discovery_engine DiscoveryRuntime
 → explicit fixture_only or live_search provider mode
-→ validated search_results.v2 plus live telemetry when applicable
+→ one validated provider policy: free_only, balanced, or paid_deep
+→ validated search_results.v2 plus live telemetry and provider-policy trace
 → deterministic evidence → identity hypotheses → ranking → Buyer Map
 → SQLite durability and versioned artifacts
 ```
 
-C1-C through C1-F implement the deterministic downstream pipeline. C1-G implements a local file/process bridge to the independently executable standalone Discovery Engine. C1-H adds explicit live search through HN Algolia with bounded Firebase enrichment, Tavily basic search, and Brave web search. The default remains Cluvvi's internal fixture runtime. Local-engine mode exports `discovery_request.v1`, invokes the standalone CLI, imports exact `search_results.v2`, validates it, optionally validates `live_provider_run_telemetry.v1`, and then runs the same deterministic downstream stages.
+C1-C through C1-F implement the deterministic downstream pipeline. C1-G implements a local file/process bridge to the independently executable standalone Discovery Engine. C1-H adds approved HN/Tavily/Brave live search. C1-HF adds policy-controlled free search through HN plus optional SearXNG, DuckDuckGo HTML, and Startpage HTML. The default remains Cluvvi's internal fixture runtime. Local-engine live mode exports `discovery_request.v1`, invokes the standalone CLI with one validated policy, imports exact `search_results.v2`, `live_provider_run_telemetry.v1`, and `provider_policy_trace.v1`, validates their relationship, and then runs the same deterministic downstream stages.
 
 Fixture runs remain synthetic. Live runs contain current public search snippets and provider metadata, but pages are not crawled or deeply extracted, identities and contacts are not verified, and scores are not predictions of purchase behavior.
 
-C1-I crawling/extraction, contact enrichment, outreach, remote APIs, Docker, and workflow automation remain unstarted and unauthorized by C1-H.
+C1-I crawling/extraction, Discovery-versus-Drill, Reddit, GitHub, YouTube, hiring adapters, monitoring, recursive expansion, contact enrichment, outreach, remote APIs, Docker, and workflow automation remain unstarted and unauthorized by C1-HF.
 
 ## Discovery contract and boundary rules
 
@@ -55,10 +57,11 @@ C1-I crawling/extraction, contact enrichment, outreach, remote APIs, Docker, and
 - The configured executable and project path are trusted application configuration. User text belongs only in the request JSON and must never enter executable names, shell syntax, or command arguments.
 - Fixture mode must remain the default and must not access another repository during ordinary startup or tests.
 - Local-engine fixture mode sets `providerPreference: "fixture_only"` and rejects non-fixture provider categories or paid-credit use.
-- Local-engine live mode sets `providerPreference: "paid_allowed"`, accepts only approved HN/Tavily/Brave provider IDs, and forwards only the explicit provider environment allowlist.
+- Local-engine live mode derives request mode and preference from exactly one validated run policy. `free_only` blocks Tavily and Brave before execution; `balanced` requires free-first coverage failure and a persisted reason before paid fallback; `paid_deep` permits bounded direct paid execution.
+- Approved live provider IDs include HN Algolia/Firebase, SearXNG, DuckDuckGo HTML, Startpage HTML, Tavily, and Brave. SearXNG is optional and may be unconfigured; HTML challenges must be recorded rather than bypassed.
 - Never log, persist, fingerprint, screenshot, or serialize API-key values, authorization headers, or a complete child environment.
 - Imported output must be validated for artifact kind, schema version, request ID, required fields, provider category, paid credits, warnings, and coverage before downstream use.
-- Live telemetry must be validated for schema, request ID, provider mode, provider IDs, usage, and credit consistency. Invalid telemetry fails the discovery stage and remains preserved for review.
+- Live telemetry and `provider_policy_trace.v1` must be validated for schema, request ID, provider mode, provider policy, execution order, provider IDs, coverage decisions, fallback reasons, usage, and credit consistency. Invalid or missing sidecars fail the discovery stage and remain preserved for review.
 - Preserve the exact imported output and separate bridge provenance; do not place local filesystem paths into the core `search_results.v2` contract.
 - The Evidence Engine is the primary direct V2 consumer. Identity, Ranking, and Buyer Map preserve traceability through versioned upstream artifacts.
 - Downstream code must not depend on provider-specific `raw` payloads.

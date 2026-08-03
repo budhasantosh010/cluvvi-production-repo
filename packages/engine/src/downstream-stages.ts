@@ -150,6 +150,7 @@ async function loadDiscoveryInput(context: StageContext): Promise<DiscoveryStage
       mission: context.mission,
       understanding: MissionUnderstandingArtifactV1Schema.parse(understandingEnvelope.data),
       providerMode: context.run.config.discoveryProviderMode,
+      providerPolicy: context.run.config.discoveryProviderPolicy,
     }),
     sourcePlan: sourcePlanEnvelope.data,
   };
@@ -182,7 +183,7 @@ export function createDownstreamFixtureStages(
           throw new CluvviError({
             code: "DISCOVERY_ENGINE_NOT_CONFIGURED",
             category: "configuration",
-            message: `Run ${context.run.id} requires ${context.run.config.discoveryRuntimeMode}/${context.run.config.discoveryProviderMode}, but the active runner is configured for ${discoveryRuntime.mode}/${discoveryRuntime.providerMode}.`,
+            message: `Run ${context.run.id} requires ${context.run.config.discoveryRuntimeMode}/${context.run.config.discoveryProviderMode}/${context.run.config.discoveryProviderPolicy}, but the active runner is configured for ${discoveryRuntime.mode}/${discoveryRuntime.providerMode}/${discoveryRuntime.providerPolicy}.`,
             retryable: true,
             stage: "discovery",
             context: { retrySafe: true, resumeSupported: true },
