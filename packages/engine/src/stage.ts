@@ -34,6 +34,7 @@ export interface EngineStage<TInput, TOutput> {
   readonly schemaVersion: string;
   readonly inputSchema: RuntimeSchema<TInput>;
   readonly outputSchema: RuntimeSchema<TOutput>;
+  shouldRun?(context: StageContext): boolean | Promise<boolean>;
   loadInput(context: StageContext): Promise<unknown>;
   execute(input: TInput, context: StageContext): Promise<unknown>;
 }

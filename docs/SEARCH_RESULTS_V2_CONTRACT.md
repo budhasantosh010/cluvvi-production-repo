@@ -299,6 +299,16 @@ The local adapter must:
 
 Local project paths, executable paths, log paths, and execution-record references are bridge provenance. They must not be added to the core V2 schema.
 
+## C1-I companion-artifact policy
+
+C1-I does not modify or extend `search_results.v2`. When public-page extraction is explicitly enabled, the standalone engine writes three separate companion artifacts:
+
+- `crawl_frontier.v1` references the request, search artifact digest, and selected search-result IDs;
+- `extracted_content.v1` references the request, frontier digest, source results, selected frontier items, and normalized content hashes;
+- `extraction_run_telemetry.v1` references the request and extracted-content digest and accounts for every bounded fetch attempt.
+
+Project B validates each contract independently and validates their relationship before extracted evidence can enter downstream stages. Search-only consumers remain valid and do not need to understand the C1-I sidecars. Local paths, raw HTML, transport headers, cookies, authorization values, and environment data never belong in V2 or the companion contracts.
+
 ## V1 and V2 validation policy
 
 - V1 and V2 remain separate contracts and must be validated independently.
@@ -322,4 +332,4 @@ The C1-G fixture gate and C1-H live gate pass independently and prove:
 8. Failure, timeout, cancellation, partial-provider disclosure, preserved exchange evidence, and same-run resume are proven.
 9. Frozen V1 remains unchanged and separately valid.
 
-Passing C1-H does not authorize C1-I crawlers/extractors, page-body retrieval, thread traversal, contact enrichment, outreach, remote APIs, auth, billing, or deployment work.
+C1-I now authorizes only the bounded public HTML companion-artifact path described above. It does not authorize JavaScript rendering, recursive crawling, documents, thread traversal, platform adapters, contact enrichment, outreach, remote APIs, authentication, billing, or deployment work.

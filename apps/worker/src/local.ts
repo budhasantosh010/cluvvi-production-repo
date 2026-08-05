@@ -39,7 +39,14 @@ async function main(): Promise<void> {
       stages: createDefaultStageRegistry({ discoveryRuntime }),
       discoveryRuntimeMode: discoveryRuntime.mode,
       discoveryProviderMode: discoveryRuntime.providerMode,
+      discoveryProviderPolicy: discoveryRuntime.providerPolicy,
+      discoveryExtractionMode: discoveryRuntime.extractionMode ?? "none",
+      discoveryMaximumExtractions: discoveryRuntime.maximumExtractions ?? 8,
+      extractorVersion: discoveryRuntime.extractorVersion ?? "basic_public_html_extractor@1.0.0",
+      frontierPolicyVersion: discoveryRuntime.frontierPolicyVersion ?? "frontier_policy@1.0.0",
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
+      extractionConfigurationFingerprint:
+        discoveryRuntime.extractionConfigurationFingerprint ?? "fixture-no-extraction",
       stageDelayMs: Number(process.env["CLUVVI_FIXTURE_STAGE_DELAY_MS"] ?? 120),
     }),
     runnerId,
@@ -47,6 +54,7 @@ async function main(): Promise<void> {
     processId: process.pid,
     discoveryRuntimeMode: discoveryRuntime.mode,
     discoveryProviderMode: discoveryRuntime.providerMode,
+    discoveryProviderPolicy: discoveryRuntime.providerPolicy,
     pollIntervalMs: Number(process.env["CLUVVI_RUNNER_POLL_MS"] ?? 750),
     ...(failStage === undefined ? {} : { failStage }),
     onReady: async () => {
@@ -63,6 +71,7 @@ async function main(): Promise<void> {
           }`,
           `Discovery runtime: ${discoveryRuntime.mode}`,
           `Discovery providers: ${discoveryRuntime.providerMode}`,
+          `Discovery policy: ${discoveryRuntime.providerPolicy}`,
         ].join("\n"),
       );
     },

@@ -32,6 +32,7 @@ import type {
   RunnerHeartbeatRepository,
   RunnerLeadershipRepository,
   StartStagePersistence,
+  SkipStagePersistence,
 } from "../cluvvi-store";
 import { openSqliteDatabase } from "./connection";
 import { applySqliteMigrations } from "./migrations";
@@ -661,6 +662,33 @@ export class SqliteCluvviStore
           input.execution.inputFingerprint,
           input.execution.attempt,
           input.execution.startedAt,
+        );
+      this.#insertEvent(input.event);
+    });
+  }
+
+  async skipStage(input: SkipStagePersistence): Promise<void> {
+    const database = this.#getDatabase();
+    sqliteTransaction(database, () => {
+      this.#updateRun(input.run);
+      database
+        .prepare(
+          `
+          INSERT INTO stage_executions(
+            id, run_id, stage_name, stage_version, status, input_fingerprint,
+            attempt, started_at, completed_at, failure_json
+          ) VALUES (?, ?, ?, ?, 'skipped', ?, ?, ?, ?, NULL)
+        `,
+        )
+        .run(
+          input.execution.id,
+          input.execution.runId,
+          input.execution.stageName,
+          input.execution.stageVersion,
+          input.execution.inputFingerprint,
+          input.execution.attempt,
+          input.execution.startedAt,
+          input.execution.completedAt ?? input.execution.startedAt,
         );
       this.#insertEvent(input.event);
     });

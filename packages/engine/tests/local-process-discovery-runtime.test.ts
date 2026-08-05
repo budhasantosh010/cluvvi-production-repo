@@ -20,8 +20,10 @@ import { resolve } from "node:path";
 const args = process.argv.slice(2);
 const inputPath = args[0];
 const providerModeIndex = args.indexOf("--provider-mode");
+const providerPolicyIndex = args.indexOf("--provider-policy");
 const outputIndex = args.indexOf("--output");
 const providerMode = providerModeIndex >= 0 ? args[providerModeIndex + 1] : "fixture_only";
+const providerPolicy = providerPolicyIndex >= 0 ? args[providerPolicyIndex + 1] : "free_only";
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
 const behavior = JSON.parse(await readFile(resolve("behavior.json"), "utf8"));
 console.log("fixture cli stdout");
@@ -29,7 +31,7 @@ console.error("fixture cli stderr");
 if (behavior.delayMs) await new Promise((resolveDelay) => setTimeout(resolveDelay, behavior.delayMs));
 if (behavior.mode === "nonzero") process.exit(7);
 if (behavior.mode === "missing") process.exit(0);
-if (!inputPath || !outputPath || !["fixture_only", "live_search"].includes(providerMode)) process.exit(9);
+if (!inputPath || !outputPath || !["fixture_only", "live_search"].includes(providerMode) || !["free_only", "balanced", "paid_deep"].includes(providerPolicy)) process.exit(9);
 if (behavior.mode === "invalid-json") {
   await writeFile(outputPath, "{not-json", "utf8");
   process.exit(0);
@@ -93,23 +95,43 @@ if (live && behavior.mode !== "telemetry-missing") {
       providerMode: behavior.mode === "provider-mode-mismatch" ? "fixture_only" : "live_search",
       configurationFingerprint: "a".repeat(64),
       generatedAt: "2026-08-01T10:00:01.000Z",
-      providerExecutions: [{
-        providerId: "brave_web_search",
-        queryId: "plan_test",
-        sourceZone: "general_web",
-        searchMethod: "keyword_search",
-        operation: "search",
-        startedAt: "2026-08-01T10:00:00.000Z",
-        completedAt: "2026-08-01T10:00:01.000Z",
-        durationMs: 1000,
-        attempts: 1,
-        statusCode: 200,
-        resultsReceived: 0,
-        resultsAccepted: 0,
-        rateLimited: false,
-        success: true,
-        providerUsage: { braveRequests: 1 }
-      }],
+      providerExecutions: [
+        ...(behavior.mode === "partial-live" ? [{
+          providerId: "tavily_search",
+          queryId: "plan_test",
+          sourceZone: "general_web",
+          searchMethod: "keyword_search",
+          operation: "search",
+          startedAt: "2026-08-01T10:00:00.000Z",
+          completedAt: "2026-08-01T10:00:01.000Z",
+          durationMs: 1000,
+          attempts: 1,
+          statusCode: 429,
+          resultsReceived: 0,
+          resultsAccepted: 0,
+          rateLimited: true,
+          success: false,
+          errorCode: "PROVIDER_RATE_LIMITED",
+          safeErrorMessage: "tavily_search returned HTTP 429."
+        }] : []),
+        {
+          providerId: "brave_web_search",
+          queryId: "plan_test",
+          sourceZone: "general_web",
+          searchMethod: "keyword_search",
+          operation: "search",
+          startedAt: "2026-08-01T10:00:00.000Z",
+          completedAt: "2026-08-01T10:00:01.000Z",
+          durationMs: 1000,
+          attempts: 1,
+          statusCode: 200,
+          resultsReceived: 0,
+          resultsAccepted: 0,
+          rateLimited: false,
+          success: true,
+          providerUsage: { braveRequests: 1 }
+        }
+      ],
       budget: {
         hacker_news_algolia: { used: 0, limit: 4 },
         hacker_news_firebase: { used: 0, limit: 8 },
@@ -127,6 +149,54 @@ if (live && behavior.mode !== "telemetry-missing") {
     };
     if (behavior.mode === "telemetry-schema-mismatch") delete telemetry.usage;
     await writeFile(telemetryPath, JSON.stringify(telemetry, null, 2) + "\\n", "utf8");
+  }
+}
+if (live && behavior.mode !== "policy-trace-missing") {
+  const tracePath = outputPath + ".provider-policy-trace.v1.json";
+  if (behavior.mode === "policy-trace-invalid-json") {
+    await writeFile(tracePath, "{not-json", "utf8");
+  } else {
+    const trace = {
+      schemaVersion: "1.0",
+      artifactKind: "provider_policy_trace.v1",
+      requestId: behavior.mode === "policy-trace-wrong-request" ? "req_wrong" : request.requestId,
+      providerPolicy: behavior.mode === "policy-trace-policy-mismatch" ? "free_only" : providerPolicy,
+      queries: [{
+        queryId: "plan_test",
+        sourceZone: "general_web",
+        searchMethod: "keyword_search",
+        attempts: [
+          ...(behavior.mode === "partial-live" ? [{
+            providerId: "tavily_search",
+            order: 1,
+            attempted: true,
+            outcome: "failed",
+            acceptedResults: 0,
+            uniqueDomains: 0,
+            duplicateRatio: 0,
+            paid: true,
+            safeFailureCode: "PROVIDER_RATE_LIMITED"
+          }] : []),
+          {
+            providerId: "brave_web_search",
+            order: behavior.mode === "partial-live" ? 2 : 1,
+            attempted: true,
+            outcome: "success",
+            acceptedResults: 0,
+            uniqueDomains: 0,
+            duplicateRatio: 0,
+            paid: true
+          }
+        ],
+        finalDecision: "paid_fallback_used",
+        ...(providerPolicy === "balanced" ? { paidFallbackReason: "too few accepted results" } : {})
+      }],
+      paidProviderAttempted: true,
+      paidFallbackUsed: providerPolicy === "balanced",
+      warnings: artifact.warnings
+    };
+    if (behavior.mode === "policy-trace-schema-mismatch") delete trace.queries;
+    await writeFile(tracePath, JSON.stringify(trace, null, 2) + "\\n", "utf8");
   }
 }
 `;
@@ -196,6 +266,9 @@ function runtime(input: {
   runsDirectory: string;
   timeoutMs?: number;
   providerMode?: "fixture_only" | "live_search";
+  providerPolicy?: "free_only" | "balanced" | "paid_deep";
+  extractionMode?: "none" | "selected_public_pages";
+  maximumExtractions?: number;
 }) {
   return new LocalProcessDiscoveryRuntime({
     config: {
@@ -204,6 +277,9 @@ function runtime(input: {
       timeoutMs: input.timeoutMs ?? 60_000,
       keepExchangeFiles: true,
       providerMode: input.providerMode ?? "fixture_only",
+      providerPolicy: input.providerPolicy ?? "free_only",
+      extractionMode: input.extractionMode ?? "none",
+      maximumExtractions: input.maximumExtractions ?? 8,
       providerEnvironment: {},
     },
     runsDirectory: input.runsDirectory,
@@ -255,15 +331,51 @@ describe("LocalProcessDiscoveryRuntime", () => {
       JSON.parse(await readFile(resolve(exchange, "discovery-execution.json"), "utf8")),
     );
     expect(execution.success).toBe(true);
+    expect(execution.extractionMode).toBe("none");
+    expect(execution.maximumExtractions).toBe(8);
+    expect(execution.frontierImported).toBe(false);
+    expect(execution.extractedContentImported).toBe(false);
+    expect(execution.extractionTelemetryImported).toBe(false);
     expect(execution.arguments).toEqual([
       "discover",
       resolve(exchange, "discovery-request.v1.json"),
       "--provider-mode",
       "fixture_only",
+      "--extraction-mode",
+      "none",
       "--output",
       resolve(exchange, "search-results.v2.json"),
     ]);
     expect(execution.providerIds).toEqual(["fixture_test_provider"]);
+  });
+
+  it("records selected extraction configuration and sidecar paths on successful discovery", async () => {
+    const { projectPath, runsDirectory } = await fakeProject();
+    const runId = createOpaqueId("run");
+    await runtime({
+      projectPath,
+      runsDirectory,
+      extractionMode: "selected_public_pages",
+      maximumExtractions: 3,
+    }).execute({
+      runId,
+      request: bridgeRequest(runId),
+    });
+
+    const exchange = resolve(runsDirectory, runId, "discovery-exchange");
+    const execution = LocalDiscoveryExecutionRecordV1Schema.parse(
+      JSON.parse(await readFile(resolve(exchange, "discovery-execution.json"), "utf8")),
+    );
+    expect(execution.extractionMode).toBe("selected_public_pages");
+    expect(execution.maximumExtractions).toBe(3);
+    expect(execution.frontierPath).toBe(resolve(exchange, "crawl-frontier.v1.json"));
+    expect(execution.extractedContentPath).toBe(resolve(exchange, "extracted-content.v1.json"));
+    expect(execution.extractionTelemetryPath).toBe(
+      resolve(exchange, "extraction-run-telemetry.v1.json"),
+    );
+    expect(execution.frontierImported).toBe(false);
+    expect(execution.extractedContentImported).toBe(false);
+    expect(execution.extractionTelemetryImported).toBe(false);
   });
 
   it("maps nonzero exit and missing output to explicit failures", async () => {
@@ -331,7 +443,11 @@ describe("LocalProcessDiscoveryRuntime", () => {
   it("imports valid live provider telemetry and preserves bounded usage", async () => {
     const fixture = await fakeProject("success");
     const runId = createOpaqueId("run");
-    const liveRuntime = runtime({ ...fixture, providerMode: "live_search" });
+    const liveRuntime = runtime({
+      ...fixture,
+      providerMode: "live_search",
+      providerPolicy: "paid_deep",
+    });
     const artifact = await liveRuntime.execute({ runId, request: bridgeRequest(runId) });
     expect(artifact.summary.providersUsed).toEqual(["brave_web_search"]);
     const exchange = resolve(fixture.runsDirectory, runId, "discovery-exchange");
@@ -359,7 +475,7 @@ describe("LocalProcessDiscoveryRuntime", () => {
     const testCase = async (mode: string, code: string) => {
       await setBehavior(fixture.projectPath, mode);
       await expectFailure(
-        runtime({ ...fixture, providerMode: "live_search" }).execute({
+        runtime({ ...fixture, providerMode: "live_search", providerPolicy: "paid_deep" }).execute({
           runId,
           request: bridgeRequest(runId),
         }),
@@ -378,7 +494,11 @@ describe("LocalProcessDiscoveryRuntime", () => {
   it("accepts honest partial live-provider coverage with warnings", async () => {
     const fixture = await fakeProject("partial-live");
     const runId = createOpaqueId("run");
-    const artifact = await runtime({ ...fixture, providerMode: "live_search" }).execute({
+    const artifact = await runtime({
+      ...fixture,
+      providerMode: "live_search",
+      providerPolicy: "paid_deep",
+    }).execute({
       runId,
       request: bridgeRequest(runId),
     });

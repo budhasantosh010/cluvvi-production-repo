@@ -18,6 +18,12 @@ export interface StartStagePersistence {
   event: LocalRunEvent;
 }
 
+export interface SkipStagePersistence {
+  run: LocalRun;
+  execution: StageExecution;
+  event: LocalRunEvent;
+}
+
 export interface CompleteStagePersistence {
   run: LocalRun;
   executionId: string;
@@ -73,6 +79,7 @@ export interface CluvviStore {
   getNextStageAttempt(runId: string, stageName: LocalRunPhase): Promise<number>;
   listStageExecutions(runId: string): Promise<StageExecution[]>;
   startStage(input: StartStagePersistence): Promise<void>;
+  skipStage(input: SkipStagePersistence): Promise<void>;
   completeStage(input: CompleteStagePersistence): Promise<void>;
   failStage(input: FailStagePersistence): Promise<void>;
 

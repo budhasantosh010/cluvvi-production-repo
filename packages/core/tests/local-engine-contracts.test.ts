@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { LiveProviderRunTelemetryV1Schema, MissionInputSchemaV1, fingerprint } from "../src";
+import {
+  LiveProviderRunTelemetryV1Schema,
+  MissionInputSchemaV1,
+  ProviderPolicyTraceV1Schema,
+  fingerprint,
+} from "../src";
 
 const mission = {
   schemaVersion: "1.0",
@@ -36,6 +41,40 @@ describe("local engine contracts", () => {
     expect(fingerprint({ alpha: 1, nested: { beta: 2, gamma: 3 } })).toBe(
       fingerprint({ nested: { gamma: 3, beta: 2 }, alpha: 1 }),
     );
+  });
+
+  it("strictly validates provider policy traces", () => {
+    const trace = ProviderPolicyTraceV1Schema.parse({
+      schemaVersion: "1.0",
+      artifactKind: "provider_policy_trace.v1",
+      requestId: "run_1234567890abcdef1234567890abcdef",
+      providerPolicy: "free_only",
+      queries: [
+        {
+          queryId: "plan_1",
+          sourceZone: "general_web",
+          searchMethod: "keyword_search",
+          attempts: [
+            {
+              providerId: "startpage_html_search",
+              order: 1,
+              attempted: true,
+              outcome: "success",
+              acceptedResults: 5,
+              uniqueDomains: 3,
+              duplicateRatio: 0,
+              paid: false,
+            },
+          ],
+          finalDecision: "sufficient_free_coverage",
+        },
+      ],
+      paidProviderAttempted: false,
+      paidFallbackUsed: false,
+      warnings: [],
+    });
+    expect(trace.providerPolicy).toBe("free_only");
+    expect(() => ProviderPolicyTraceV1Schema.parse({ ...trace, rawHtml: "forbidden" })).toThrow();
   });
 
   it("strictly validates live provider telemetry and rejects unknown fields", () => {

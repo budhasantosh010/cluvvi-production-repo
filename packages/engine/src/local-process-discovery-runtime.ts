@@ -3,9 +3,11 @@ import {
   LIVE_DISCOVERY_PROVIDER_IDS,
   LiveProviderRunTelemetryV1Schema,
   LocalDiscoveryExecutionRecordV1Schema,
+  ProviderPolicyTraceV1Schema,
   SearchResultsArtifactV2Schema,
   type LiveProviderRunTelemetryV1,
   type LocalDiscoveryExecutionRecordV1,
+  type ProviderPolicyTraceV1,
   type SearchResultsArtifactV2,
 } from "@cluvvi/core";
 import { createHash, randomUUID } from "node:crypto";
@@ -25,6 +27,7 @@ import {
   type DiscoveryExchangePaths,
 } from "./discovery-exchange";
 import type { DiscoveryRuntime, DiscoveryRuntimeExecutionInput } from "./discovery-runtime";
+import { readValidatedExtractionArtifactSet } from "./extraction-artifact-reader";
 
 interface ChildOutcome {
   exitCode: number | null;
@@ -80,7 +83,11 @@ function resolveSpawnInvocation(
 
   const normalizedCommand = configuredCommand.trim().replace(/^"|"$/g, "");
   const lowerCommand = normalizedCommand.toLowerCase();
-  if (!(lowerCommand === "pnpm" || lowerCommand.endsWith("\\pnpm.cmd"))) {
+  if (!(
+    lowerCommand === "pnpm" ||
+    lowerCommand === "pnpm.cmd" ||
+    lowerCommand.endsWith("\\pnpm.cmd")
+  )) {
     return { command: normalizedCommand, arguments: arguments_ };
   }
 
@@ -225,14 +232,18 @@ function failureCategory(
     code === "DISCOVERY_ENGINE_TELEMETRY_INVALID_JSON" ||
     code === "DISCOVERY_ENGINE_TELEMETRY_SCHEMA_MISMATCH" ||
     code === "DISCOVERY_ENGINE_TELEMETRY_REQUEST_ID_MISMATCH" ||
-    code === "DISCOVERY_ENGINE_USAGE_MISMATCH"
+    code === "DISCOVERY_ENGINE_USAGE_MISMATCH" ||
+    code === "PROVIDER_POLICY_TRACE_INVALID" ||
+    code === "PROVIDER_POLICY_TRACE_MISMATCH" ||
+    code === "FREE_ONLY_POLICY_VIOLATION"
   ) {
     return "validation";
   }
   if (
     code === "DISCOVERY_ENGINE_COMMAND_FAILED" ||
     code === "DISCOVERY_ENGINE_OUTPUT_MISSING" ||
-    code === "DISCOVERY_ENGINE_TELEMETRY_MISSING"
+    code === "DISCOVERY_ENGINE_TELEMETRY_MISSING" ||
+    code === "PROVIDER_POLICY_TRACE_MISSING"
   ) {
     return "provider";
   }
@@ -309,10 +320,195 @@ function validateLiveProviderOutput(
   return undefined;
 }
 
+function validateProviderPolicy(input: {
+  artifact: SearchResultsArtifactV2;
+  telemetry: LiveProviderRunTelemetryV1;
+  trace: ProviderPolicyTraceV1;
+  policy: LocalDiscoveryEngineConfig["providerPolicy"];
+}): ProviderValidationFailure | undefined {
+  const paidProviderIds = new Set<string>(["tavily_search", "brave_web_search"]);
+  const allowedProviderIds = new Set<string>(LIVE_DISCOVERY_PROVIDER_IDS);
+
+  if (input.trace.providerPolicy !== input.policy) {
+    return {
+      code: "PROVIDER_POLICY_TRACE_MISMATCH",
+      message: `The provider policy trace reported ${input.trace.providerPolicy}, expected ${input.policy}.`,
+    };
+  }
+
+  for (const query of input.trace.queries) {
+    const ordered = query.attempts.every((attempt, index) => attempt.order === index + 1);
+    if (!ordered || query.attempts.some((attempt) => !allowedProviderIds.has(attempt.providerId))) {
+      return {
+        code: "PROVIDER_POLICY_TRACE_MISMATCH",
+        message:
+          "The provider policy trace contains an unknown provider or invalid execution order.",
+      };
+    }
+  }
+
+  const paidTelemetry = input.telemetry.providerExecutions.filter((execution) =>
+    paidProviderIds.has(execution.providerId),
+  );
+  const paidTelemetryAttempted = paidTelemetry.some((execution) => execution.attempts > 0);
+  const paidTraceAttempts = input.trace.queries.flatMap((query) =>
+    query.attempts.filter((attempt) => attempt.paid && attempt.attempted),
+  );
+  const paidArtifactPresent =
+    providerIdsFor(input.artifact).some((providerId) => paidProviderIds.has(providerId)) ||
+    input.artifact.providerBreakdown.some((provider) => provider.providerCategory === "paid") ||
+    input.artifact.results.some((result) => result.providerCategory === "paid");
+  const paidActuallyAttempted =
+    paidTelemetryAttempted || paidTraceAttempts.length > 0 || paidArtifactPresent;
+
+  if (input.trace.paidProviderAttempted !== paidActuallyAttempted) {
+    return {
+      code: "PROVIDER_POLICY_TRACE_MISMATCH",
+      message: "The paid-provider flag does not agree with provider telemetry and results.",
+    };
+  }
+
+  const tavilyAttempted = input.telemetry.providerExecutions.some(
+    (execution) => execution.providerId === "tavily_search" && execution.attempts > 0,
+  );
+  const braveAttempted = input.telemetry.providerExecutions.some(
+    (execution) => execution.providerId === "brave_web_search" && execution.attempts > 0,
+  );
+  if (
+    input.telemetry.usage.tavilyRequests > 0 !== tavilyAttempted ||
+    input.telemetry.usage.braveRequests > 0 !== braveAttempted
+  ) {
+    return {
+      code: "DISCOVERY_ENGINE_USAGE_MISMATCH",
+      message: "Paid-provider request usage does not agree with provider execution telemetry.",
+    };
+  }
+
+  if (input.policy === "free_only") {
+    const freeOnlyViolation =
+      paidTelemetry.length > 0 ||
+      paidArtifactPresent ||
+      input.artifact.summary.paidCreditsUsed > 0 ||
+      input.telemetry.usage.tavilyRequests > 0 ||
+      input.telemetry.usage.tavilyCredits > 0 ||
+      input.telemetry.usage.braveRequests > 0 ||
+      input.trace.paidProviderAttempted ||
+      input.trace.paidFallbackUsed ||
+      paidTraceAttempts.length > 0 ||
+      input.trace.queries.some(
+        (query) =>
+          query.finalDecision === "paid_fallback_used" || query.paidFallbackReason !== undefined,
+      );
+    if (freeOnlyViolation) {
+      return {
+        code: "FREE_ONLY_POLICY_VIOLATION",
+        message:
+          "Free-only discovery rejected paid provider telemetry, results, fallback, or usage.",
+      };
+    }
+    return undefined;
+  }
+
+  const attemptedTraceKeys = new Set(
+    input.trace.queries.flatMap((query) =>
+      query.attempts
+        .filter((attempt) => attempt.attempted)
+        .map((attempt) => `${query.queryId}:${attempt.providerId}`),
+    ),
+  );
+  const missingTraceExecution = input.telemetry.providerExecutions.some(
+    (execution) =>
+      execution.operation === "search" &&
+      execution.attempts > 0 &&
+      !attemptedTraceKeys.has(`${execution.queryId}:${execution.providerId}`),
+  );
+  if (missingTraceExecution) {
+    return {
+      code: "PROVIDER_POLICY_TRACE_MISMATCH",
+      message:
+        "Provider execution telemetry contains a search attempt missing from the policy trace.",
+    };
+  }
+
+  const paidFallbackQueries = input.trace.queries.filter((query) =>
+    query.attempts.some((attempt) => attempt.paid && attempt.attempted),
+  );
+
+  if (input.policy === "balanced") {
+    for (const query of paidFallbackQueries) {
+      const firstPaidIndex = query.attempts.findIndex(
+        (attempt) => attempt.paid && attempt.attempted,
+      );
+      const earlierFree = query.attempts
+        .slice(0, firstPaidIndex)
+        .filter((attempt) => !attempt.paid);
+      const insufficientFreeCoverage = earlierFree.some(
+        (attempt) =>
+          attempt.skippedReason !== undefined ||
+          attempt.safeFailureCode !== undefined ||
+          ["zero_results", "insufficient_coverage", "failed", "budget_exhausted"].includes(
+            attempt.outcome,
+          ),
+      );
+      const freeAfterPaid = query.attempts
+        .slice(firstPaidIndex + 1)
+        .some((attempt) => !attempt.paid && attempt.attempted);
+      if (
+        firstPaidIndex <= 0 ||
+        earlierFree.length === 0 ||
+        !insufficientFreeCoverage ||
+        freeAfterPaid ||
+        query.finalDecision !== "paid_fallback_used" ||
+        query.paidFallbackReason === undefined
+      ) {
+        return {
+          code: "PROVIDER_POLICY_TRACE_MISMATCH",
+          message:
+            "Balanced discovery requires an insufficient free-provider ladder and a persisted fallback reason before paid execution.",
+        };
+      }
+    }
+    const paidFallbackUsed = paidFallbackQueries.length > 0;
+    if (input.trace.paidFallbackUsed !== paidFallbackUsed) {
+      return {
+        code: "PROVIDER_POLICY_TRACE_MISMATCH",
+        message: "The balanced paid-fallback flag does not match the provider ladder.",
+      };
+    }
+    if (
+      !paidFallbackUsed &&
+      input.trace.queries.some((query) => query.finalDecision === "paid_fallback_used")
+    ) {
+      return {
+        code: "PROVIDER_POLICY_TRACE_MISMATCH",
+        message: "Balanced discovery reported paid fallback without a paid provider attempt.",
+      };
+    }
+    return undefined;
+  }
+
+  if (
+    input.trace.paidFallbackUsed &&
+    paidFallbackQueries.some((query) => query.paidFallbackReason === undefined)
+  ) {
+    return {
+      code: "PROVIDER_POLICY_TRACE_MISMATCH",
+      message: "Paid-deep fallback usage must include a reason when it is reported as fallback.",
+    };
+  }
+  return undefined;
+}
+
 export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly mode = "local_discovery_engine" as const;
   readonly providerMode: LocalDiscoveryEngineConfig["providerMode"];
+  readonly providerPolicy: LocalDiscoveryEngineConfig["providerPolicy"];
+  readonly extractionMode: "none" | "selected_public_pages";
+  readonly maximumExtractions: number;
+  readonly extractorVersion: string;
+  readonly frontierPolicyVersion: string;
   readonly providerConfigurationFingerprint: string;
+  readonly extractionConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
   readonly #now: () => string;
@@ -329,19 +525,55 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.#now = input.now ?? (() => new Date().toISOString());
     this.#environment = input.environment ?? process.env;
     this.providerMode = this.#config.providerMode;
+    this.providerPolicy = this.#config.providerPolicy;
+    this.extractionMode = this.#config.extractionMode ?? "none";
+    this.maximumExtractions = this.#config.maximumExtractions ?? 8;
+    this.extractorVersion = this.#config.extractorVersion ?? "basic_public_html_extractor@1.0.0";
+    this.frontierPolicyVersion = this.#config.frontierPolicyVersion ?? "frontier_policy@1.0.0";
+    const publicEnvironment = publicDiscoveryProviderEnvironment(this.#config.providerEnvironment);
+    const providerEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => !key.startsWith("DISCOVERY_EXTRACTION_")),
+    );
+    const extractionEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => key.startsWith("DISCOVERY_EXTRACTION_")),
+    );
     this.providerConfigurationFingerprint = createHash("sha256")
       .update(
         JSON.stringify({
           runtimeMode: this.mode,
           providerMode: this.providerMode,
+          providerPolicy: this.providerPolicy,
           projectPath: this.#config.projectPath,
           command: this.#config.command,
           timeoutMs: this.#config.timeoutMs,
           keepExchangeFiles: this.#config.keepExchangeFiles,
-          providerEnvironment: publicDiscoveryProviderEnvironment(this.#config.providerEnvironment),
+          providerEnvironment,
         }),
       )
       .digest("hex");
+    this.extractionConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          extractionMode: this.extractionMode,
+          maximumExtractions: this.maximumExtractions,
+          extractorVersion: this.extractorVersion,
+          frontierPolicyVersion: this.frontierPolicyVersion,
+          extractionEnvironment,
+        }),
+      )
+      .digest("hex");
+  }
+
+  async readExtractionArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedExtractionArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
   }
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {
@@ -351,6 +583,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       paths.requestPath,
       "--provider-mode",
       this.providerMode,
+      ...(this.providerMode === "live_search" ? ["--provider-policy", this.providerPolicy] : []),
+      "--extraction-mode",
+      this.extractionMode,
+      ...(this.extractionMode === "selected_public_pages"
+        ? ["--max-extractions", String(this.maximumExtractions)]
+        : []),
       "--output",
       paths.outputPath,
     ];
@@ -693,6 +931,82 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       }
     }
 
+    let providerPolicyTrace: ProviderPolicyTraceV1 | undefined;
+    if (this.providerMode === "live_search") {
+      if (!(await pathExists(paths.providerPolicyTracePath))) {
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "PROVIDER_POLICY_TRACE_MISSING",
+          message:
+            "The live Discovery Engine run did not create its provider policy trace sidecar.",
+        });
+      }
+      let untrustedTrace: unknown;
+      try {
+        untrustedTrace = JSON.parse(
+          (await readFile(paths.providerPolicyTracePath)).toString("utf8"),
+        ) as unknown;
+      } catch (error) {
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "PROVIDER_POLICY_TRACE_INVALID",
+          message: "The live Discovery Engine provider policy trace is not valid JSON.",
+          cause: error,
+        });
+      }
+      const traceValidation = ProviderPolicyTraceV1Schema.safeParse(untrustedTrace);
+      if (!traceValidation.success) {
+        const issue = traceValidation.error.issues[0];
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "PROVIDER_POLICY_TRACE_INVALID",
+          message: `The provider policy trace does not satisfy provider_policy_trace.v1${
+            issue === undefined ? "." : `: ${issue.path.join(".")} ${issue.message}`
+          }`,
+        });
+      }
+      providerPolicyTrace = traceValidation.data;
+      if (providerPolicyTrace.requestId !== input.request.requestId) {
+        return await this.#fail({
+          input,
+          paths,
+          arguments_,
+          startedAt,
+          startedAtMs,
+          projectCommitSha,
+          exitCode: 0,
+          timedOut: false,
+          cancelled: false,
+          code: "PROVIDER_POLICY_TRACE_MISMATCH",
+          message: `The provider policy trace returned requestId ${providerPolicyTrace.requestId}, expected ${input.request.requestId}.`,
+        });
+      }
+    }
+
     const providerValidation =
       this.providerMode === "fixture_only"
         ? validateFixtureProviderOutput(artifact)
@@ -703,7 +1017,19 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
                 "The live Discovery Engine run completed without validated provider telemetry.",
             }
           : validateLiveProviderOutput(artifact, providerTelemetry);
-    if (providerValidation !== undefined) {
+    const policyValidation =
+      this.providerMode === "live_search" &&
+      providerTelemetry !== undefined &&
+      providerPolicyTrace !== undefined
+        ? validateProviderPolicy({
+            artifact,
+            telemetry: providerTelemetry,
+            trace: providerPolicyTrace,
+            policy: this.providerPolicy,
+          })
+        : undefined;
+    const finalValidation = providerValidation ?? policyValidation;
+    if (finalValidation !== undefined) {
       return await this.#fail({
         input,
         paths,
@@ -714,8 +1040,8 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         exitCode: 0,
         timedOut: false,
         cancelled: false,
-        code: providerValidation.code,
-        message: providerValidation.message,
+        code: finalValidation.code,
+        message: finalValidation.message,
       });
     }
     const providerIds = providerIdsFor(artifact);
@@ -731,6 +1057,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       command: this.#config.command,
       arguments: arguments_,
       providerMode: this.providerMode,
+      providerPolicy: this.providerPolicy,
+      extractionMode: this.extractionMode,
+      maximumExtractions: this.maximumExtractions,
       startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - startedAtMs),
@@ -742,13 +1071,29 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       stdoutPath: paths.stdoutPath,
       stderrPath: paths.stderrPath,
       ...(providerTelemetry === undefined
-        ? { providerTelemetryImported: false }
+        ? { providerTelemetryImported: false, providerPolicyTraceImported: false }
         : {
             providerTelemetryPath: paths.providerTelemetryPath,
             providerTelemetryImported: true,
+            providerPolicyTracePath: paths.providerPolicyTracePath,
+            providerPolicyTraceImported: providerPolicyTrace !== undefined,
             providerConfigurationFingerprint: providerTelemetry.configurationFingerprint,
             providerUsage: providerTelemetry.usage,
             providerWarnings: providerTelemetry.warnings,
+          }),
+      ...(this.extractionMode === "selected_public_pages"
+        ? {
+            frontierPath: paths.frontierPath,
+            frontierImported: false,
+            extractedContentPath: paths.extractedContentPath,
+            extractedContentImported: false,
+            extractionTelemetryPath: paths.extractionTelemetryPath,
+            extractionTelemetryImported: false,
+          }
+        : {
+            frontierImported: false,
+            extractedContentImported: false,
+            extractionTelemetryImported: false,
           }),
       providerIds,
       success: true,
@@ -807,6 +1152,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       command: this.#config.command,
       arguments: input.arguments_,
       providerMode: this.providerMode,
+      providerPolicy: this.providerPolicy,
+      extractionMode: this.extractionMode,
+      maximumExtractions: this.maximumExtractions,
       startedAt: input.startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - input.startedAtMs),
@@ -821,8 +1169,24 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         ? {
             providerTelemetryPath: input.paths.providerTelemetryPath,
             providerTelemetryImported: false,
+            providerPolicyTracePath: input.paths.providerPolicyTracePath,
+            providerPolicyTraceImported: false,
           }
-        : { providerTelemetryImported: false }),
+        : { providerTelemetryImported: false, providerPolicyTraceImported: false }),
+      ...(this.extractionMode === "selected_public_pages"
+        ? {
+            frontierPath: input.paths.frontierPath,
+            frontierImported: false,
+            extractedContentPath: input.paths.extractedContentPath,
+            extractedContentImported: false,
+            extractionTelemetryPath: input.paths.extractionTelemetryPath,
+            extractionTelemetryImported: false,
+          }
+        : {
+            frontierImported: false,
+            extractedContentImported: false,
+            extractionTelemetryImported: false,
+          }),
       success: false,
       errorCode: input.code,
       errorMessage: input.message,
@@ -849,7 +1213,17 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
           requestPath: input.paths.requestPath,
           outputPath: input.paths.outputPath,
           ...(this.providerMode === "live_search"
-            ? { providerTelemetryPath: input.paths.providerTelemetryPath }
+            ? {
+                providerTelemetryPath: input.paths.providerTelemetryPath,
+                providerPolicyTracePath: input.paths.providerPolicyTracePath,
+              }
+            : {}),
+          ...(this.extractionMode === "selected_public_pages"
+            ? {
+                frontierPath: input.paths.frontierPath,
+                extractedContentPath: input.paths.extractedContentPath,
+                extractionTelemetryPath: input.paths.extractionTelemetryPath,
+              }
             : {}),
           stdoutPath: input.paths.stdoutPath,
           stderrPath: input.paths.stderrPath,

@@ -46,6 +46,7 @@ integration("C1-G real Project A bridge", () => {
         timeoutMs: 60_000,
         keepExchangeFiles: true,
         providerMode: "fixture_only",
+        providerPolicy: "free_only",
         providerEnvironment: {},
       },
       runsDirectory,
@@ -56,6 +57,7 @@ integration("C1-G real Project A bridge", () => {
       stages: createDefaultStageRegistry({ discoveryRuntime }),
       discoveryRuntimeMode: discoveryRuntime.mode,
       discoveryProviderMode: discoveryRuntime.providerMode,
+      discoveryProviderPolicy: discoveryRuntime.providerPolicy,
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
     });
 

@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { DiscoveryProviderModeSchema, DiscoveryRuntimeModeSchema } from "./discovery-runtime";
+import {
+  CluvviExtractionModeSchema,
+  DiscoveryProviderModeSchema,
+  DiscoveryProviderPolicySchema,
+  DiscoveryRuntimeModeSchema,
+} from "./discovery-runtime";
 import { OpaqueIdSchema } from "./ids";
 
 export const LocalRunStatusSchema = z.enum([
@@ -18,6 +23,9 @@ export const RunPhaseSchema = z.enum([
   "compilation",
   "source_planning",
   "discovery",
+  "frontier",
+  "extraction",
+  "extraction_telemetry",
   "normalization",
   "investigation",
   "buyer_identification",
@@ -127,6 +135,11 @@ export const LocalRunSchema = z
         fixtureMode: z.literal(true),
         discoveryRuntimeMode: DiscoveryRuntimeModeSchema.default("fixture"),
         discoveryProviderMode: DiscoveryProviderModeSchema.default("fixture_only"),
+        discoveryProviderPolicy: DiscoveryProviderPolicySchema.default("free_only"),
+        discoveryExtractionMode: CluvviExtractionModeSchema.default("none"),
+        discoveryMaximumExtractions: z.number().int().min(1).max(100).default(8),
+        extractorVersion: z.string().min(1).default("basic_public_html_extractor@1.0.0"),
+        frontierPolicyVersion: z.string().min(1).default("frontier_policy@1.0.0"),
       })
       .strict(),
     budget: RunBudgetSchema,
@@ -149,6 +162,7 @@ export const LocalRunEventSchema = z
       "run_resumed",
       "stage_started",
       "stage_reused",
+      "stage_skipped",
       "stage_completed",
       "stage_failed",
       "run_completed",

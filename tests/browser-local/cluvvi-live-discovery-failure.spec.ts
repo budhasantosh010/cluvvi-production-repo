@@ -29,7 +29,7 @@ test("invalid live telemetry fails honestly and the same run resumes after corre
   await page.setViewportSize({ width: 1280, height: 960 });
   await page.goto("/", { waitUntil: "networkidle" });
   await hideDevelopmentUi(page);
-  await expect(page.getByText("Local Discovery Engine live search", { exact: true })).toBeVisible();
+  await expect(page.getByText("Local live search · paid deep", { exact: true })).toBeVisible();
   await page
     .getByLabel("Describe what you sell or paste your website")
     .fill("We sell AI video editing software for podcast agencies with production backlogs.");
@@ -69,11 +69,11 @@ test("invalid live telemetry fails honestly and the same run resumes after corre
     timeout: 60_000,
   });
   await expect(page.locator('[data-stage="discovery"]')).toContainText(
-    "Imported and validated live search results and provider telemetry",
+    "Imported and validated live search results, provider telemetry, and policy trace",
   );
   await expect(page.getByTestId("live-provider-telemetry")).toBeVisible();
   await expect(page.getByTestId("fixture-provider-warning")).toContainText(
-    "Pages were not crawled or deeply extracted",
+    "No result page was fetched",
   );
   await expect(
     page.getByTestId("project-b-fixture-pipeline").getByRole("heading", {

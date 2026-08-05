@@ -10,6 +10,8 @@ export * from "./discovery-runtime-factory";
 export * from "./discovery-telemetry-reader";
 export * from "./downstream-fixture-data";
 export * from "./downstream-stages";
+export * from "./extraction-artifact-reader";
+export * from "./extracted-evidence-materials";
 export * from "./local-process-discovery-runtime";
 export * from "./mission-understanding";
 export * from "./placeholder-stages";

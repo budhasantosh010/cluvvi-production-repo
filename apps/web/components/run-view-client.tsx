@@ -1,6 +1,7 @@
 "use client";
 
 import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
+import { ExtractionEvidenceView } from "@/components/extraction-evidence-view";
 import { MissionUnderstandingView } from "@/components/mission-understanding-view";
 import type { RunView } from "@cluvvi/application/contracts";
 import type { ArtifactRecord } from "@cluvvi/core";
@@ -22,6 +23,9 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   compilation: "Mission understanding",
   source_planning: "Search planning",
   discovery: "Discovery",
+  frontier: "Crawl frontier",
+  extraction: "Public-page extraction",
+  extraction_telemetry: "Extraction telemetry",
   normalization: "Normalization",
   investigation: "Evidence analysis",
   buyer_identification: "Buyer hypotheses",
@@ -53,18 +57,34 @@ function stageStatusLabel(
   if (stage.name === "discovery") {
     if (stage.status === "running") {
       return discoveryProviderMode === "live_search"
-        ? "Running HN, Tavily, and Brave search through the local Discovery Engine"
+        ? "Running provider-policy-controlled search through the local Discovery Engine"
         : discoveryRuntimeMode === "local_discovery_engine"
           ? "Running the local Discovery Engine in fixture-provider mode"
           : "Loading fixture discovery results";
     }
-    if (stage.status === "completed" || stage.status === "reused") {
+    if (stage.status === "reused") return "Reused from durable state";
+    if (stage.status === "completed") {
       return discoveryProviderMode === "live_search"
-        ? "Imported and validated live search results and provider telemetry"
+        ? "Imported and validated live search results, provider telemetry, and policy trace"
         : discoveryRuntimeMode === "local_discovery_engine"
           ? "Ran the local Discovery Engine in fixture-provider mode"
           : "Loaded fixture discovery results";
     }
+  }
+  if (stage.name === "frontier") {
+    if (stage.status === "running") return "Validating the deterministic crawl frontier";
+    if (stage.status === "completed") return "Imported the validated public-page frontier";
+    if (stage.status === "reused") return "Reused the durable crawl frontier";
+  }
+  if (stage.name === "extraction") {
+    if (stage.status === "running") return "Validating bounded public-page extraction";
+    if (stage.status === "completed") return "Imported normalized untrusted page evidence";
+    if (stage.status === "reused") return "Reused validated extracted content";
+  }
+  if (stage.name === "extraction_telemetry") {
+    if (stage.status === "running") return "Validating extraction attempts, limits, and totals";
+    if (stage.status === "completed") return "Imported extraction telemetry";
+    if (stage.status === "reused") return "Reused extraction telemetry";
   }
   if (stage.status === "running") return "Running locally";
   if (stage.status === "reused") return "Reused from durable state";
@@ -129,7 +149,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
 
   const completedCount = useMemo(
     () =>
-      view.stages.filter((stage) => stage.status === "completed" || stage.status === "reused")
+      view.stages.filter((stage) => ["completed", "reused", "skipped"].includes(stage.status))
         .length,
     [view.stages],
   );
@@ -140,7 +160,16 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   );
   const localDiscovery = view.run.config.discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = view.run.config.discoveryProviderMode === "live_search";
+  const extractionEnabled = view.run.config.discoveryExtractionMode === "selected_public_pages";
   const telemetry = view.providerTelemetry;
+  const policyTrace = view.providerPolicyTrace;
+  const providerPolicy = view.run.config.discoveryProviderPolicy;
+  const policyLabel =
+    providerPolicy === "free_only"
+      ? "Free only"
+      : providerPolicy === "balanced"
+        ? "Balanced"
+        : "Paid deep";
   const telemetryProviders = telemetry
     ? [...new Set(telemetry.providerExecutions.map((execution) => execution.providerId))]
     : [];
@@ -191,16 +220,34 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
       <div className="fixture-banner" data-testid="fixture-provider-warning">
         <strong>
           {liveDiscovery
-            ? "Live search · local Discovery Engine."
+            ? `Live search · ${policyLabel}.`
             : localDiscovery
               ? "Local Discovery Engine · fixture providers only."
               : "Fixture Buyer Map — no live market results."}
         </strong>
         <span>
           {liveDiscovery
-            ? "This run used live search snippets from Hacker News, Tavily, and Brave. Cluvvi validated search_results.v2 and the provider telemetry sidecar before running deterministic Evidence, Identity, Ranking, and Buyer Map logic. Pages were not crawled or deeply extracted, and identity or contact details were not verified."
+            ? providerPolicy === "free_only"
+              ? `This run used free search providers only. Paid providers were blocked by policy. Cluvvi validated search_results.v2, provider telemetry, and the provider policy trace before deterministic downstream analysis. ${
+                  extractionEnabled
+                    ? "Selected public pages were then fetched through bounded SSRF-safe extraction and treated as untrusted source data."
+                    : "Only provider snippets were used; no result page was fetched."
+                }`
+              : providerPolicy === "balanced"
+                ? `This run used free providers first and permitted paid fallback only when configured coverage thresholds were not met. Cluvvi preserved the provider order, fallback reason, and paid usage. ${
+                    extractionEnabled
+                      ? "Selected public pages were then fetched within explicit frontier and response-size limits."
+                      : "Only provider snippets were used."
+                  }`
+                : `This run used explicit paid-deep search routing with bounded request and credit budgets. ${
+                    extractionEnabled
+                      ? "Selected public pages were subsequently extracted through the standalone safe-fetch boundary."
+                      : "No result page was fetched."
+                  }`
             : localDiscovery
-              ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
+              ? extractionEnabled
+                ? "This run used the standalone local Discovery Engine with fixture providers, then fetched selected public pages through bounded extraction. Fixture search results remain synthetic; extracted public-page claims are unverified source evidence."
+                : "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
               : "Cluvvi generated mission understanding locally, then processed a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every company and URL is synthetic."}
         </span>
       </div>
@@ -226,10 +273,15 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
               </span>
               <span className="fixture-badge">
                 {liveDiscovery
-                  ? "Live search · local engine"
+                  ? `${policyLabel} · local engine`
                   : localDiscovery
                     ? "Fixture · local engine"
                     : "Fixture"}
+              </span>
+              <span className="fixture-badge">
+                {extractionEnabled
+                  ? `Extraction · max ${view.run.config.discoveryMaximumExtractions}`
+                  : "Search only"}
               </span>
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl">
@@ -244,7 +296,9 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
             </div>
             <div className="metric-card">
               <span>Stages done</span>
-              <strong>{completedCount} / 11</strong>
+              <strong>
+                {completedCount} / {view.stages.length}
+              </strong>
             </div>
             <div className="metric-card">
               <span>Discovery runtime</span>
@@ -257,8 +311,12 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
               </strong>
             </div>
             <div className="metric-card">
-              <span>Started</span>
-              <strong>{new Date(view.run.startedAt).toLocaleString()}</strong>
+              <span>Page evidence</span>
+              <strong>
+                {extractionEnabled
+                  ? `Up to ${view.run.config.discoveryMaximumExtractions} pages`
+                  : "Disabled"}
+              </strong>
             </div>
           </div>
         </div>
@@ -380,6 +438,109 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         </section>
       )}
 
+      {liveDiscovery && policyTrace !== null && (
+        <section
+          className="surface-card smooth-panel p-6 sm:p-8"
+          data-testid="provider-policy-trace"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="eyebrow">Provider policy</p>
+              <h2 className="mt-2 text-xl font-semibold text-neutral-950">
+                {policyLabel} provider ladder
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
+                {providerPolicy === "free_only"
+                  ? "This run used free search providers only. Paid providers were blocked by policy."
+                  : providerPolicy === "balanced"
+                    ? policyTrace.paidFallbackUsed
+                      ? "Free coverage was below the configured threshold, so an allowed paid fallback was used."
+                      : "Free providers produced sufficient coverage. No paid search provider was used."
+                    : "Paid providers were permitted for this run under the explicit paid-deep policy."}
+              </p>
+            </div>
+            <span className="fixture-badge">{policyLabel}</span>
+          </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="metric-card">
+              <span>SearXNG requests</span>
+              <strong>{telemetry?.usage.searxngRequests ?? 0}</strong>
+            </div>
+            <div className="metric-card">
+              <span>DuckDuckGo requests</span>
+              <strong>{telemetry?.usage.duckDuckGoRequests ?? 0}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Startpage requests</span>
+              <strong>{telemetry?.usage.startpageRequests ?? 0}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Paid fallback</span>
+              <strong>{policyTrace.paidFallbackUsed ? "Used" : "Not used"}</strong>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-3" data-testid="provider-ladder">
+            {policyTrace.queries.flatMap((query) =>
+              query.attempts.map((attempt) => (
+                <article
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4"
+                  key={`${query.queryId}-${attempt.order}-${attempt.providerId}`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                        Attempt {attempt.order}
+                      </p>
+                      <h3 className="mt-1 font-semibold text-neutral-950">
+                        {attempt.providerId.replaceAll("_", " ")}
+                      </h3>
+                    </div>
+                    <span className="status-pill status-completed">
+                      {attempt.outcome.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                    <div>
+                      <dt className="text-neutral-500">Accepted results</dt>
+                      <dd className="font-medium text-neutral-900">{attempt.acceptedResults}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-neutral-500">Unique domains</dt>
+                      <dd className="font-medium text-neutral-900">{attempt.uniqueDomains}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-neutral-500">Duplicate ratio</dt>
+                      <dd className="font-medium text-neutral-900">
+                        {(attempt.duplicateRatio * 100).toFixed(0)}%
+                      </dd>
+                    </div>
+                  </dl>
+                  {(attempt.skippedReason || attempt.safeFailureCode) && (
+                    <p className="mt-3 text-sm leading-6 text-neutral-600">
+                      {attempt.safeFailureCode ? `${attempt.safeFailureCode}: ` : ""}
+                      {attempt.skippedReason ?? "Provider attempt failed safely."}
+                    </p>
+                  )}
+                </article>
+              )),
+            )}
+          </div>
+          {policyTrace.queries.some((query) => query.paidFallbackReason) && (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <strong>Coverage threshold:</strong>{" "}
+              {policyTrace.queries
+                .map((query) => query.paidFallbackReason)
+                .filter((value): value is string => Boolean(value))
+                .join(" ")}
+            </div>
+          )}
+          <p className="mt-5 text-sm leading-6 text-neutral-600">
+            Search snippets only. Full pages were not extracted. Coverage may be incomplete, and
+            free-provider availability may vary by network.
+          </p>
+        </section>
+      )}
+
       {understandingArtifact === null && (
         <section
           className="surface-card smooth-panel p-6 sm:p-8"
@@ -413,6 +574,14 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
           discoveryProviderMode={view.run.config.discoveryProviderMode}
         />
       )}
+
+      <ExtractionEvidenceView
+        artifacts={view.artifacts}
+        extractionMode={view.run.config.discoveryExtractionMode}
+        maximumExtractions={view.run.config.discoveryMaximumExtractions}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
 
       <DownstreamFixtureView
         artifacts={view.artifacts}

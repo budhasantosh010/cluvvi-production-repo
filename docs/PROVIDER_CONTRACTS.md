@@ -1,6 +1,6 @@
 # Provider and execution contracts
 
-## Active C1-H provider boundary
+## Active C1-HF search and C1-I extraction boundary
 
 Cluvvi does not call search providers directly. The independently executable Project A Discovery Engine owns provider authentication, HTTP behavior, normalization, routing, retries, rate limits, and provider-specific response validation.
 
@@ -11,6 +11,10 @@ discovery_request.v1
 → trusted Project A CLI
 → search_results.v2
 → live_provider_run_telemetry.v1 when providerMode=live_search
+? provider_policy_trace.v1 when providerMode=live_search
+? crawl_frontier.v1 when extractionMode=selected_public_pages
+? extracted_content.v1 when extractionMode=selected_public_pages
+? extraction_run_telemetry.v1 when extractionMode=selected_public_pages
 ```
 
 Supported provider modes:
@@ -37,7 +41,7 @@ Cluvvi rejects missing, malformed, schema-incompatible, wrong-request, wrong-mod
 - User mission content is written only to JSON files.
 - Shell interpolation is disabled.
 - Child arguments are fixed.
-- Cluvvi forwards only the documented provider environment allowlist.
+- Cluvvi forwards only the documented provider and public-extraction environment allowlist.
 - API keys and authorization values must never appear in fingerprints, execution records, logs, artifacts, browser responses, screenshots, or Git.
 - Project A may load its own ignored root `.env.local`; explicit allowlisted environment values may override it.
 
@@ -45,11 +49,13 @@ Cluvvi rejects missing, malformed, schema-incompatible, wrong-request, wrong-mod
 
 Provider failures remain visible in Project A telemetry and V2 coverage warnings. Cluvvi may continue with an honest partial result only when the complete artifact and telemetry contracts validate. All-provider failure, invalid output, invalid telemetry, request mismatch, provider mismatch, or usage mismatch fails the discovery stage.
 
-Failed exchange files are preserved. Resume archives the previous exchange, reuses completed durable stages, reruns discovery, validates the new output, and continues through downstream stages. Cancellation and timeout terminate the standalone process tree.
+Failed exchange files are preserved. Provider/search failure resumes by rerunning discovery. Extraction-sidecar validation failure reuses the completed discovery stage, rereads or repairs the companion files, and reruns only frontier/extraction and downstream stages. Cancellation and timeout terminate the standalone process tree.
 
-## Search-only limitation
+## Search and extraction separation
 
-C1-H retrieves search snippets and public result metadata. It does not fetch result pages, crawl sites, render browsers, traverse threads, extract page bodies, verify identities, enrich contacts, or send outreach. Those behaviors require separate C1-I or later approval.
+Search-only execution retrieves snippets and public result metadata without fetching result pages. C1-I adds a separate opt-in `selected_public_pages` path. Project A owns bounded safe public fetching and normalized HTML extraction; Project B owns independent companion-artifact validation, durable persistence, untrusted evidence materials, and downstream provenance.
+
+C1-I remains depth zero. It does not render JavaScript, recurse through sites, traverse threads/transcripts, extract documents, verify identities, enrich contacts, or send outreach.
 
 ## Queue semantics
 

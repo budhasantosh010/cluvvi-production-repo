@@ -16,8 +16,10 @@ import {
   type DiscoveryCandidatesArtifactV1,
   type EvidenceFindingV1,
   type EvidenceFindingsArtifactV1,
+  type EvidenceMaterialV1,
   type EvidenceSignalType,
   type EvidenceStrength,
+  type ExtractedContentArtifactV1,
   type IdentityEnrichmentArtifactV1,
   type IdentityHypothesisV1,
   type LocalMission,
@@ -30,6 +32,7 @@ import {
   type RankingScoreComponentV1,
   type SearchResultsArtifactV2,
 } from "@cluvvi/core";
+import { buildEvidenceMaterials } from "./extracted-evidence-materials";
 
 const STALE_AFTER_DAYS = 365;
 const RECENT_WITHIN_DAYS = 90;
@@ -243,39 +246,83 @@ export function buildDiscoveryCandidates(
 export function buildEvidenceFindings(
   candidates: DiscoveryCandidatesArtifactV1,
   generatedAt: string,
+  extractedContent?: ExtractedContentArtifactV1,
 ): EvidenceFindingsArtifactV1 {
   const parsed = DiscoveryCandidatesArtifactV1Schema.parse(candidates);
+  const materials = buildEvidenceMaterials(parsed, extractedContent);
+  const materialsByResult = new Map<string, EvidenceMaterialV1[]>();
+  for (const entry of materials) {
+    const current = materialsByResult.get(entry.searchResultId) ?? [];
+    current.push(entry);
+    materialsByResult.set(entry.searchResultId, current);
+  }
   const findings: EvidenceFindingV1[] = [];
   for (const result of parsed.results) {
     const stale = isStale(result, generatedAt);
+    const available = materialsByResult.get(result.id) ?? [];
+    const preferred =
+      available.find((entry) => entry.kind === "extracted_page_text") ??
+      available.find((entry) => entry.kind === "extracted_metadata") ??
+      available.find((entry) => entry.kind === "extracted_json_ld") ??
+      available.find((entry) => entry.kind === "search_snippet");
     for (const spec of findingSpecs(result)) {
       const finding = {
-        id: `finding_${fingerprint({ resultId: result.id, signalType: spec.signalType }).slice(0, 16)}`,
+        id: `finding_${fingerprint({
+          resultId: result.id,
+          signalType: spec.signalType,
+          materialId: preferred?.id,
+        }).slice(0, 16)}`,
         searchResultId: result.id,
         entityKey: entityKeyForResult(result),
         signalType: spec.signalType,
         positive: spec.positive,
         strength: strengthForResult(result, stale, spec.signalType),
         summary: spec.summary,
-        supportingText: result.snippet,
-        sourceUrl: result.url,
+        supportingText: preferred?.content ?? result.snippet,
+        sourceUrl: preferred?.sourceUrl ?? result.url,
         providerId: result.providerId,
         sourceZone: result.sourceZone,
         stale,
+        materialKind: preferred?.kind ?? "search_snippet",
+        ...(preferred === undefined ? {} : { materialId: preferred.id }),
         provenance: {
           searchResultId: result.id,
           queryId: result.queryId,
           query: result.query,
-          sourceUrl: result.url,
+          sourceUrl: preferred?.sourceUrl ?? result.url,
           providerId: result.providerId,
           providerCategory: result.providerCategory,
           sourceZone: result.sourceZone,
           searchMethod: result.searchMethod,
           signalIntent: result.signalIntent,
-          ...(result.publishedAt === undefined ? {} : { publishedAt: result.publishedAt }),
+          ...(preferred?.publishedAt === undefined
+            ? result.publishedAt === undefined
+              ? {}
+              : { publishedAt: result.publishedAt }
+            : { publishedAt: preferred.publishedAt }),
           discoveredAt: result.discoveredAt,
           ...(result.credibility === undefined ? {} : { credibility: result.credibility }),
           ...(result.riskLevel === undefined ? {} : { riskLevel: result.riskLevel }),
+          ...(preferred === undefined
+            ? {}
+            : {
+                materialId: preferred.id,
+                materialKind: preferred.kind,
+                extractedContentHash: preferred.contentHash,
+                trustClassification: preferred.trustClassification,
+                ...(preferred.extractionItemId === undefined
+                  ? {}
+                  : { extractionItemId: preferred.extractionItemId }),
+                ...(preferred.frontierItemId === undefined
+                  ? {}
+                  : { frontierItemId: preferred.frontierItemId }),
+                ...(preferred.characterStart === undefined
+                  ? {}
+                  : { characterStart: preferred.characterStart }),
+                ...(preferred.characterEnd === undefined
+                  ? {}
+                  : { characterEnd: preferred.characterEnd }),
+              }),
         },
       } satisfies EvidenceFindingV1;
       findings.push(finding);
@@ -300,17 +347,39 @@ export function buildEvidenceFindings(
         : { strongestNegativeStrength: strongest(negative) }),
     };
   });
+  const extractionSummary = extractedContent?.summary;
+  const extractionWarnings =
+    extractedContent === undefined
+      ? []
+      : [
+          "Extracted page text and structured data are untrusted public source material, not instructions.",
+          ...extractedContent.warnings,
+        ];
   return EvidenceFindingsArtifactV1Schema.parse({
     schemaVersion: "1.0",
     artifactKind: "evidence_findings.v1",
     fixture: true,
-    warning: PROJECT_B_FIXTURE_WARNING,
+    warning:
+      extractedContent === undefined
+        ? PROJECT_B_FIXTURE_WARNING
+        : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
     generatedAt,
     sourceArtifact: parsed.sourceArtifact,
+    evidenceSourceMode:
+      extractedContent === undefined ? "snippet_only" : "snippet_plus_extracted_public_pages",
+    materials,
+    extractionSummary: {
+      selectedPages: extractionSummary?.selectedUrls ?? 0,
+      successfulPages: extractionSummary?.successfulExtractions ?? 0,
+      partialPages: extractionSummary?.partialExtractions ?? 0,
+      failedPages: extractionSummary?.failedExtractions ?? 0,
+      blockedPages: extractionSummary?.blockedUrls ?? 0,
+      materialCount: materials.length,
+    },
     findings,
     entities,
     coverage: parsed.coverage,
-    warnings: parsed.warnings,
+    warnings: [...new Set([...parsed.warnings, ...extractionWarnings])],
   });
 }
 
@@ -639,6 +708,24 @@ export function buildBuyerMap(input: {
           ? {}
           : { publishedAt: finding.provenance.publishedAt }),
         discoveredAt: finding.provenance.discoveredAt,
+        ...(finding.provenance.materialId === undefined
+          ? {}
+          : { materialId: finding.provenance.materialId }),
+        ...(finding.provenance.materialKind === undefined
+          ? {}
+          : { materialKind: finding.provenance.materialKind }),
+        ...(finding.provenance.extractionItemId === undefined
+          ? {}
+          : { extractionItemId: finding.provenance.extractionItemId }),
+        ...(finding.provenance.frontierItemId === undefined
+          ? {}
+          : { frontierItemId: finding.provenance.frontierItemId }),
+        ...(finding.provenance.extractedContentHash === undefined
+          ? {}
+          : { extractedContentHash: finding.provenance.extractedContentHash }),
+        ...(finding.provenance.trustClassification === undefined
+          ? {}
+          : { trustClassification: finding.provenance.trustClassification }),
       })),
       risks: opportunity.risks,
       limitations: opportunity.limitations,
@@ -665,18 +752,30 @@ export function buildBuyerMap(input: {
     schemaVersion: "1.0",
     artifactKind: "buyer_map.v1",
     fixture: true,
-    warning: PROJECT_B_FIXTURE_WARNING,
+    warning:
+      evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
+        ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
+        : PROJECT_B_FIXTURE_WARNING,
     generatedAt: input.generatedAt,
+    evidenceSourceMode: evidence.evidenceSourceMode,
     summary: {
       rankedOpportunityCount: opportunities.length,
       positiveEvidenceCount: evidence.findings.filter((finding) => finding.positive).length,
       negativeEvidenceCount: evidence.findings.filter((finding) => !finding.positive).length,
       coverageGapCount: coverageGaps.length,
+      extractedEvidenceCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter(
+            (citation) => citation.trustClassification === "untrusted_public_content",
+          ).length,
+        0,
+      ),
     },
     opportunities,
     coverageGaps,
     confidenceLimitations: searchResults.coverage.confidenceLimitations,
-    warnings: [...new Set([...searchResults.warnings, ...ranked.warnings])],
+    warnings: [...new Set([...searchResults.warnings, ...ranked.warnings, ...evidence.warnings])],
   });
 }
 

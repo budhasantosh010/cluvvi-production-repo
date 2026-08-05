@@ -58,6 +58,7 @@ describe("Mission Understanding to discovery_request.v1 adapter", () => {
       mission,
       understanding: generateMissionUnderstandingArtifactV1(mission.input),
       providerMode: "live_search",
+      providerPolicy: "balanced",
     });
     expect(request.discoveryMode).toBe("balanced");
     expect(request.providerPreference).toBe("paid_allowed");

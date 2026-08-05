@@ -27,6 +27,49 @@ export type EvidenceSignalType = z.infer<typeof EvidenceSignalTypeSchema>;
 export const EvidenceStrengthSchema = z.enum(["weak", "moderate", "strong"]);
 export type EvidenceStrength = z.infer<typeof EvidenceStrengthSchema>;
 
+export const EvidenceMaterialKindV1Schema = z.enum([
+  "search_snippet",
+  "extracted_page_text",
+  "extracted_metadata",
+  "extracted_json_ld",
+]);
+export type EvidenceMaterialKindV1 = z.infer<typeof EvidenceMaterialKindV1Schema>;
+
+export const EvidenceMaterialV1Schema = z
+  .object({
+    id: z.string().min(1),
+    kind: EvidenceMaterialKindV1Schema,
+    searchResultId: z.string().min(1),
+    entityKey: z.string().min(1),
+    sourceUrl: z.url(),
+    content: z.string().min(1).max(20_000),
+    contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+    trustClassification: z.enum(["provider_snippet", "untrusted_public_content"]),
+    extractionItemId: z.string().min(1).optional(),
+    frontierItemId: z.string().min(1).optional(),
+    chunkIndex: z.number().int().nonnegative().optional(),
+    characterStart: z.number().int().nonnegative().optional(),
+    characterEnd: z.number().int().positive().optional(),
+    title: z.string().min(1).optional(),
+    publishedAt: z.iso.datetime().optional(),
+    limitations: z.array(z.string().min(1)),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.characterStart !== undefined &&
+      value.characterEnd !== undefined &&
+      value.characterEnd <= value.characterStart
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["characterEnd"],
+        message: "characterEnd must be greater than characterStart",
+      });
+    }
+  });
+export type EvidenceMaterialV1 = z.infer<typeof EvidenceMaterialV1Schema>;
+
 export const EvidenceProvenanceV1Schema = z
   .object({
     searchResultId: z.string().min(1),
@@ -42,6 +85,17 @@ export const EvidenceProvenanceV1Schema = z
     discoveredAt: z.iso.datetime(),
     credibility: z.enum(["low", "medium", "high", "official"]).optional(),
     riskLevel: z.enum(["low", "medium", "high"]).optional(),
+    materialId: z.string().min(1).optional(),
+    materialKind: EvidenceMaterialKindV1Schema.optional(),
+    extractionItemId: z.string().min(1).optional(),
+    frontierItemId: z.string().min(1).optional(),
+    extractedContentHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    characterStart: z.number().int().nonnegative().optional(),
+    characterEnd: z.number().int().positive().optional(),
+    trustClassification: z.enum(["provider_snippet", "untrusted_public_content"]).optional(),
   })
   .strict();
 export type EvidenceProvenanceV1 = z.infer<typeof EvidenceProvenanceV1Schema>;
@@ -60,6 +114,8 @@ export const EvidenceFindingV1Schema = z
     providerId: z.string().min(1),
     sourceZone: SourceZoneSchema,
     stale: z.boolean(),
+    materialId: z.string().min(1).optional(),
+    materialKind: EvidenceMaterialKindV1Schema.default("search_snippet"),
     provenance: EvidenceProvenanceV1Schema,
   })
   .strict();
@@ -123,6 +179,28 @@ export const EvidenceFindingsArtifactV1Schema = z
     warning: z.string().min(1),
     generatedAt: z.iso.datetime(),
     sourceArtifact: SourceArtifactReferenceSchema,
+    evidenceSourceMode: z
+      .enum(["snippet_only", "snippet_plus_extracted_public_pages"])
+      .default("snippet_only"),
+    materials: z.array(EvidenceMaterialV1Schema).default([]),
+    extractionSummary: z
+      .object({
+        selectedPages: z.number().int().nonnegative(),
+        successfulPages: z.number().int().nonnegative(),
+        partialPages: z.number().int().nonnegative(),
+        failedPages: z.number().int().nonnegative(),
+        blockedPages: z.number().int().nonnegative(),
+        materialCount: z.number().int().nonnegative(),
+      })
+      .strict()
+      .default({
+        selectedPages: 0,
+        successfulPages: 0,
+        partialPages: 0,
+        failedPages: 0,
+        blockedPages: 0,
+        materialCount: 0,
+      }),
     findings: z.array(EvidenceFindingV1Schema),
     entities: z.array(EvidenceEntitySummaryV1Schema),
     coverage: CoverageReportV2Schema,

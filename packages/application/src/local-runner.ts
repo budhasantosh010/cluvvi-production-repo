@@ -5,6 +5,7 @@ import {
   classifyError,
   createOpaqueId,
   type DiscoveryProviderMode,
+  type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
   type LocalRunPhase,
   type RunRequest,
@@ -26,6 +27,7 @@ export interface LocalRunnerOptions {
   failStage?: LocalRunPhase;
   discoveryRuntimeMode?: DiscoveryRuntimeMode;
   discoveryProviderMode?: DiscoveryProviderMode;
+  discoveryProviderPolicy?: DiscoveryProviderPolicy;
   now?: () => string;
   onReady?: () => void | Promise<void>;
 }
@@ -51,6 +53,7 @@ export class LocalRunner {
   readonly #failStage: LocalRunPhase | undefined;
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
   readonly #discoveryProviderMode: DiscoveryProviderMode;
+  readonly #discoveryProviderPolicy: DiscoveryProviderPolicy;
   readonly #now: () => string;
   readonly #startedAt: string;
   readonly #onReady: (() => void | Promise<void>) | undefined;
@@ -71,6 +74,7 @@ export class LocalRunner {
     this.#failStage = options.failStage;
     this.#discoveryRuntimeMode = options.discoveryRuntimeMode ?? "fixture";
     this.#discoveryProviderMode = options.discoveryProviderMode ?? "fixture_only";
+    this.#discoveryProviderPolicy = options.discoveryProviderPolicy ?? "free_only";
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#startedAt = this.#now();
     this.#onReady = options.onReady;
@@ -270,6 +274,7 @@ export class LocalRunner {
           mode: this.#discoveryProviderMode === "live_search" ? "live_search" : "fixture",
           discoveryRuntimeMode: this.#discoveryRuntimeMode,
           discoveryProviderMode: this.#discoveryProviderMode,
+          discoveryProviderPolicy: this.#discoveryProviderPolicy,
           databaseInstanceId: await this.#store.getDatabaseInstanceId(),
         },
       }),

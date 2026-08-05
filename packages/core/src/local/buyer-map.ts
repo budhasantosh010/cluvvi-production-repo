@@ -15,6 +15,17 @@ export const BuyerMapCitationV1Schema = z
     sourceZone: SourceZoneSchema,
     publishedAt: z.iso.datetime().optional(),
     discoveredAt: z.iso.datetime(),
+    materialId: z.string().min(1).optional(),
+    materialKind: z
+      .enum(["search_snippet", "extracted_page_text", "extracted_metadata", "extracted_json_ld"])
+      .optional(),
+    extractionItemId: z.string().min(1).optional(),
+    frontierItemId: z.string().min(1).optional(),
+    extractedContentHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    trustClassification: z.enum(["provider_snippet", "untrusted_public_content"]).optional(),
   })
   .strict();
 export type BuyerMapCitationV1 = z.infer<typeof BuyerMapCitationV1Schema>;
@@ -61,8 +72,12 @@ export const BuyerMapArtifactV1Schema = z
         positiveEvidenceCount: z.number().int().nonnegative(),
         negativeEvidenceCount: z.number().int().nonnegative(),
         coverageGapCount: z.number().int().nonnegative(),
+        extractedEvidenceCitationCount: z.number().int().nonnegative().default(0),
       })
       .strict(),
+    evidenceSourceMode: z
+      .enum(["snippet_only", "snippet_plus_extracted_public_pages"])
+      .default("snippet_only"),
     opportunities: z.array(BuyerMapOpportunityV1Schema),
     coverageGaps: z.array(BuyerMapCoverageGapV1Schema),
     confidenceLimitations: z.array(z.string().min(1)),

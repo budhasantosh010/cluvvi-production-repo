@@ -6,6 +6,7 @@ export * from "./local/discovery-request";
 export * from "./local/discovery-runtime";
 export * from "./local/evidence-findings";
 export * from "./local/error";
+export * from "./local/extraction/index";
 export * from "./local/fingerprint";
 export * from "./local/ids";
 export * from "./local/identity-enrichment";

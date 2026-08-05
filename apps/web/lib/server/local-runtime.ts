@@ -27,6 +27,11 @@ async function createRuntime(): Promise<WebLocalRuntime> {
       paths,
       discoveryRuntimeMode: discoveryConfig.mode,
       discoveryProviderMode: discoveryConfig.providerMode,
+      discoveryProviderPolicy: discoveryConfig.providerPolicy,
+      discoveryExtractionMode: discoveryConfig.extractionMode,
+      discoveryMaximumExtractions: discoveryConfig.maximumExtractions,
+      extractorVersion: discoveryConfig.extractorVersion,
+      frontierPolicyVersion: discoveryConfig.frontierPolicyVersion,
     }),
   };
 }
