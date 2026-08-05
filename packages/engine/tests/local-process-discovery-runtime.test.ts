@@ -267,6 +267,8 @@ function runtime(input: {
   timeoutMs?: number;
   providerMode?: "fixture_only" | "live_search";
   providerPolicy?: "free_only" | "balanced" | "paid_deep";
+  extractionMode?: "none" | "selected_public_pages";
+  maximumExtractions?: number;
 }) {
   return new LocalProcessDiscoveryRuntime({
     config: {
@@ -276,6 +278,8 @@ function runtime(input: {
       keepExchangeFiles: true,
       providerMode: input.providerMode ?? "fixture_only",
       providerPolicy: input.providerPolicy ?? "free_only",
+      extractionMode: input.extractionMode ?? "none",
+      maximumExtractions: input.maximumExtractions ?? 8,
       providerEnvironment: {},
     },
     runsDirectory: input.runsDirectory,
@@ -327,15 +331,51 @@ describe("LocalProcessDiscoveryRuntime", () => {
       JSON.parse(await readFile(resolve(exchange, "discovery-execution.json"), "utf8")),
     );
     expect(execution.success).toBe(true);
+    expect(execution.extractionMode).toBe("none");
+    expect(execution.maximumExtractions).toBe(8);
+    expect(execution.frontierImported).toBe(false);
+    expect(execution.extractedContentImported).toBe(false);
+    expect(execution.extractionTelemetryImported).toBe(false);
     expect(execution.arguments).toEqual([
       "discover",
       resolve(exchange, "discovery-request.v1.json"),
       "--provider-mode",
       "fixture_only",
+      "--extraction-mode",
+      "none",
       "--output",
       resolve(exchange, "search-results.v2.json"),
     ]);
     expect(execution.providerIds).toEqual(["fixture_test_provider"]);
+  });
+
+  it("records selected extraction configuration and sidecar paths on successful discovery", async () => {
+    const { projectPath, runsDirectory } = await fakeProject();
+    const runId = createOpaqueId("run");
+    await runtime({
+      projectPath,
+      runsDirectory,
+      extractionMode: "selected_public_pages",
+      maximumExtractions: 3,
+    }).execute({
+      runId,
+      request: bridgeRequest(runId),
+    });
+
+    const exchange = resolve(runsDirectory, runId, "discovery-exchange");
+    const execution = LocalDiscoveryExecutionRecordV1Schema.parse(
+      JSON.parse(await readFile(resolve(exchange, "discovery-execution.json"), "utf8")),
+    );
+    expect(execution.extractionMode).toBe("selected_public_pages");
+    expect(execution.maximumExtractions).toBe(3);
+    expect(execution.frontierPath).toBe(resolve(exchange, "crawl-frontier.v1.json"));
+    expect(execution.extractedContentPath).toBe(resolve(exchange, "extracted-content.v1.json"));
+    expect(execution.extractionTelemetryPath).toBe(
+      resolve(exchange, "extraction-run-telemetry.v1.json"),
+    );
+    expect(execution.frontierImported).toBe(false);
+    expect(execution.extractedContentImported).toBe(false);
+    expect(execution.extractionTelemetryImported).toBe(false);
   });
 
   it("maps nonzero exit and missing output to explicit failures", async () => {

@@ -44,6 +44,10 @@ export default defineConfig([
     "**/coverage/**",
     "**/node_modules/**",
     "**/.pnpm-store/**",
+    "**/.cluvvi/**",
+    "**/.cluvvi-test/**",
+    "**/test-results/**",
+    "**/visual_qa/**",
     "supabase/.temp/**",
   ]),
 ]);

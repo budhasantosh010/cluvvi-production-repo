@@ -15,7 +15,11 @@ async function waitForCompletedFixtureRun(page: Page) {
   await expect(page.locator('[data-stage-status="completed"]')).toHaveCount(11);
   await expect(page.getByText("Fixture Buyer Map — no live market results.")).toBeVisible();
   await expect(page.getByTestId("mission-understanding")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Mission understanding" })).toBeVisible();
+  await expect(
+    page
+      .getByTestId("mission-understanding")
+      .getByRole("heading", { name: "Mission understanding", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByText("These planned queries were not sent to external sources.", { exact: false }),
   ).toBeVisible();

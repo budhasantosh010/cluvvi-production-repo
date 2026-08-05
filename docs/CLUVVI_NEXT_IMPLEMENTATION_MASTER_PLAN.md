@@ -77,7 +77,7 @@ Cluvvi now understands and plans, can invoke the standalone Project A CLI throug
 14. **C1-G** — Local file/process bridge from standalone Project A V2 output into Cluvvi — complete.
 15. **C1-H** — Approved HN/Tavily/Brave live search-provider integration — complete.
 16. **C1-HF** — Policy-controlled free-search backbone and strict cross-artifact validation — complete.
-17. **C1-I** — Frontier, Extraction, and Discovery-versus-Drill after the C1-HF search-only gate.
+17. **C1-I** ? Bounded frontier, public HTML extraction, and Discovery-versus-Drill ? complete.
 18. **C2** — First narrow real discovery slice with preserved provenance.
 19. **C3** — Human evaluation and improvement loop.
 
@@ -326,7 +326,7 @@ C1-G requires `providerPreference: "fixture_only"`, rejects non-fixture provider
 
 - V1 and V2 validate independently.
 - V1 remains unchanged and separately valid.
-- C1-C through C1-HF consume independently validated V2, not V1; C1-HF additionally validates live provider telemetry and provider-policy trace sidecars.
+- C1-C through C1-I consume independently validated V2, not V1; C1-HF additionally validates live provider telemetry and provider-policy trace sidecars, and C1-I independently validates its three extraction companion artifacts.
 - A V2 consumer must reject V1 rather than guess missing planning or coverage data.
 - No V1-to-V2 adapter exists in C1-0.1 or Project B.
 - A future adapter requires a separate reviewed mapping, provenance rules, and tests.
@@ -343,7 +343,7 @@ The final compatibility gate has passed locally:
 
 - **C1-H:** Complete. Preserve the approved search-only HN/Tavily/Brave path, telemetry, budgets, and fixture regressions.
 - **C1-HF:** Complete. Preserve free-only zero-paid enforcement, balanced free-first fallback, paid-deep compatibility, the free-provider ladder, and strict policy-trace validation.
-- **C1-I:** Add frontier/extraction boundaries only after separate review of robots/terms, fetch limits, provenance, prompt-injection containment, content storage, and cost controls.
+- **C1-I:** Complete. Preserve the opt-in depth-zero frontier, robots/network/size limits, three strict companion artifacts, untrusted-content containment, deterministic evidence materials, extraction-only resume, and search-only compatibility.
 - **C2:** Execute a narrow real discovery slice with preserved provenance and honest coverage.
 - **C3:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
 

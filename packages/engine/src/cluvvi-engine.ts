@@ -11,6 +11,7 @@ import {
   fingerprint,
   type ArtifactRecord,
   type ArtifactType,
+  type CluvviExtractionMode,
   type DiscoveryProviderMode,
   type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
@@ -68,7 +69,12 @@ export class CluvviEngine {
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
   readonly #discoveryProviderMode: DiscoveryProviderMode;
   readonly #discoveryProviderPolicy: DiscoveryProviderPolicy;
+  readonly #discoveryExtractionMode: CluvviExtractionMode;
+  readonly #discoveryMaximumExtractions: number;
+  readonly #extractorVersion: string;
+  readonly #frontierPolicyVersion: string;
   readonly #providerConfigurationFingerprint: string;
+  readonly #extractionConfigurationFingerprint: string;
 
   constructor(input: {
     store: CluvviStore;
@@ -81,7 +87,12 @@ export class CluvviEngine {
     discoveryRuntimeMode?: DiscoveryRuntimeMode;
     discoveryProviderMode?: DiscoveryProviderMode;
     discoveryProviderPolicy?: DiscoveryProviderPolicy;
+    discoveryExtractionMode?: CluvviExtractionMode;
+    discoveryMaximumExtractions?: number;
+    extractorVersion?: string;
+    frontierPolicyVersion?: string;
     providerConfigurationFingerprint?: string;
+    extractionConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -93,8 +104,14 @@ export class CluvviEngine {
     this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
     this.#discoveryProviderMode = input.discoveryProviderMode ?? "fixture_only";
     this.#discoveryProviderPolicy = input.discoveryProviderPolicy ?? "free_only";
+    this.#discoveryExtractionMode = input.discoveryExtractionMode ?? "none";
+    this.#discoveryMaximumExtractions = input.discoveryMaximumExtractions ?? 8;
+    this.#extractorVersion = input.extractorVersion ?? "basic_public_html_extractor@1.0.0";
+    this.#frontierPolicyVersion = input.frontierPolicyVersion ?? "frontier_policy@1.0.0";
     this.#providerConfigurationFingerprint =
       input.providerConfigurationFingerprint ?? "fixture-project-b-v2";
+    this.#extractionConfigurationFingerprint =
+      input.extractionConfigurationFingerprint ?? "fixture-no-extraction";
   }
 
   async start(input: {
@@ -111,6 +128,10 @@ export class CluvviEngine {
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
       discoveryProviderPolicy: this.#discoveryProviderPolicy,
+      discoveryExtractionMode: this.#discoveryExtractionMode,
+      discoveryMaximumExtractions: this.#discoveryMaximumExtractions,
+      extractorVersion: this.#extractorVersion,
+      frontierPolicyVersion: this.#frontierPolicyVersion,
       ...(input.budget === undefined ? {} : { budget: input.budget }),
     });
     await this.#artifactWriter.ensureRunDirectory(run.id);
@@ -176,6 +197,55 @@ export class CluvviEngine {
 
       this.#budgetController.assertRunCanContinue(run);
       const context = this.#context(run, mission, stage, options);
+      if (stage.shouldRun !== undefined && !(await stage.shouldRun(context))) {
+        const skippedAt = this.#now();
+        run = LocalRunSchema.parse({ ...run, phase: stage.name, updatedAt: skippedAt });
+        const inputFingerprint = fingerprint({
+          stage: stage.name,
+          stageVersion: stage.version,
+          skipped: true,
+          engineVersion: LOCAL_ENGINE_VERSION,
+          discoveryRuntimeMode: run.config.discoveryRuntimeMode,
+          discoveryProviderMode: run.config.discoveryProviderMode,
+          discoveryProviderPolicy: run.config.discoveryProviderPolicy,
+          extractionConfiguration: this.#extractionConfigurationFingerprint,
+        });
+        const previousSkipped = (await this.#store.listStageExecutions(run.id)).find(
+          (execution) =>
+            execution.stageName === stage.name &&
+            execution.stageVersion === stage.version &&
+            execution.inputFingerprint === inputFingerprint &&
+            execution.status === "skipped",
+        );
+        if (previousSkipped !== undefined) {
+          const reusedEvent = this.#event(run, "stage_reused", {
+            executionId: previousSkipped.id,
+            inputFingerprint,
+            skipped: true,
+          });
+          await this.#store.persistRunAndEvent(run, reusedEvent);
+          this.#eventSink.emit(reusedEvent);
+          continue;
+        }
+        const execution = StageExecutionSchema.parse({
+          id: createOpaqueId("stage"),
+          runId: run.id,
+          stageName: stage.name,
+          stageVersion: stage.version,
+          status: "skipped",
+          inputFingerprint,
+          attempt: await this.#store.getNextStageAttempt(run.id, stage.name),
+          startedAt: skippedAt,
+          completedAt: skippedAt,
+        });
+        const skippedEvent = this.#event(run, "stage_skipped", {
+          executionId: execution.id,
+          reason: "extraction_disabled",
+        });
+        await this.#store.skipStage({ run, execution, event: skippedEvent });
+        this.#eventSink.emit(skippedEvent);
+        continue;
+      }
       const untrustedInput = await stage.loadInput(context);
       const validatedInput = stage.inputSchema.parse(untrustedInput);
       const inputFingerprint = fingerprint({
@@ -187,6 +257,9 @@ export class CluvviEngine {
         discoveryProviderMode: run.config.discoveryProviderMode,
         discoveryProviderPolicy: run.config.discoveryProviderPolicy,
         providerConfiguration: this.#providerConfigurationFingerprint,
+        ...(stage.name === "discovery"
+          ? {}
+          : { extractionConfiguration: this.#extractionConfigurationFingerprint }),
       });
       const previous = await this.#store.findCompletedStageExecution(
         run.id,

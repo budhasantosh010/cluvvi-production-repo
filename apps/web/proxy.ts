@@ -7,6 +7,7 @@ const LOCAL_BROWSER_PATHS = [
   "/",
   "/runs",
   "/settings/local",
+  "/operations/discovery",
   "/api/health",
   "/api/capabilities",
   "/api/runs",

@@ -24,7 +24,7 @@ async function waitForLiveCompletion(page: Page): Promise<void> {
     "Imported and validated live search results, provider telemetry, and policy trace",
   );
   await expect(page.getByTestId("fixture-provider-warning")).toContainText(
-    "explicit paid-deep provider routing",
+    "explicit paid-deep search routing",
   );
   await expect(page.getByTestId("provider-policy-trace")).toContainText(
     "Paid providers were permitted for this run",

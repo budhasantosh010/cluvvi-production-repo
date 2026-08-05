@@ -40,7 +40,13 @@ async function main(): Promise<void> {
       discoveryRuntimeMode: discoveryRuntime.mode,
       discoveryProviderMode: discoveryRuntime.providerMode,
       discoveryProviderPolicy: discoveryRuntime.providerPolicy,
+      discoveryExtractionMode: discoveryRuntime.extractionMode ?? "none",
+      discoveryMaximumExtractions: discoveryRuntime.maximumExtractions ?? 8,
+      extractorVersion: discoveryRuntime.extractorVersion ?? "basic_public_html_extractor@1.0.0",
+      frontierPolicyVersion: discoveryRuntime.frontierPolicyVersion ?? "frontier_policy@1.0.0",
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
+      extractionConfigurationFingerprint:
+        discoveryRuntime.extractionConfigurationFingerprint ?? "fixture-no-extraction",
       stageDelayMs: Number(process.env["CLUVVI_FIXTURE_STAGE_DELAY_MS"] ?? 120),
     }),
     runnerId,

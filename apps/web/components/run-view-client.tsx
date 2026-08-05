@@ -1,6 +1,7 @@
 "use client";
 
 import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
+import { ExtractionEvidenceView } from "@/components/extraction-evidence-view";
 import { MissionUnderstandingView } from "@/components/mission-understanding-view";
 import type { RunView } from "@cluvvi/application/contracts";
 import type { ArtifactRecord } from "@cluvvi/core";
@@ -22,6 +23,9 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   compilation: "Mission understanding",
   source_planning: "Search planning",
   discovery: "Discovery",
+  frontier: "Crawl frontier",
+  extraction: "Public-page extraction",
+  extraction_telemetry: "Extraction telemetry",
   normalization: "Normalization",
   investigation: "Evidence analysis",
   buyer_identification: "Buyer hypotheses",
@@ -58,13 +62,29 @@ function stageStatusLabel(
           ? "Running the local Discovery Engine in fixture-provider mode"
           : "Loading fixture discovery results";
     }
-    if (stage.status === "completed" || stage.status === "reused") {
+    if (stage.status === "reused") return "Reused from durable state";
+    if (stage.status === "completed") {
       return discoveryProviderMode === "live_search"
         ? "Imported and validated live search results, provider telemetry, and policy trace"
         : discoveryRuntimeMode === "local_discovery_engine"
           ? "Ran the local Discovery Engine in fixture-provider mode"
           : "Loaded fixture discovery results";
     }
+  }
+  if (stage.name === "frontier") {
+    if (stage.status === "running") return "Validating the deterministic crawl frontier";
+    if (stage.status === "completed") return "Imported the validated public-page frontier";
+    if (stage.status === "reused") return "Reused the durable crawl frontier";
+  }
+  if (stage.name === "extraction") {
+    if (stage.status === "running") return "Validating bounded public-page extraction";
+    if (stage.status === "completed") return "Imported normalized untrusted page evidence";
+    if (stage.status === "reused") return "Reused validated extracted content";
+  }
+  if (stage.name === "extraction_telemetry") {
+    if (stage.status === "running") return "Validating extraction attempts, limits, and totals";
+    if (stage.status === "completed") return "Imported extraction telemetry";
+    if (stage.status === "reused") return "Reused extraction telemetry";
   }
   if (stage.status === "running") return "Running locally";
   if (stage.status === "reused") return "Reused from durable state";
@@ -129,7 +149,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
 
   const completedCount = useMemo(
     () =>
-      view.stages.filter((stage) => stage.status === "completed" || stage.status === "reused")
+      view.stages.filter((stage) => ["completed", "reused", "skipped"].includes(stage.status))
         .length,
     [view.stages],
   );
@@ -140,6 +160,7 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   );
   const localDiscovery = view.run.config.discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = view.run.config.discoveryProviderMode === "live_search";
+  const extractionEnabled = view.run.config.discoveryExtractionMode === "selected_public_pages";
   const telemetry = view.providerTelemetry;
   const policyTrace = view.providerPolicyTrace;
   const providerPolicy = view.run.config.discoveryProviderPolicy;
@@ -207,12 +228,26 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         <span>
           {liveDiscovery
             ? providerPolicy === "free_only"
-              ? "This run used free search providers only. Paid providers were blocked by policy. Cluvvi validated search_results.v2, provider telemetry, and the provider policy trace before deterministic downstream analysis. Search snippets were retrieved; full pages were not extracted, and coverage may be incomplete."
+              ? `This run used free search providers only. Paid providers were blocked by policy. Cluvvi validated search_results.v2, provider telemetry, and the provider policy trace before deterministic downstream analysis. ${
+                  extractionEnabled
+                    ? "Selected public pages were then fetched through bounded SSRF-safe extraction and treated as untrusted source data."
+                    : "Only provider snippets were used; no result page was fetched."
+                }`
               : providerPolicy === "balanced"
-                ? "This run used free providers first and permitted paid fallback only when configured coverage thresholds were not met. Cluvvi preserved the exact provider order, fallback reason, and paid usage. Full pages were not opened or extracted."
-                : "This run used explicit paid-deep provider routing with bounded request and credit budgets. Cluvvi validated provider telemetry and the policy trace before deterministic downstream analysis. Full pages were not opened or extracted."
+                ? `This run used free providers first and permitted paid fallback only when configured coverage thresholds were not met. Cluvvi preserved the provider order, fallback reason, and paid usage. ${
+                    extractionEnabled
+                      ? "Selected public pages were then fetched within explicit frontier and response-size limits."
+                      : "Only provider snippets were used."
+                  }`
+                : `This run used explicit paid-deep search routing with bounded request and credit budgets. ${
+                    extractionEnabled
+                      ? "Selected public pages were subsequently extracted through the standalone safe-fetch boundary."
+                      : "No result page was fetched."
+                  }`
             : localDiscovery
-              ? "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
+              ? extractionEnabled
+                ? "This run used the standalone local Discovery Engine with fixture providers, then fetched selected public pages through bounded extraction. Fixture search results remain synthetic; extracted public-page claims are unverified source evidence."
+                : "This run used the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery. Cluvvi validated its search_results.v2 output before running Evidence, Identity, Ranking, and Buyer Map."
               : "Cluvvi generated mission understanding locally, then processed a version-controlled search_results.v2 fixture through Evidence, Identity, Ranking, and Buyer Map. Every company and URL is synthetic."}
         </span>
       </div>
@@ -243,6 +278,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                     ? "Fixture · local engine"
                     : "Fixture"}
               </span>
+              <span className="fixture-badge">
+                {extractionEnabled
+                  ? `Extraction · max ${view.run.config.discoveryMaximumExtractions}`
+                  : "Search only"}
+              </span>
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl">
               {view.run.missionName}
@@ -256,7 +296,9 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
             </div>
             <div className="metric-card">
               <span>Stages done</span>
-              <strong>{completedCount} / 11</strong>
+              <strong>
+                {completedCount} / {view.stages.length}
+              </strong>
             </div>
             <div className="metric-card">
               <span>Discovery runtime</span>
@@ -269,8 +311,12 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
               </strong>
             </div>
             <div className="metric-card">
-              <span>Started</span>
-              <strong>{new Date(view.run.startedAt).toLocaleString()}</strong>
+              <span>Page evidence</span>
+              <strong>
+                {extractionEnabled
+                  ? `Up to ${view.run.config.discoveryMaximumExtractions} pages`
+                  : "Disabled"}
+              </strong>
             </div>
           </div>
         </div>
@@ -528,6 +574,14 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
           discoveryProviderMode={view.run.config.discoveryProviderMode}
         />
       )}
+
+      <ExtractionEvidenceView
+        artifacts={view.artifacts}
+        extractionMode={view.run.config.discoveryExtractionMode}
+        maximumExtractions={view.run.config.discoveryMaximumExtractions}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
 
       <DownstreamFixtureView
         artifacts={view.artifacts}

@@ -73,7 +73,7 @@ test("invalid live telemetry fails honestly and the same run resumes after corre
   );
   await expect(page.getByTestId("live-provider-telemetry")).toBeVisible();
   await expect(page.getByTestId("fixture-provider-warning")).toContainText(
-    "Full pages were not opened or extracted",
+    "No result page was fetched",
   );
   await expect(
     page.getByTestId("project-b-fixture-pipeline").getByRole("heading", {

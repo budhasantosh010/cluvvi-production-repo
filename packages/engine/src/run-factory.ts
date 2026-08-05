@@ -5,6 +5,7 @@ import {
   LocalRunEventSchema,
   LocalRunSchema,
   createOpaqueId,
+  type CluvviExtractionMode,
   type DiscoveryProviderMode,
   type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
@@ -30,6 +31,10 @@ export function createRunCreationRecords(input: {
   discoveryRuntimeMode?: DiscoveryRuntimeMode;
   discoveryProviderMode?: DiscoveryProviderMode;
   discoveryProviderPolicy?: DiscoveryProviderPolicy;
+  discoveryExtractionMode?: CluvviExtractionMode;
+  discoveryMaximumExtractions?: number;
+  extractorVersion?: string;
+  frontierPolicyVersion?: string;
 }): RunCreationRecords {
   const now = input.now ?? new Date().toISOString();
   const mission = LocalMissionSchema.parse({
@@ -50,6 +55,10 @@ export function createRunCreationRecords(input: {
       discoveryRuntimeMode: input.discoveryRuntimeMode ?? "fixture",
       discoveryProviderMode: input.discoveryProviderMode ?? "fixture_only",
       discoveryProviderPolicy: input.discoveryProviderPolicy ?? "free_only",
+      discoveryExtractionMode: input.discoveryExtractionMode ?? "none",
+      discoveryMaximumExtractions: input.discoveryMaximumExtractions ?? 8,
+      extractorVersion: input.extractorVersion ?? "basic_public_html_extractor@1.0.0",
+      frontierPolicyVersion: input.frontierPolicyVersion ?? "frontier_policy@1.0.0",
     },
     budget: input.budget ?? DEFAULT_RUN_BUDGET,
     usage: EMPTY_RUN_USAGE,
@@ -66,6 +75,8 @@ export function createRunCreationRecords(input: {
       discoveryRuntimeMode: run.config.discoveryRuntimeMode,
       discoveryProviderMode: run.config.discoveryProviderMode,
       discoveryProviderPolicy: run.config.discoveryProviderPolicy,
+      discoveryExtractionMode: run.config.discoveryExtractionMode,
+      discoveryMaximumExtractions: run.config.discoveryMaximumExtractions,
     },
     createdAt: now,
   });

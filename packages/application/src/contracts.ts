@@ -1,6 +1,7 @@
 import type {
   ArtifactRecord,
   ArtifactType,
+  CluvviExtractionMode,
   DiscoveryProviderMode,
   DiscoveryProviderPolicy,
   DiscoveryRuntimeMode,
@@ -50,11 +51,13 @@ export interface CapabilityReport {
   discoveryRuntimeMode: DiscoveryRuntimeMode;
   discoveryProviderMode: DiscoveryProviderMode;
   discoveryProviderPolicy: DiscoveryProviderPolicy;
+  discoveryExtractionMode: CluvviExtractionMode;
+  discoveryMaximumExtractions: number;
   capabilities: {
     localEngine: true;
     missionCompiler: false;
     webSearch: boolean;
-    webFetch: false;
+    webFetch: boolean;
     enrichment: false;
     youtube: false;
     outreach: false;
@@ -73,6 +76,8 @@ export interface LocalDiagnostics {
   discoveryRuntimeMode: DiscoveryRuntimeMode;
   discoveryProviderMode: DiscoveryProviderMode;
   discoveryProviderPolicy: DiscoveryProviderPolicy;
+  discoveryExtractionMode: CluvviExtractionMode;
+  discoveryMaximumExtractions: number;
   runner: {
     available: boolean;
     heartbeat: RunnerHeartbeat | null;

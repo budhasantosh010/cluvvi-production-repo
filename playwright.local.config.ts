@@ -21,6 +21,7 @@ export default defineConfig({
     "**/cluvvi-live-discovery*.spec.ts",
     "**/cluvvi-free-live-discovery.spec.ts",
     "**/cluvvi-balanced-live-discovery.spec.ts",
+    "**/cluvvi-extraction.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,

@@ -2403,3 +2403,165 @@ The parked Supabase implementation still contains migrations and database-backed
 **Next authorized milestone:** C1-I may add a separately governed frontier and extraction layer, but it does not convert HTML search providers into crawlers.
 
 **One-line solution:** Treat free HTML search as bounded best-effort discovery and preserve honest provider health and coverage gaps.
+
+## 133. C1-I resumed with only half of the Project B boundary wired
+
+**What failed:** The interrupted branch contained schema snapshots and initial configuration, but process-sidecar loading, durable stages, normalized evidence materials, Buyer Map provenance, browser presentation, and release verification were incomplete.
+
+**Where:** Project B `feature/c1-i-extracted-evidence`.
+
+**When:** Resuming the attached C1-I implementation brief after Project A had already been published.
+
+**Why:** The previous execution window ended during cross-package integration.
+
+**How it appeared:** The branch had a large uncommitted patch and focused tests, but no release commit and no complete browser or documentation gate.
+
+**What was tried:** Preserved the branch, completed the existing architecture rather than restarting, and verified every layer through focused, aggregate, cross-project, browser, security, and Git gates.
+
+**Current status:** Resolved in the C1-I release branch.
+
+**One-line solution:** Resume from the exact dirty branch and finish the missing boundary instead of reimplementing published Project A work.
+
+## 134. Windows Node rejected direct `pnpm.cmd` execution in the resume proof
+
+**What failed:** The controlled browser repair helper raised `spawn EINVAL` while regenerating corrected extraction sidecars.
+
+**Where:** `tests/browser-local/cluvvi-extraction.spec.ts`.
+
+**When:** Same-run extraction failure/resume verification.
+
+**Why:** Direct `execFile("pnpm.cmd", ...)` is not reliable under the active Windows Node runtime without shell execution, and enabling a shell would weaken the production safety model.
+
+**How it appeared:** The run correctly failed on an unsafe artifact, but the test could not execute the trusted controlled CLI to repair the sidecars.
+
+**What was tried:** Reused the production bridge pattern: resolve the PNPM shim through `PATH`, locate `pnpm.cjs`, and invoke it through `process.execPath` with a fixed argument array.
+
+**Current status:** Resolved; failure, repair, discovery reuse, and same-run completion pass.
+
+**One-line solution:** Invoke PNPM's JavaScript CLI through Node on Windows instead of enabling shell interpolation.
+
+## 135. One long extraction browser process was unstable on the Windows Harness machine
+
+**What failed:** A ten-test Playwright process repeatedly lost the local web or worker process after several successful proofs, often without a product assertion failure.
+
+**Where:** Local Windows process orchestration around Next.js, Playwright, TSX, and the SQLite runner lease.
+
+**When:** Final C1-I visual/browser verification.
+
+**Why:** Detached child trees and the Harness execution boundary could outlive a failed parent; long dev sessions also accumulated file-watch and process pressure.
+
+**How it appeared:** The first two or three tests passed, then a later test received a worker exit or `ERR_CONNECTION_REFUSED`. Individual tests passed from a clean environment.
+
+**What was tried:** Verified and killed only repository-owned process trees, made discovery reuse visibly testable, and changed the maintained C1-I browser runner to create a fresh isolated SQLite home, web process, runner, and Playwright process for every proof.
+
+**Current status:** Resolved by the isolated proof runner. All ten assertions pass without sharing leases or process residue.
+
+**One-line solution:** Restart the complete local environment between heavyweight browser proofs on Windows.
+
+## 136. Project documentation still described C1-I as unstarted
+
+**What failed:** The implementation was present while README, AGENTS, architecture, provider contracts, and roadmap text still enforced the older C1-HF search-only boundary.
+
+**Where:** Repository operating documentation and `.env.example`.
+
+**When:** Final patch review.
+
+**Why:** Documentation had not yet been advanced from the previous milestone.
+
+**How it appeared:** C1-I configuration was absent from the example environment, and multiple files said page extraction remained unauthorized.
+
+**What was tried:** Added the C1-I operations guide, documented the three companion artifacts and containment boundary, updated roadmap/product scope, preserved all deferred exclusions, and added placeholder-only extraction settings.
+
+**Current status:** Resolved.
+
+**One-line solution:** Treat documentation and public configuration as release artifacts, not post-release notes.
+
+## 137. Project B initially forwarded non-canonical extraction environment names
+
+**What failed:** Four extraction limits in Project B used aliases that Project A does not read, while three canonical Project A limits were missing from the allowlist.
+
+**Where:** `packages/engine/src/discovery-runtime-config.ts` and its configuration tests.
+
+**When:** Final cross-project configuration audit against Project A's published `.env.example`.
+
+**Why:** The interrupted integration used provisional names for concurrency, response bytes, text characters, and robots failure policy instead of copying Project A's exact public configuration vocabulary.
+
+**How it appeared:** Type checks and fixture tests passed because the values were treated as opaque allowlisted strings, but real operators' settings would not have affected Project A.
+
+**What was tried:** Compared the published Project A configuration directly, replaced every alias with the exact canonical names, added missing per-domain concurrency, redirect, and minimum-useful-character controls, and expanded the strict allowlist test.
+
+**Current status:** Resolved; Project B now forwards only Project A's exact non-secret extraction variables.
+
+**One-line solution:** Treat cross-process environment names as a versioned contract and test exact spelling, not semantic similarity.
+
+## 138. Project A parsed extraction CLI options but initially dropped them at the composition root
+
+**What failed:** The real `pnpm discover` command accepted `--extraction-mode selected_public_pages` and `--max-extractions`, but reported extraction mode `none` and wrote no extraction sidecars.
+
+**Where:** Project A `src/cli/index.ts`.
+
+**Why:** Parser tests and direct runner tests existed, but no test covered the handoff between them.
+
+**Resolution:** Project A now forwards both parsed values, has a composition-root regression test, passes its complete check and live extraction suite, and is published at `9e86a1506578763419c11262afc107b2db76500f`.
+
+**One-line solution:** Test executable composition boundaries, not only their parser and domain-runner halves.
+
+## 139. Successful extraction execution records initially defaulted back to search-only provenance
+
+**What failed:** A successful Project B run imported all three extraction sidecars, but `discovery-execution.json` omitted extraction mode, maximum count, and sidecar paths, so schema defaults described the run as `none`.
+
+**Where:** `packages/engine/src/local-process-discovery-runtime.ts`.
+
+**Why:** Failure records carried the new fields, while the older success-record constructor had not been extended.
+
+**Resolution:** Success records now persist extraction configuration and sidecar paths before import flags are atomically updated; focused and real cross-project tests assert the final record.
+
+**One-line solution:** Audit records must describe the command that actually ran, not rely on backward-compatible schema defaults.
+
+## 140. The first isolated browser fixture copy broke its relative template path
+
+**What failed:** The extraction browser process exited before writing search output after the fixture was copied under `.cluvvi-test`.
+
+**Where:** `scripts/run-extraction-browser-tests.mjs` and the controlled fixture CLI.
+
+**Why:** The fixture intentionally resolves its sanitized search template by repository-relative depth; copying it to a different depth invalidated that path.
+
+**Resolution:** Every proof now receives a private fixture copy under `tests/fixtures` at the same depth as the source fixture, preserving isolation without forwarding a test-only environment override through the production bridge.
+
+**One-line solution:** Preserve filesystem contract depth when isolating a fixture that intentionally uses a relative repository resource.
+
+## 141. Legacy browser assertions contained stale copy and corrupted punctuation
+
+**What failed:** Pre-C1-I browser flows completed correctly, but several assertions expected old banner wording or mojibake forms of em dashes, ellipses, arrows, and the middle dot.
+
+**Where:** The local, paid-live, and paid-live failure Playwright specs.
+
+**Why:** Earlier Windows encoding passes corrupted test literals, and C1-I clarified search-only UI wording.
+
+**Resolution:** Confirmed corrupt code-point sequences were replaced with their intended Unicode characters, selectors were scoped to the correct panel, and copy assertions now target the current truthful wording. All legacy browser suites pass.
+
+**One-line solution:** Compare semantic UI copy with valid Unicode literals and scope selectors after adding similarly named panels.
+
+## 142. Forced worker termination temporarily retained the SQLite leadership lease
+
+**What failed:** The baseline failure proof passed, but an immediate corrected worker restart refused dual leadership.
+
+**Where:** The two-phase browser failure/resume orchestration.
+
+**Why:** `taskkill` bypassed the worker's normal `finally` cleanup, leaving the bounded 20-second lease until expiry.
+
+**Resolution:** The proof terminates the complete process tree, waits beyond the documented lease ceiling, then restarts against the same SQLite database; failure and same-run resume both pass.
+
+**One-line solution:** Either stop the worker gracefully or respect the leadership lease expiry before starting its replacement.
+
+## 143. The first real free-search extraction proof returned no eligible live results
+
+**What failed:** A narrow two-query live configuration completed honestly with zero search results, so it could not prove page extraction.
+
+**Where:** The opt-in Project A-to-Cluvvi C1-I integration test.
+
+**Why:** Free HTML search is time- and network-dependent, and the first test configuration was narrower than the already-proven C1-HF integration profile.
+
+**Resolution:** The proof now uses the established bounded free-search configuration, still forbids paid providers, requires at least one selected page, and passed with three attempts, two successes, one partial result, and zero paid usage.
+
+**One-line solution:** Reuse the proven bounded free-search profile while keeping strict nonzero extraction and zero-paid assertions.

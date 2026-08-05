@@ -23,7 +23,7 @@ test("browser resumes the failed run and reuses completed durable stages", async
       timeout: 30_000,
     },
   );
-  await expect(page.locator('[data-stage-status="reused"]')).toHaveCount(5);
+  await expect(page.locator('[data-stage-status="reused"]')).toHaveCount(8);
   await expect(page.locator('[data-stage-status="completed"]')).toHaveCount(6);
   await expect(page.locator('[data-testid="artifact-json"]')).toContainText('"fixture": true');
   await page.screenshot({ path: resolve(output, "c05-run-resumed-desktop.png"), fullPage: true });

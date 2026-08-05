@@ -62,6 +62,7 @@ export function DownstreamFixtureView({
   const identity = identityResult.data;
   const ranked = rankedResult.data;
   const buyerMap = buyerMapResult.data;
+  const extractedEvidence = evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages";
   const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = discoveryProviderMode === "live_search";
   const rankingByEntity = new Map(
@@ -99,9 +100,11 @@ export function DownstreamFixtureView({
                 <>
                   Cluvvi validated live <code>search_results.v2</code> and provider telemetry from
                   the standalone Discovery Engine, then ran deterministic Evidence, Identity,
-                  Ranking, and Buyer Map logic. Search snippets are live; pages were not crawled or
-                  deeply extracted, and buyer identity or contact routes remain hypotheses for
-                  manual verification.
+                  Ranking, and Buyer Map logic.{" "}
+                  {extractedEvidence
+                    ? "Selected public-page metadata, visible text, and JSON-LD were included as untrusted evidence with complete provenance. "
+                    : "Only provider snippets were used; result pages were not fetched. "}
+                  Buyer identity and contact routes remain hypotheses for manual verification.
                 </>
               ) : localDiscovery ? (
                 <>
@@ -120,9 +123,13 @@ export function DownstreamFixtureView({
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
             {liveDiscovery
-              ? "Live snippets · manual verification"
+              ? extractedEvidence
+                ? "Live search + page evidence"
+                : "Live snippets · manual verification"
               : localDiscovery
-                ? "Local engine · fixture providers"
+                ? extractedEvidence
+                  ? "Fixture search + public pages"
+                  : "Local engine · fixture providers"
                 : "Synthetic · no live discovery"}
           </span>
         </div>

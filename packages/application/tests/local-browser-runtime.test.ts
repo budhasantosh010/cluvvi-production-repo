@@ -91,7 +91,9 @@ describe("C0.5 local browser runtime", () => {
 
       const completed = await service.getRun(first.view.run.id);
       expect(completed?.run.status).toBe("completed");
-      expect(completed?.stages.every((stage) => stage.status === "completed")).toBe(true);
+      expect(
+        completed?.stages.every((stage) => ["completed", "skipped"].includes(stage.status)),
+      ).toBe(true);
       expect(completed?.artifacts).toHaveLength(11);
       expect((completed?.artifacts[0]?.data as { fixture?: boolean }).fixture).toBe(true);
     } finally {
@@ -185,7 +187,7 @@ describe("C0.5 local browser runtime", () => {
 
       const resumed = await service.getRun(created.view.run.id);
       expect(resumed?.run.status).toBe("completed");
-      expect(resumed?.events.filter((event) => event.eventType === "stage_reused")).toHaveLength(5);
+      expect(resumed?.events.filter((event) => event.eventType === "stage_reused")).toHaveLength(8);
       const investigationAttempts = (await store.listStageExecutions(created.view.run.id)).filter(
         (execution) => execution.stageName === "investigation",
       );

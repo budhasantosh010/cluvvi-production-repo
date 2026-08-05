@@ -27,6 +27,7 @@ import {
   type DiscoveryExchangePaths,
 } from "./discovery-exchange";
 import type { DiscoveryRuntime, DiscoveryRuntimeExecutionInput } from "./discovery-runtime";
+import { readValidatedExtractionArtifactSet } from "./extraction-artifact-reader";
 
 interface ChildOutcome {
   exitCode: number | null;
@@ -82,7 +83,11 @@ function resolveSpawnInvocation(
 
   const normalizedCommand = configuredCommand.trim().replace(/^"|"$/g, "");
   const lowerCommand = normalizedCommand.toLowerCase();
-  if (!(lowerCommand === "pnpm" || lowerCommand.endsWith("\\pnpm.cmd"))) {
+  if (!(
+    lowerCommand === "pnpm" ||
+    lowerCommand === "pnpm.cmd" ||
+    lowerCommand.endsWith("\\pnpm.cmd")
+  )) {
     return { command: normalizedCommand, arguments: arguments_ };
   }
 
@@ -498,7 +503,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly mode = "local_discovery_engine" as const;
   readonly providerMode: LocalDiscoveryEngineConfig["providerMode"];
   readonly providerPolicy: LocalDiscoveryEngineConfig["providerPolicy"];
+  readonly extractionMode: "none" | "selected_public_pages";
+  readonly maximumExtractions: number;
+  readonly extractorVersion: string;
+  readonly frontierPolicyVersion: string;
   readonly providerConfigurationFingerprint: string;
+  readonly extractionConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
   readonly #now: () => string;
@@ -516,6 +526,17 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.#environment = input.environment ?? process.env;
     this.providerMode = this.#config.providerMode;
     this.providerPolicy = this.#config.providerPolicy;
+    this.extractionMode = this.#config.extractionMode ?? "none";
+    this.maximumExtractions = this.#config.maximumExtractions ?? 8;
+    this.extractorVersion = this.#config.extractorVersion ?? "basic_public_html_extractor@1.0.0";
+    this.frontierPolicyVersion = this.#config.frontierPolicyVersion ?? "frontier_policy@1.0.0";
+    const publicEnvironment = publicDiscoveryProviderEnvironment(this.#config.providerEnvironment);
+    const providerEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => !key.startsWith("DISCOVERY_EXTRACTION_")),
+    );
+    const extractionEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => key.startsWith("DISCOVERY_EXTRACTION_")),
+    );
     this.providerConfigurationFingerprint = createHash("sha256")
       .update(
         JSON.stringify({
@@ -526,10 +547,33 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
           command: this.#config.command,
           timeoutMs: this.#config.timeoutMs,
           keepExchangeFiles: this.#config.keepExchangeFiles,
-          providerEnvironment: publicDiscoveryProviderEnvironment(this.#config.providerEnvironment),
+          providerEnvironment,
         }),
       )
       .digest("hex");
+    this.extractionConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          extractionMode: this.extractionMode,
+          maximumExtractions: this.maximumExtractions,
+          extractorVersion: this.extractorVersion,
+          frontierPolicyVersion: this.frontierPolicyVersion,
+          extractionEnvironment,
+        }),
+      )
+      .digest("hex");
+  }
+
+  async readExtractionArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedExtractionArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
   }
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {
@@ -540,6 +584,11 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       "--provider-mode",
       this.providerMode,
       ...(this.providerMode === "live_search" ? ["--provider-policy", this.providerPolicy] : []),
+      "--extraction-mode",
+      this.extractionMode,
+      ...(this.extractionMode === "selected_public_pages"
+        ? ["--max-extractions", String(this.maximumExtractions)]
+        : []),
       "--output",
       paths.outputPath,
     ];
@@ -1009,6 +1058,8 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       arguments: arguments_,
       providerMode: this.providerMode,
       providerPolicy: this.providerPolicy,
+      extractionMode: this.extractionMode,
+      maximumExtractions: this.maximumExtractions,
       startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - startedAtMs),
@@ -1029,6 +1080,20 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             providerConfigurationFingerprint: providerTelemetry.configurationFingerprint,
             providerUsage: providerTelemetry.usage,
             providerWarnings: providerTelemetry.warnings,
+          }),
+      ...(this.extractionMode === "selected_public_pages"
+        ? {
+            frontierPath: paths.frontierPath,
+            frontierImported: false,
+            extractedContentPath: paths.extractedContentPath,
+            extractedContentImported: false,
+            extractionTelemetryPath: paths.extractionTelemetryPath,
+            extractionTelemetryImported: false,
+          }
+        : {
+            frontierImported: false,
+            extractedContentImported: false,
+            extractionTelemetryImported: false,
           }),
       providerIds,
       success: true,
@@ -1088,6 +1153,8 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       arguments: input.arguments_,
       providerMode: this.providerMode,
       providerPolicy: this.providerPolicy,
+      extractionMode: this.extractionMode,
+      maximumExtractions: this.maximumExtractions,
       startedAt: input.startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - input.startedAtMs),
@@ -1106,6 +1173,20 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             providerPolicyTraceImported: false,
           }
         : { providerTelemetryImported: false, providerPolicyTraceImported: false }),
+      ...(this.extractionMode === "selected_public_pages"
+        ? {
+            frontierPath: input.paths.frontierPath,
+            frontierImported: false,
+            extractedContentPath: input.paths.extractedContentPath,
+            extractedContentImported: false,
+            extractionTelemetryPath: input.paths.extractionTelemetryPath,
+            extractionTelemetryImported: false,
+          }
+        : {
+            frontierImported: false,
+            extractedContentImported: false,
+            extractionTelemetryImported: false,
+          }),
       success: false,
       errorCode: input.code,
       errorMessage: input.message,
@@ -1135,6 +1216,13 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             ? {
                 providerTelemetryPath: input.paths.providerTelemetryPath,
                 providerPolicyTracePath: input.paths.providerPolicyTracePath,
+              }
+            : {}),
+          ...(this.extractionMode === "selected_public_pages"
+            ? {
+                frontierPath: input.paths.frontierPath,
+                extractedContentPath: input.paths.extractedContentPath,
+                extractionTelemetryPath: input.paths.extractionTelemetryPath,
               }
             : {}),
           stdoutPath: input.paths.stdoutPath,

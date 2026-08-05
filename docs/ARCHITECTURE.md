@@ -94,17 +94,21 @@ Cluvvi run
       └─ live_search: HN Algolia + bounded Firebase enrichment + Tavily basic + Brave web
   → search_results.v2
   → live_provider_run_telemetry.v1 sidecar when live
-  → strict Cluvvi validation
-  → deterministic downstream stages
+  ? provider_policy_trace.v1 sidecar when live
+  ? optional crawl_frontier.v1
+  ? optional extracted_content.v1
+  ? optional extraction_run_telemetry.v1
+  ? strict Cluvvi cross-artifact validation
+  ? deterministic evidence materials and downstream stages
 ```
 
 The runtime and provider mode are separate immutable run fields. They participate in stage fingerprints, so a fixture run cannot silently resume under live providers or vice versa.
 
-Mission text is written to a request file and never enters executable names, shell syntax, or child arguments. The child process receives only fixed arguments and an explicit provider-environment allowlist. Secret values are excluded from public fingerprints, execution records, logs, artifacts, diagnostics, and browser responses.
+Mission text is written to a request file and never enters executable names, shell syntax, or child arguments. The child process receives only fixed arguments and an explicit non-secret provider/extraction environment allowlist. Secret values are excluded from public fingerprints, execution records, logs, artifacts, diagnostics, and browser responses.
 
-Each run owns an isolated `discovery-exchange` directory. Live telemetry is preserved beside the exact imported V2 artifact and summarized into the bridge execution record. Invalid artifacts or telemetry fail the discovery stage before downstream execution. Partial provider failure can complete only when Project A returns a valid non-empty or honestly covered artifact with explicit warnings and telemetry; Cluvvi never turns missing or invalid provider evidence into false completeness.
+Each run owns an isolated `discovery-exchange` directory. Live telemetry, provider policy, and optional extraction sidecars are preserved beside the exact imported V2 artifact and summarized into the bridge execution record. Invalid artifacts fail before downstream execution. Partial provider or page failure can complete only when every accepted and failed attempt is represented consistently; Cluvvi never converts missing or invalid evidence into false completeness.
 
-C1-H is search-only. Result pages are not fetched, rendered, crawled, or deeply extracted. C1-I requires a separate approval and contract.
+Search remains independently usable without page fetching. C1-I adds an explicit `selected_public_pages` mode in which Project A selects and fetches a bounded depth-zero public frontier. Cluvvi imports the three companion artifacts across the existing file/process boundary, validates them independently, persists them separately, and converts accepted metadata, text, and JSON-LD into content-hashed evidence materials. Search and frontier stages can be reused when extraction fails and the same run is resumed. Raw HTML and transport/security data are never admitted into the durable contracts.
 
 ## Security and server-only rules
 
@@ -114,6 +118,8 @@ C1-H is search-only. Result pages are not fetched, rendered, crawled, or deeply 
 - Arbitrary local file paths are never accepted from the browser.
 - SQLite and filesystem modules remain server-only.
 - Artifact JSON is escaped by React; report Markdown is not rendered as arbitrary HTML.
+- Imported extraction artifacts reject raw HTML, headers, cookies, authorization data, environment dumps, secret-shaped fields, and private-network URLs.
+- Extracted evidence enters any future model only through the contained untrusted-evidence prompt boundary.
 - Secrets and raw stack traces are not returned by default.
 
 ## Parked Phase 0

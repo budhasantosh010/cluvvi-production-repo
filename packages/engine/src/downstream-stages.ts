@@ -2,9 +2,12 @@ import {
   BuyerHypothesesArtifactV1Schema,
   BuyerMapArtifactV1Schema,
   CluvviError,
+  CrawlFrontierArtifactV1Schema,
   DiscoveryCandidatesArtifactV1Schema,
   DiscoveryRequestV1Schema,
   EvidenceFindingsArtifactV1Schema,
+  ExtractedContentArtifactV1Schema,
+  ExtractionRunTelemetryV1Schema,
   FixtureArtifactEnvelopeSchema,
   IdentityEnrichmentArtifactV1Schema,
   MissionUnderstandingArtifactV1Schema,
@@ -12,6 +15,7 @@ import {
   RankedOpportunitiesArtifactV1Schema,
   SearchResultsArtifactV2Schema,
   type ArtifactType,
+  type SearchResultsArtifactV2,
 } from "@cluvvi/core";
 import {
   buildBuyerHypotheses,
@@ -56,6 +60,7 @@ function createDownstreamStage<TInput, TOutput>(input: {
   outputSchema: RuntimeSchema<TOutput>;
   loadInput: (context: StageContext) => Promise<unknown>;
   execute: (validated: TInput, context: StageContext) => TOutput | Promise<TOutput>;
+  shouldRun?: (context: StageContext) => boolean | Promise<boolean>;
   toolName?: string | ((context: StageContext) => string);
 }): EngineStage<TInput, TOutput> {
   return {
@@ -65,6 +70,7 @@ function createDownstreamStage<TInput, TOutput>(input: {
     schemaVersion: input.schemaVersion,
     inputSchema: input.inputSchema,
     outputSchema: input.outputSchema,
+    ...(input.shouldRun === undefined ? {} : { shouldRun: input.shouldRun }),
     loadInput: input.loadInput,
     async execute(validated, context) {
       const output = await input.execute(validated, context);
@@ -156,6 +162,69 @@ async function loadDiscoveryInput(context: StageContext): Promise<DiscoveryStage
   };
 }
 
+interface EvidenceStageInput {
+  candidates: ReturnType<typeof DiscoveryCandidatesArtifactV1Schema.parse>;
+  extractedContent?: ReturnType<typeof ExtractedContentArtifactV1Schema.parse>;
+}
+
+const EvidenceStageInputSchema: RuntimeSchema<EvidenceStageInput> = {
+  parse(value: unknown): EvidenceStageInput {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Evidence stage requires candidates and optional extracted content.");
+    }
+    const record = value as Record<string, unknown>;
+    return {
+      candidates: DiscoveryCandidatesArtifactV1Schema.parse(record["candidates"]),
+      ...(record["extractedContent"] === undefined
+        ? {}
+        : { extractedContent: ExtractedContentArtifactV1Schema.parse(record["extractedContent"]) }),
+    };
+  },
+};
+
+async function loadEvidenceInput(context: StageContext): Promise<EvidenceStageInput> {
+  const candidates = await context.getLatestArtifact("candidates");
+  if (candidates === null) throw new Error("Evidence requires missing candidates artifact.");
+  const extractedContent = await context.getLatestArtifact("extracted_content");
+  return {
+    candidates: DiscoveryCandidatesArtifactV1Schema.parse(candidates.data),
+    ...(extractedContent === null
+      ? {}
+      : { extractedContent: ExtractedContentArtifactV1Schema.parse(extractedContent.data) }),
+  };
+}
+
+async function requireExtractionArtifactSet(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  if (
+    runtime.extractionMode !== "selected_public_pages" ||
+    context.run.config.discoveryExtractionMode !== "selected_public_pages"
+  ) {
+    throw new CluvviError({
+      code: "DISCOVERY_EXTRACTION_NOT_CONFIGURED",
+      category: "configuration",
+      message:
+        "The run requested public-page extraction, but the active Discovery runtime is not configured for it.",
+      retryable: true,
+      stage: context.run.phase,
+      context: { retrySafe: true, resumeSupported: true, discoveryReuseExpected: true },
+    });
+  }
+  if (runtime.readExtractionArtifactSet === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_EXTRACTION_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import extraction companion artifacts.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readExtractionArtifactSet({ runId: context.run.id, searchResults });
+}
+
 export function createDownstreamFixtureStages(
   input: { discoveryRuntime?: DiscoveryRuntime } = {},
 ): readonly EngineStage<unknown, unknown>[] {
@@ -198,6 +267,54 @@ export function createDownstreamFixtureStages(
       },
     }),
     createDownstreamStage({
+      name: "frontier",
+      artifactType: "crawl_frontier",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: CrawlFrontierArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoveryExtractionMode === "selected_public_pages",
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_crawl_frontier",
+      async execute(searchResults, context) {
+        const set = await requireExtractionArtifactSet(discoveryRuntime, context, searchResults);
+        return set.frontier;
+      },
+    }),
+    createDownstreamStage({
+      name: "extraction",
+      artifactType: "extracted_content",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: ExtractedContentArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoveryExtractionMode === "selected_public_pages",
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_extracted_content",
+      async execute(searchResults, context) {
+        const set = await requireExtractionArtifactSet(discoveryRuntime, context, searchResults);
+        return set.extractedContent;
+      },
+    }),
+    createDownstreamStage({
+      name: "extraction_telemetry",
+      artifactType: "extraction_telemetry",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: ExtractionRunTelemetryV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoveryExtractionMode === "selected_public_pages",
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_extraction_telemetry",
+      async execute(searchResults, context) {
+        const set = await requireExtractionArtifactSet(discoveryRuntime, context, searchResults);
+        return set.telemetry;
+      },
+    }),
+    createDownstreamStage({
       name: "normalization",
       artifactType: "candidates",
       version: "2.0.0",
@@ -212,13 +329,13 @@ export function createDownstreamFixtureStages(
     createDownstreamStage({
       name: "investigation",
       artifactType: "evidence_findings",
-      version: "1.0.0",
+      version: "2.0.0",
       schemaVersion: "1.0",
-      inputSchema: DiscoveryCandidatesArtifactV1Schema,
+      inputSchema: EvidenceStageInputSchema,
       outputSchema: EvidenceFindingsArtifactV1Schema,
-      loadInput: requireArtifact(DiscoveryCandidatesArtifactV1Schema, "candidates"),
-      execute(candidates, context) {
-        return buildEvidenceFindings(candidates, context.now());
+      loadInput: loadEvidenceInput,
+      execute(input, context) {
+        return buildEvidenceFindings(input.candidates, context.now(), input.extractedContent);
       },
     }),
     createDownstreamStage({

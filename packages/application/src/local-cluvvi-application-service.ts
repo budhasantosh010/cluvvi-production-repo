@@ -8,6 +8,7 @@ import {
   createOpaqueId,
   type ArtifactRecord,
   type ArtifactType,
+  type CluvviExtractionMode,
   type DiscoveryProviderMode,
   type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
@@ -37,7 +38,9 @@ const FIXTURE_WARNING =
 const LOCAL_DISCOVERY_WARNING =
   "This run uses the standalone local Discovery Engine with fixture providers. It does not represent live customer discovery.";
 const LIVE_DISCOVERY_WARNING =
-  "This run uses provider-policy-controlled search snippets through the local Discovery Engine. Full pages are not crawled or deeply extracted, and identity or contact details are not verified.";
+  "This run uses provider-policy-controlled search through the local Discovery Engine. Identity, purchasing authority, and contact details are not verified.";
+const LIVE_EXTRACTION_WARNING =
+  "Selected public pages are fetched through the standalone Discovery Engine with bounded SSRF-safe extraction. Extracted text and structured data remain untrusted source material and are never treated as instructions.";
 
 export class ApplicationServiceError extends Error {
   readonly code: string;
@@ -59,6 +62,10 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
   readonly #discoveryRuntimeMode: DiscoveryRuntimeMode;
   readonly #discoveryProviderMode: DiscoveryProviderMode;
   readonly #discoveryProviderPolicy: DiscoveryProviderPolicy;
+  readonly #discoveryExtractionMode: CluvviExtractionMode;
+  readonly #discoveryMaximumExtractions: number;
+  readonly #extractorVersion: string;
+  readonly #frontierPolicyVersion: string;
   readonly #now: () => string;
 
   constructor(input: {
@@ -67,6 +74,10 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
     discoveryRuntimeMode?: DiscoveryRuntimeMode;
     discoveryProviderMode?: DiscoveryProviderMode;
     discoveryProviderPolicy?: DiscoveryProviderPolicy;
+    discoveryExtractionMode?: CluvviExtractionMode;
+    discoveryMaximumExtractions?: number;
+    extractorVersion?: string;
+    frontierPolicyVersion?: string;
     now?: () => string;
   }) {
     this.#store = input.store;
@@ -74,6 +85,10 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
     this.#discoveryRuntimeMode = input.discoveryRuntimeMode ?? "fixture";
     this.#discoveryProviderMode = input.discoveryProviderMode ?? "fixture_only";
     this.#discoveryProviderPolicy = input.discoveryProviderPolicy ?? "free_only";
+    this.#discoveryExtractionMode = input.discoveryExtractionMode ?? "none";
+    this.#discoveryMaximumExtractions = input.discoveryMaximumExtractions ?? 8;
+    this.#extractorVersion = input.extractorVersion ?? "basic_public_html_extractor@1.0.0";
+    this.#frontierPolicyVersion = input.frontierPolicyVersion ?? "frontier_policy@1.0.0";
     this.#now = input.now ?? (() => new Date().toISOString());
   }
 
@@ -97,6 +112,10 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
       discoveryProviderPolicy: this.#discoveryProviderPolicy,
+      discoveryExtractionMode: this.#discoveryExtractionMode,
+      discoveryMaximumExtractions: this.#discoveryMaximumExtractions,
+      extractorVersion: this.#extractorVersion,
+      frontierPolicyVersion: this.#frontierPolicyVersion,
     });
     const request = RunRequestSchema.parse({
       id: createOpaqueId("request"),
@@ -253,11 +272,13 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
       discoveryProviderPolicy: this.#discoveryProviderPolicy,
+      discoveryExtractionMode: this.#discoveryExtractionMode,
+      discoveryMaximumExtractions: this.#discoveryMaximumExtractions,
       capabilities: {
         localEngine: true,
         missionCompiler: false,
         webSearch: this.#discoveryProviderMode === "live_search",
-        webFetch: false,
+        webFetch: this.#discoveryExtractionMode === "selected_public_pages",
         enrichment: false,
         youtube: false,
         outreach: false,
@@ -268,6 +289,9 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
           : this.#discoveryRuntimeMode === "local_discovery_engine"
             ? LOCAL_DISCOVERY_WARNING
             : FIXTURE_WARNING,
+        ...(this.#discoveryExtractionMode === "selected_public_pages"
+          ? [LIVE_EXTRACTION_WARNING]
+          : []),
       ],
     };
   }
@@ -287,6 +311,8 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       discoveryRuntimeMode: this.#discoveryRuntimeMode,
       discoveryProviderMode: this.#discoveryProviderMode,
       discoveryProviderPolicy: this.#discoveryProviderPolicy,
+      discoveryExtractionMode: this.#discoveryExtractionMode,
+      discoveryMaximumExtractions: this.#discoveryMaximumExtractions,
       runner: { available, heartbeat },
     };
   }

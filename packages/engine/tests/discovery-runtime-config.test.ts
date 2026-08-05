@@ -40,6 +40,10 @@ describe("discovery runtime configuration", () => {
       mode: "fixture",
       providerMode: "fixture_only",
       providerPolicy: "free_only",
+      extractionMode: "none",
+      maximumExtractions: 8,
+      extractorVersion: "basic_public_html_extractor@1.0.0",
+      frontierPolicyVersion: "frontier_policy@1.0.0",
     });
   });
 
@@ -134,6 +138,80 @@ describe("discovery runtime configuration", () => {
           CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
         }),
       "LOCAL_DISCOVERY_PROVIDER_POLICY_INVALID",
+    );
+  });
+
+  it("parses opt-in selected public-page extraction and forwards only safe extraction settings", async () => {
+    const projectPath = await fakeProject();
+    const config = parseDiscoveryRuntimeConfig({
+      CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+      CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+      CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+      CLUVVI_DISCOVERY_EXTRACTION_MODE: "selected_public_pages",
+      CLUVVI_DISCOVERY_MAX_EXTRACTIONS: "5",
+      DISCOVERY_EXTRACTION_TIMEOUT_MS: "9000",
+      DISCOVERY_EXTRACTION_MAX_HTML_BYTES: "750000",
+      DISCOVERY_EXTRACTION_MAX_CONCURRENCY: "2",
+      DISCOVERY_EXTRACTION_MAX_DOMAIN_CONCURRENCY: "1",
+      DISCOVERY_EXTRACTION_MAX_REDIRECTS: "4",
+      DISCOVERY_EXTRACTION_MAX_TEXT_CHARACTERS: "40000",
+      DISCOVERY_EXTRACTION_MIN_USEFUL_CHARACTERS: "150",
+      DISCOVERY_EXTRACTION_ROBOTS_FAILURE_POLICY: "allow_with_warning",
+      DISCOVERY_EXTRACTION_USER_AGENT: "CluvviTest/1.0",
+      TAVILY_API_KEY: "must-not-forward",
+    });
+    expect(config).toMatchObject({
+      mode: "local_discovery_engine",
+      extractionMode: "selected_public_pages",
+      maximumExtractions: 5,
+      local: {
+        extractionMode: "selected_public_pages",
+        maximumExtractions: 5,
+        providerEnvironment: {
+          DISCOVERY_EXTRACTION_TIMEOUT_MS: "9000",
+          DISCOVERY_EXTRACTION_MAX_HTML_BYTES: "750000",
+          DISCOVERY_EXTRACTION_MAX_CONCURRENCY: "2",
+          DISCOVERY_EXTRACTION_MAX_DOMAIN_CONCURRENCY: "1",
+          DISCOVERY_EXTRACTION_MAX_REDIRECTS: "4",
+          DISCOVERY_EXTRACTION_MAX_TEXT_CHARACTERS: "40000",
+          DISCOVERY_EXTRACTION_MIN_USEFUL_CHARACTERS: "150",
+          DISCOVERY_EXTRACTION_ROBOTS_FAILURE_POLICY: "allow_with_warning",
+          DISCOVERY_EXTRACTION_USER_AGENT: "CluvviTest/1.0",
+        },
+      },
+    });
+    if (config.mode !== "local_discovery_engine") throw new Error("Expected local config.");
+    expect(config.local.providerEnvironment).not.toHaveProperty("TAVILY_API_KEY");
+  });
+
+  it("rejects extraction in the internal fixture runtime and invalid extraction limits", async () => {
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          CLUVVI_DISCOVERY_EXTRACTION_MODE: "selected_public_pages",
+        }),
+      "DISCOVERY_ENGINE_NOT_CONFIGURED",
+    );
+    const projectPath = await fakeProject();
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+          CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+          CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+          CLUVVI_DISCOVERY_EXTRACTION_MODE: "recursive",
+        }),
+      "LOCAL_DISCOVERY_EXTRACTION_MODE_INVALID",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+          CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+          CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+          CLUVVI_DISCOVERY_MAX_EXTRACTIONS: "101",
+        }),
+      "LOCAL_DISCOVERY_MAX_EXTRACTIONS_INVALID",
     );
   });
 

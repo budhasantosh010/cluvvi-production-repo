@@ -22,7 +22,13 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
     discoveryRuntimeMode: discoveryRuntime.mode,
     discoveryProviderMode: discoveryRuntime.providerMode,
     discoveryProviderPolicy: discoveryRuntime.providerPolicy,
+    discoveryExtractionMode: discoveryRuntime.extractionMode ?? "none",
+    discoveryMaximumExtractions: discoveryRuntime.maximumExtractions ?? 8,
+    extractorVersion: discoveryRuntime.extractorVersion ?? "basic_public_html_extractor@1.0.0",
+    frontierPolicyVersion: discoveryRuntime.frontierPolicyVersion ?? "frontier_policy@1.0.0",
     providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
+    extractionConfigurationFingerprint:
+      discoveryRuntime.extractionConfigurationFingerprint ?? "fixture-no-extraction",
     ...(eventSink === undefined ? {} : { eventSink }),
   });
   return { paths, store, engine, discoveryConfig };

@@ -127,6 +127,6 @@ pnpm test:browser-balanced-live-discovery
 
 ## Truthful product boundary
 
-Live results are search snippets and public result metadata only. Full pages are not extracted. Coverage may be incomplete. Identity routes are hypotheses, contacts are not verified, and Buyer Map scores do not prove purchase intent.
+Live search results are public snippets and result metadata. With C1-I explicitly enabled, a bounded deterministic frontier may also supply static public-page metadata, visible text, and normalized JSON-LD. That content is page-supplied, unverified, and classified as `untrusted_public_content`. Coverage may be incomplete. Identity routes are hypotheses, contacts are not verified, and Buyer Map scores do not prove purchase intent.
 
-C1-I is the next separate milestone. It may add safe public fetching, metadata/body/JSON-LD extraction, frontier scoring, selected-page drilling, prompt-injection containment, document/PDF extraction, thread/transcript interfaces, and optional Crawl4AI. None of that is part of C1-HF.
+C1-I does not add JavaScript rendering, recursive crawling, PDFs/documents, comments/threads/transcripts, platform adapters, contact enrichment, outreach, monitoring, or optional Crawl4AI. See `docs/C1_I_EXTRACTED_EVIDENCE.md`.

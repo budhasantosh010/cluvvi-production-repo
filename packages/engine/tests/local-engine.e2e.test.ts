@@ -5,7 +5,6 @@ import {
   IdentityEnrichmentArtifactV1Schema,
   MissionInputSchemaV1,
   MissionUnderstandingArtifactV1Schema,
-  ORDERED_RUN_PHASES,
   ProjectBFinalizationArtifactV1Schema,
   RankedOpportunitiesArtifactV1Schema,
   SearchResultsArtifactV2Schema,
@@ -68,13 +67,16 @@ describe("CluvviEngine Project B fixture flow", () => {
         sourceFile: "examples/video-editing-saas.json",
       });
       expect(result.run.status).toBe("completed");
-      expect(result.artifacts).toHaveLength(ORDERED_RUN_PHASES.length);
+      expect(result.artifacts).toHaveLength(11);
       const executionsBefore = await store.listStageExecutions(result.run.id);
       const toolCallsBefore = await store.listToolCalls(result.run.id);
       expect(executionsBefore.filter((execution) => execution.status === "completed")).toHaveLength(
-        ORDERED_RUN_PHASES.length,
+        11,
       );
-      expect(toolCallsBefore).toHaveLength(ORDERED_RUN_PHASES.length);
+      expect(executionsBefore.filter((execution) => execution.status === "skipped")).toHaveLength(
+        3,
+      );
+      expect(toolCallsBefore).toHaveLength(11);
       expect(existsSync(resolve(root, "runs", result.run.id, "run-report.md"))).toBe(true);
 
       const understandingEnvelope = FixtureArtifactEnvelopeSchema.parse(
@@ -118,7 +120,7 @@ describe("CluvviEngine Project B fixture flow", () => {
 
       const finalArtifact = ProjectBFinalizationArtifactV1Schema.parse(
         JSON.parse(
-          await readFile(resolve(root, "runs", result.run.id, "10-finalization.json"), "utf8"),
+          await readFile(resolve(root, "runs", result.run.id, "13-finalization.json"), "utf8"),
         ),
       );
       expect(finalArtifact.fixture).toBe(true);
@@ -127,7 +129,7 @@ describe("CluvviEngine Project B fixture flow", () => {
 
       await engine.resume(result.run.id);
       expect(await store.listStageExecutions(result.run.id)).toHaveLength(executionsBefore.length);
-      expect(await store.listArtifacts(result.run.id)).toHaveLength(ORDERED_RUN_PHASES.length);
+      expect(await store.listArtifacts(result.run.id)).toHaveLength(11);
       expect(await store.listToolCalls(result.run.id)).toHaveLength(toolCallsBefore.length);
     } finally {
       await store.close();
@@ -162,11 +164,10 @@ describe("CluvviEngine Project B fixture flow", () => {
       const resumed = await engine.resume(runId);
       expect(resumed.run.status).toBe("completed");
       const afterResume = await store.listStageExecutions(runId);
-      expect(afterResume.filter((execution) => execution.status === "completed")).toHaveLength(
-        ORDERED_RUN_PHASES.length,
-      );
+      expect(afterResume.filter((execution) => execution.status === "completed")).toHaveLength(11);
+      expect(afterResume.filter((execution) => execution.status === "skipped")).toHaveLength(3);
       expect(afterResume.filter((execution) => execution.status === "failed")).toHaveLength(1);
-      expect(await store.listArtifacts(runId)).toHaveLength(ORDERED_RUN_PHASES.length);
+      expect(await store.listArtifacts(runId)).toHaveLength(11);
 
       await engine.resume(runId);
       expect(await store.listStageExecutions(runId)).toHaveLength(afterResume.length);

@@ -195,6 +195,10 @@ The cross-project gate passed locally:
 
 C1-G connects validated standalone Project A `search_results.v2` output to Cluvvi through an approved file/process boundary. It does not import provider implementations, bypass schema validation, or blur fixture and live execution. Fixture mode remains independently testable and the default.
 
+## C1-I — Completed extracted-evidence boundary
+
+C1-I preserves the search contract and adds three separate companion artifacts only when `selected_public_pages` is explicitly configured. Project A owns safe depth-zero public fetching and extraction. Project B owns independent schema snapshots, cross-artifact validation, durable persistence, evidence-material normalization, prompt-injection containment, downstream provenance, and truthful browser presentation. Search-only runs remain valid and unchanged.
+
 ## Future V1-to-V2 adapter boundary
 
 A future package may translate validated V1 into V2 only after an explicit mapping is approved.
@@ -211,7 +215,7 @@ This plan does not authorize:
 - LinkedIn scraping;
 - login-wall bypass;
 - V1-to-V2 migration code;
-- C1-I crawlers or extractors;
+- JavaScript rendering, recursive crawling, PDFs/documents, comments/threads/transcripts, or platform-specific extraction adapters beyond C1-I public HTML;
 - remote Discovery APIs;
 - contact enrichment;
 - automated messaging;

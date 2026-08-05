@@ -11,6 +11,9 @@ export type DiscoveryProviderMode = z.infer<typeof DiscoveryProviderModeSchema>;
 export const DiscoveryProviderPolicySchema = z.enum(["free_only", "balanced", "paid_deep"]);
 export type DiscoveryProviderPolicy = z.infer<typeof DiscoveryProviderPolicySchema>;
 
+export const CluvviExtractionModeSchema = z.enum(["none", "selected_public_pages"]);
+export type CluvviExtractionMode = z.infer<typeof CluvviExtractionModeSchema>;
+
 export const LIVE_DISCOVERY_PROVIDER_IDS = [
   "hacker_news_algolia",
   "hacker_news_firebase",
@@ -168,6 +171,8 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     arguments: z.array(z.string()),
     providerMode: DiscoveryProviderModeSchema.default("fixture_only"),
     providerPolicy: DiscoveryProviderPolicySchema.default("free_only"),
+    extractionMode: CluvviExtractionModeSchema.default("none"),
+    maximumExtractions: z.number().int().min(1).max(100).default(8),
     startedAt: z.iso.datetime({ offset: true }),
     completedAt: z.iso.datetime({ offset: true }).optional(),
     durationMs: z.number().int().nonnegative().optional(),
@@ -182,6 +187,12 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     providerTelemetryImported: z.boolean().default(false),
     providerPolicyTracePath: z.string().min(1).optional(),
     providerPolicyTraceImported: z.boolean().default(false),
+    frontierPath: z.string().min(1).optional(),
+    frontierImported: z.boolean().default(false),
+    extractedContentPath: z.string().min(1).optional(),
+    extractedContentImported: z.boolean().default(false),
+    extractionTelemetryPath: z.string().min(1).optional(),
+    extractionTelemetryImported: z.boolean().default(false),
     providerConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
