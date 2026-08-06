@@ -14,6 +14,9 @@ export type DiscoveryProviderPolicy = z.infer<typeof DiscoveryProviderPolicySche
 export const CluvviExtractionModeSchema = z.enum(["none", "selected_public_pages"]);
 export type CluvviExtractionMode = z.infer<typeof CluvviExtractionModeSchema>;
 
+export const CluvviStructuredContentModeSchema = z.enum(["none", "selected_resources"]);
+export type CluvviStructuredContentMode = z.infer<typeof CluvviStructuredContentModeSchema>;
+
 export const LIVE_DISCOVERY_PROVIDER_IDS = [
   "hacker_news_algolia",
   "hacker_news_firebase",
@@ -173,6 +176,13 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     providerPolicy: DiscoveryProviderPolicySchema.default("free_only"),
     extractionMode: CluvviExtractionModeSchema.default("none"),
     maximumExtractions: z.number().int().min(1).max(100).default(8),
+    structuredContentMode: CluvviStructuredContentModeSchema.default("none"),
+    maximumStructuredResources: z.number().int().min(1).max(100).default(8),
+    maximumDocumentResources: z.number().int().min(1).max(100).default(4),
+    structuredParserPolicyVersion: z.string().min(1).default("structured_parser_policy@1.0.0"),
+    anydocParserVersion: z.string().min(1).default("@firecrawl/anydoc@0.1.6"),
+    htmlMarkdownRendererVersion: z.string().min(1).default("sanitized_html_to_gfm@1.0.0"),
+    extractionQualityEvaluatorVersion: z.string().min(1).default("extraction_quality@1.0.0"),
     startedAt: z.iso.datetime({ offset: true }),
     completedAt: z.iso.datetime({ offset: true }).optional(),
     durationMs: z.number().int().nonnegative().optional(),
@@ -193,6 +203,10 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     extractedContentImported: z.boolean().default(false),
     extractionTelemetryPath: z.string().min(1).optional(),
     extractionTelemetryImported: z.boolean().default(false),
+    structuredContentPath: z.string().min(1).optional(),
+    structuredContentImported: z.boolean().default(false),
+    contentParseTelemetryPath: z.string().min(1).optional(),
+    contentParseTelemetryImported: z.boolean().default(false),
     providerConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)

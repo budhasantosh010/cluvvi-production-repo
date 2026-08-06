@@ -3,6 +3,7 @@
 import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
 import { ExtractionEvidenceView } from "@/components/extraction-evidence-view";
 import { MissionUnderstandingView } from "@/components/mission-understanding-view";
+import { StructuredContentView } from "@/components/structured-content-view";
 import type { RunView } from "@cluvvi/application/contracts";
 import type { ArtifactRecord } from "@cluvvi/core";
 import Link from "next/link";
@@ -26,6 +27,8 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   frontier: "Crawl frontier",
   extraction: "Public-page extraction",
   extraction_telemetry: "Extraction telemetry",
+  structured_parsing: "Structured content parsing",
+  content_parse_telemetry: "Content parse telemetry",
   normalization: "Normalization",
   investigation: "Evidence analysis",
   buyer_identification: "Buyer hypotheses",
@@ -579,6 +582,15 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         artifacts={view.artifacts}
         extractionMode={view.run.config.discoveryExtractionMode}
         maximumExtractions={view.run.config.discoveryMaximumExtractions}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
+
+      <StructuredContentView
+        artifacts={view.artifacts}
+        structuredContentMode={view.run.config.discoveryStructuredContentMode}
+        maximumStructuredResources={view.run.config.discoveryMaximumStructuredResources}
+        maximumDocumentResources={view.run.config.discoveryMaximumDocumentResources}
         runStatus={view.run.status}
         {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
       />

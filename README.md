@@ -2,7 +2,7 @@
 
 Cluvvi is an evidence-backed buyer-discovery engine. Its commercial benchmark is to turn what someone sells into real opportunities worth contacting, with evidence, the right buyer, confidence, and clear limitations.
 
-## Current active phase: C1-I Extracted Public-Page Evidence
+## Current active phase: C1-I.5 Structured HTML and Public-Document Evidence
 
 ```text
 Command composer or CLI
@@ -32,9 +32,9 @@ Deterministic Evidence → identity hypotheses → ranking → Buyer Map
 SQLite durable stages and versioned artifacts
 ```
 
-C0.7 through C0.9 established the command-first local browser flow and interaction system. C1-A added typed deterministic Mission Understanding V1 and a source/query plan. C1-0 and C1-0.1 froze the standalone discovery boundary and the separate V1/V2 contracts. C1-B completed the standalone fixture Discovery Engine. C1-C through C1-F implemented Evidence, role-only Identity + Enrichment, transparent Ranking, and the Buyer Map. C1-G connected Cluvvi to the independently executable standalone engine through a safe process/file boundary. C1-H added approved live search. C1-HF added policy-controlled free search. C1-I adds an opt-in depth-zero frontier and bounded public HTML extraction path through `crawl_frontier.v1`, `extracted_content.v1`, and `extraction_run_telemetry.v1` companion artifacts.
+C0.7 through C0.9 established the command-first local browser flow and interaction system. C1-A added typed deterministic Mission Understanding V1 and a source/query plan. C1-0 and C1-0.1 froze the standalone discovery boundary and the separate V1/V2 contracts. C1-B completed the standalone fixture Discovery Engine. C1-C through C1-F implemented Evidence, role-only Identity + Enrichment, transparent Ranking, and the Buyer Map. C1-G connected Cluvvi to the independently executable standalone engine through a safe process/file boundary. C1-H added approved live search. C1-HF added policy-controlled free search. C1-I added an opt-in depth-zero frontier and bounded public HTML extraction path. C1-I.5 adds independent `structured_content.v1` and `content_parse_telemetry.v1` companion contracts for selected public HTML and document resources.
 
-Search-only mode remains valid and is still the default. When `selected_public_pages` is explicitly enabled, Cluvvi independently validates and durably persists the three extraction artifacts, converts accepted metadata/text/JSON-LD into deterministic evidence materials, and preserves extraction provenance through Evidence and Buyer Map. Extracted content is always untrusted source data, never instructions. C1-I does not render JavaScript, recurse through sites, verify people, infer private contacts, prove purchase intent, or send outreach.
+Search-only and C1-I extraction-only modes remain valid and structured parsing remains opt-in. With `selected_resources`, Cluvvi independently validates and durably persists the two structured artifacts, converts accepted sections/tables/metadata/footnotes into deterministic evidence materials, and preserves exact structured provenance through Evidence and Buyer Map. All parsed content is untrusted source data, never instructions. C1-I.5 does not perform OCR, render JavaScript, recurse through sites, verify people, infer private contacts, prove purchase intent, or send outreach.
 
 ## Architecture status
 
@@ -50,10 +50,11 @@ Cluvvi currently:
 - validates the exact returned `search_results.v2` artifact, request ID, provider categories, coverage, and paid-credit accounting;
 - validates and preserves Project A's `live_provider_run_telemetry.v1` and `provider_policy_trace.v1` sidecars for live runs;
 - optionally imports independently validated `crawl_frontier.v1`, `extracted_content.v1`, and `extraction_run_telemetry.v1` companion artifacts;
-- rejects private or malformed URLs, raw HTML, headers, cookies, authorization data, environment data, digest mismatches, request mismatches, and inconsistent extraction totals;
-- converts successful or partial extraction items into deterministic, content-hashed evidence materials with explicit `untrusted_public_content` classification;
-- contains extracted text inside a quoted-data prompt boundary so page instructions, role changes, and tool requests remain data rather than commands;
-- reuses completed search and frontier work when extraction is corrected and resumed on the same run;
+- optionally imports independent `structured_content.v1` and `content_parse_telemetry.v1` artifacts for bounded selected HTML/document resources;
+- rejects private or malformed URLs, raw HTML/bytes, temporary paths, headers, cookies, authorization/environment data, digest mismatches, orphan references, invalid section graphs/tables, and inconsistent telemetry;
+- converts successful or partial page and structured items into deterministic, content-hashed evidence materials with explicit `untrusted_public_content` classification;
+- contains all extracted/structured text inside a quoted-data prompt boundary so instructions, role changes, links, macros, formulas, and tool requests remain data rather than commands;
+- reuses completed discovery/frontier/extraction work when structured artifacts are corrected and resumed on the same run;
 - rejects paid results, attempts, telemetry, fallback flags, or credits under `free_only`;
 - requires a deterministic free-coverage decision and reason before paid fallback under `balanced`;
 - preserves the original imported artifact plus bridge execution records and logs;
@@ -64,7 +65,7 @@ Cluvvi currently:
 
 Cluvvi does not yet:
 
-- render JavaScript applications, recurse through sites, traverse comments/threads/transcripts, or extract PDFs and other documents;
+- render JavaScript applications, recurse through sites, traverse comments/threads/transcripts, execute OCR, or access authenticated/private documents;
 - identify verified real people or infer private contact details;
 - prove purchase intent from search or extracted public pages;
 - send outreach.
@@ -72,7 +73,7 @@ Cluvvi does not yet:
 Next:
 
 1. Preserve C1-G fixture execution, C1-H paid live search, C1-HF policy-controlled free search, and C1-I search-only compatibility as release gates.
-2. Evaluate the narrow real discovery slice without expanding into recursive crawling, platform adapters, documents, contacts, or outreach.
+2. Evaluate the narrow real discovery slice without expanding into recursive crawling, OCR, JavaScript rendering, platform adapters, contacts, or outreach.
 3. Do not begin contact enrichment or outreach before identity and evidence quality thresholds are proven.
 
 `search_results.v1` remains the earlier frozen basic bridge contract. `search_results.v2`, schema `2.0`, is the expanded universal discovery-run contract. No V1-to-V2 adapter exists; only a future explicit adapter boundary is reserved.
@@ -267,4 +268,4 @@ The real C1-I integration test is separately opt-in and pins the expected Projec
 
 The maintained browser suites prove fixture regressions, real live desktop/mobile completion, provider telemetry presentation, imported V2 inspection, refresh durability, no mobile overflow, invalid-telemetry failure, preserved exchange evidence, and successful same-run resume. The C1-I suite additionally proves the operations mode view, successful extracted evidence, all three companion artifacts, partial and total page failure, hostile-instruction containment, extraction-only resume with discovery reuse, mobile layout, and secret-free execution provenance. Its runner restarts the isolated local environment between proofs to prevent cross-test leases and Windows process residue. Core and engine tests separately prove contract strictness, configuration allowlisting, request adaptation, process execution, stdout/stderr capture, timeout, cancellation, nonzero exit, missing/invalid artifacts, cross-artifact mismatch rejection, persistence, idempotency, and resume.
 
-Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`, `docs/C1_H_LIVE_DISCOVERY_OPERATIONS.md`, `docs/LIVE_DISCOVERY_OPERATIONS.md`, `docs/C1_I_EXTRACTED_EVIDENCE.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.
+Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`, `docs/C1_H_LIVE_DISCOVERY_OPERATIONS.md`, `docs/LIVE_DISCOVERY_OPERATIONS.md`, `docs/C1_I_EXTRACTED_EVIDENCE.md`, `docs/C1_I5_STRUCTURED_DOCUMENT_EVIDENCE.md`, `docs/C1_I5_STRUCTURED_DOCUMENT_EVIDENCE_OPERATIONS.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.

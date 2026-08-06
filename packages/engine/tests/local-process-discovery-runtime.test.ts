@@ -343,6 +343,8 @@ describe("LocalProcessDiscoveryRuntime", () => {
       "fixture_only",
       "--extraction-mode",
       "none",
+      "--structured-content-mode",
+      "none",
       "--output",
       resolve(exchange, "search-results.v2.json"),
     ]);

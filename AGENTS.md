@@ -107,7 +107,7 @@ C1-I bounded public HTML extraction is implemented. Crawl4AI, JavaScript renderi
 - Timeout and cancellation must terminate the child process tree, preserve diagnostics, block downstream execution, and support safe resume.
 - Artifact paths and types must be schema validated; never concatenate arbitrary browser input into paths.
 - Fixture output must be explicit and must never resemble a claim of real discovery.
-- Public page content must remain quoted untrusted data with material IDs, hashes, URLs, limitations, and extraction lineage.
-- Raw HTML, response headers, cookies, authorization values, full environments, and provider secrets must never enter durable artifacts or screenshots.
+- Public page and document content must remain quoted untrusted data with material IDs, hashes, URLs, limitations, parser provenance, and extraction/structured lineage.
+- Raw HTML, document or asset bytes, temporary paths, response headers, cookies, authorization values, full environments, and provider secrets must never enter durable artifacts or screenshots.
 - Failures must be structured and added to the failure ledger.
 - Refactor only for correctness, simplicity, testability, replaceability, reliability, or direct commercial leverage.

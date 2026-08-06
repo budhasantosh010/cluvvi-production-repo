@@ -12,6 +12,7 @@ import {
   type ArtifactRecord,
   type ArtifactType,
   type CluvviExtractionMode,
+  type CluvviStructuredContentMode,
   type DiscoveryProviderMode,
   type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
@@ -71,10 +72,18 @@ export class CluvviEngine {
   readonly #discoveryProviderPolicy: DiscoveryProviderPolicy;
   readonly #discoveryExtractionMode: CluvviExtractionMode;
   readonly #discoveryMaximumExtractions: number;
+  readonly #discoveryStructuredContentMode: CluvviStructuredContentMode;
+  readonly #discoveryMaximumStructuredResources: number;
+  readonly #discoveryMaximumDocumentResources: number;
   readonly #extractorVersion: string;
   readonly #frontierPolicyVersion: string;
+  readonly #structuredParserPolicyVersion: string;
+  readonly #anydocParserVersion: string;
+  readonly #htmlMarkdownRendererVersion: string;
+  readonly #extractionQualityEvaluatorVersion: string;
   readonly #providerConfigurationFingerprint: string;
   readonly #extractionConfigurationFingerprint: string;
+  readonly #structuredConfigurationFingerprint: string;
 
   constructor(input: {
     store: CluvviStore;
@@ -89,10 +98,18 @@ export class CluvviEngine {
     discoveryProviderPolicy?: DiscoveryProviderPolicy;
     discoveryExtractionMode?: CluvviExtractionMode;
     discoveryMaximumExtractions?: number;
+    discoveryStructuredContentMode?: CluvviStructuredContentMode;
+    discoveryMaximumStructuredResources?: number;
+    discoveryMaximumDocumentResources?: number;
     extractorVersion?: string;
     frontierPolicyVersion?: string;
+    structuredParserPolicyVersion?: string;
+    anydocParserVersion?: string;
+    htmlMarkdownRendererVersion?: string;
+    extractionQualityEvaluatorVersion?: string;
     providerConfigurationFingerprint?: string;
     extractionConfigurationFingerprint?: string;
+    structuredConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -106,12 +123,24 @@ export class CluvviEngine {
     this.#discoveryProviderPolicy = input.discoveryProviderPolicy ?? "free_only";
     this.#discoveryExtractionMode = input.discoveryExtractionMode ?? "none";
     this.#discoveryMaximumExtractions = input.discoveryMaximumExtractions ?? 8;
+    this.#discoveryStructuredContentMode = input.discoveryStructuredContentMode ?? "none";
+    this.#discoveryMaximumStructuredResources = input.discoveryMaximumStructuredResources ?? 8;
+    this.#discoveryMaximumDocumentResources = input.discoveryMaximumDocumentResources ?? 4;
     this.#extractorVersion = input.extractorVersion ?? "basic_public_html_extractor@1.0.0";
     this.#frontierPolicyVersion = input.frontierPolicyVersion ?? "frontier_policy@1.0.0";
+    this.#structuredParserPolicyVersion =
+      input.structuredParserPolicyVersion ?? "structured_parser_policy@1.0.0";
+    this.#anydocParserVersion = input.anydocParserVersion ?? "@firecrawl/anydoc@0.1.6";
+    this.#htmlMarkdownRendererVersion =
+      input.htmlMarkdownRendererVersion ?? "sanitized_html_to_gfm@1.0.0";
+    this.#extractionQualityEvaluatorVersion =
+      input.extractionQualityEvaluatorVersion ?? "extraction_quality@1.0.0";
     this.#providerConfigurationFingerprint =
       input.providerConfigurationFingerprint ?? "fixture-project-b-v2";
     this.#extractionConfigurationFingerprint =
       input.extractionConfigurationFingerprint ?? "fixture-no-extraction";
+    this.#structuredConfigurationFingerprint =
+      input.structuredConfigurationFingerprint ?? "fixture-no-structured-content";
   }
 
   async start(input: {
@@ -130,8 +159,15 @@ export class CluvviEngine {
       discoveryProviderPolicy: this.#discoveryProviderPolicy,
       discoveryExtractionMode: this.#discoveryExtractionMode,
       discoveryMaximumExtractions: this.#discoveryMaximumExtractions,
+      discoveryStructuredContentMode: this.#discoveryStructuredContentMode,
+      discoveryMaximumStructuredResources: this.#discoveryMaximumStructuredResources,
+      discoveryMaximumDocumentResources: this.#discoveryMaximumDocumentResources,
       extractorVersion: this.#extractorVersion,
       frontierPolicyVersion: this.#frontierPolicyVersion,
+      structuredParserPolicyVersion: this.#structuredParserPolicyVersion,
+      anydocParserVersion: this.#anydocParserVersion,
+      htmlMarkdownRendererVersion: this.#htmlMarkdownRendererVersion,
+      extractionQualityEvaluatorVersion: this.#extractionQualityEvaluatorVersion,
       ...(input.budget === undefined ? {} : { budget: input.budget }),
     });
     await this.#artifactWriter.ensureRunDirectory(run.id);
@@ -209,6 +245,9 @@ export class CluvviEngine {
           discoveryProviderMode: run.config.discoveryProviderMode,
           discoveryProviderPolicy: run.config.discoveryProviderPolicy,
           extractionConfiguration: this.#extractionConfigurationFingerprint,
+          ...(stage.name === "structured_parsing" || stage.name === "content_parse_telemetry"
+            ? { structuredConfiguration: this.#structuredConfigurationFingerprint }
+            : {}),
         });
         const previousSkipped = (await this.#store.listStageExecutions(run.id)).find(
           (execution) =>
@@ -260,6 +299,9 @@ export class CluvviEngine {
         ...(stage.name === "discovery"
           ? {}
           : { extractionConfiguration: this.#extractionConfigurationFingerprint }),
+        ...(stage.name === "structured_parsing" || stage.name === "content_parse_telemetry"
+          ? { structuredConfiguration: this.#structuredConfigurationFingerprint }
+          : {}),
       });
       const previous = await this.#store.findCompletedStageExecution(
         run.id,

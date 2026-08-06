@@ -2,6 +2,7 @@ import {
   BuyerHypothesesArtifactV1Schema,
   BuyerMapArtifactV1Schema,
   CluvviError,
+  ContentParseTelemetryV1Schema,
   CrawlFrontierArtifactV1Schema,
   DiscoveryCandidatesArtifactV1Schema,
   DiscoveryRequestV1Schema,
@@ -14,6 +15,7 @@ import {
   ProjectBFinalizationArtifactV1Schema,
   RankedOpportunitiesArtifactV1Schema,
   SearchResultsArtifactV2Schema,
+  StructuredContentArtifactV1Schema,
   type ArtifactType,
   type SearchResultsArtifactV2,
 } from "@cluvvi/core";
@@ -165,6 +167,7 @@ async function loadDiscoveryInput(context: StageContext): Promise<DiscoveryStage
 interface EvidenceStageInput {
   candidates: ReturnType<typeof DiscoveryCandidatesArtifactV1Schema.parse>;
   extractedContent?: ReturnType<typeof ExtractedContentArtifactV1Schema.parse>;
+  structuredContent?: ReturnType<typeof StructuredContentArtifactV1Schema.parse>;
 }
 
 const EvidenceStageInputSchema: RuntimeSchema<EvidenceStageInput> = {
@@ -178,6 +181,11 @@ const EvidenceStageInputSchema: RuntimeSchema<EvidenceStageInput> = {
       ...(record["extractedContent"] === undefined
         ? {}
         : { extractedContent: ExtractedContentArtifactV1Schema.parse(record["extractedContent"]) }),
+      ...(record["structuredContent"] === undefined
+        ? {}
+        : {
+            structuredContent: StructuredContentArtifactV1Schema.parse(record["structuredContent"]),
+          }),
     };
   },
 };
@@ -185,12 +193,18 @@ const EvidenceStageInputSchema: RuntimeSchema<EvidenceStageInput> = {
 async function loadEvidenceInput(context: StageContext): Promise<EvidenceStageInput> {
   const candidates = await context.getLatestArtifact("candidates");
   if (candidates === null) throw new Error("Evidence requires missing candidates artifact.");
-  const extractedContent = await context.getLatestArtifact("extracted_content");
+  const [extractedContent, structuredContent] = await Promise.all([
+    context.getLatestArtifact("extracted_content"),
+    context.getLatestArtifact("structured_content"),
+  ]);
   return {
     candidates: DiscoveryCandidatesArtifactV1Schema.parse(candidates.data),
     ...(extractedContent === null
       ? {}
       : { extractedContent: ExtractedContentArtifactV1Schema.parse(extractedContent.data) }),
+    ...(structuredContent === null
+      ? {}
+      : { structuredContent: StructuredContentArtifactV1Schema.parse(structuredContent.data) }),
   };
 }
 
@@ -223,6 +237,48 @@ async function requireExtractionArtifactSet(
     });
   }
   return runtime.readExtractionArtifactSet({ runId: context.run.id, searchResults });
+}
+
+async function requireStructuredContentArtifactSet(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  if (
+    runtime.structuredContentMode !== "selected_resources" ||
+    context.run.config.discoveryStructuredContentMode !== "selected_resources"
+  ) {
+    throw new CluvviError({
+      code: "DISCOVERY_STRUCTURED_CONTENT_NOT_CONFIGURED",
+      category: "configuration",
+      message:
+        "The run requested structured parsing, but the active Discovery runtime is not configured for it.",
+      retryable: true,
+      stage: context.run.phase,
+      context: {
+        retrySafe: true,
+        resumeSupported: true,
+        discoveryReuseExpected: true,
+        frontierReuseExpected: true,
+        extractionReuseExpected: true,
+      },
+    });
+  }
+  if (runtime.readStructuredContentArtifactSet === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_STRUCTURED_CONTENT_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import structured-content companion artifacts.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  const extraction = await requireExtractionArtifactSet(runtime, context, searchResults);
+  return runtime.readStructuredContentArtifactSet({
+    runId: context.run.id,
+    searchResults,
+    extraction,
+  });
 }
 
 export function createDownstreamFixtureStages(
@@ -315,6 +371,46 @@ export function createDownstreamFixtureStages(
       },
     }),
     createDownstreamStage({
+      name: "structured_parsing",
+      artifactType: "structured_content",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: StructuredContentArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoveryStructuredContentMode === "selected_resources",
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_structured_content",
+      async execute(searchResults, context) {
+        const set = await requireStructuredContentArtifactSet(
+          discoveryRuntime,
+          context,
+          searchResults,
+        );
+        return set.structuredContent;
+      },
+    }),
+    createDownstreamStage({
+      name: "content_parse_telemetry",
+      artifactType: "content_parse_telemetry",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: ContentParseTelemetryV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoveryStructuredContentMode === "selected_resources",
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_content_parse_telemetry",
+      async execute(searchResults, context) {
+        const set = await requireStructuredContentArtifactSet(
+          discoveryRuntime,
+          context,
+          searchResults,
+        );
+        return set.telemetry;
+      },
+    }),
+    createDownstreamStage({
       name: "normalization",
       artifactType: "candidates",
       version: "2.0.0",
@@ -335,7 +431,12 @@ export function createDownstreamFixtureStages(
       outputSchema: EvidenceFindingsArtifactV1Schema,
       loadInput: loadEvidenceInput,
       execute(input, context) {
-        return buildEvidenceFindings(input.candidates, context.now(), input.extractedContent);
+        return buildEvidenceFindings(
+          input.candidates,
+          context.now(),
+          input.extractedContent,
+          input.structuredContent,
+        );
       },
     }),
     createDownstreamStage({

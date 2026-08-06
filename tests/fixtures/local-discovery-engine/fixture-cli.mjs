@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { writeControlledExtractionSidecars } from "./extraction-sidecars.mjs";
+import { writeControlledStructuredSidecars } from "./structured-sidecars.mjs";
 
 const args = process.argv.slice(2);
 const requestPath = args[0];
@@ -8,12 +9,21 @@ const providerModeIndex = args.indexOf("--provider-mode");
 const providerPolicyIndex = args.indexOf("--provider-policy");
 const extractionModeIndex = args.indexOf("--extraction-mode");
 const maximumExtractionsIndex = args.indexOf("--max-extractions");
+const structuredContentModeIndex = args.indexOf("--structured-content-mode");
+const maximumStructuredResourcesIndex = args.indexOf("--max-structured-resources");
+const maximumDocumentResourcesIndex = args.indexOf("--max-document-resources");
 const outputIndex = args.indexOf("--output");
 const providerMode = providerModeIndex >= 0 ? args[providerModeIndex + 1] : "fixture_only";
 const providerPolicy = providerPolicyIndex >= 0 ? args[providerPolicyIndex + 1] : "free_only";
 const extractionMode = extractionModeIndex >= 0 ? args[extractionModeIndex + 1] : "none";
 const maximumExtractions =
   maximumExtractionsIndex >= 0 ? Number(args[maximumExtractionsIndex + 1]) : 8;
+const structuredContentMode =
+  structuredContentModeIndex >= 0 ? args[structuredContentModeIndex + 1] : "none";
+const maximumStructuredResources =
+  maximumStructuredResourcesIndex >= 0 ? Number(args[maximumStructuredResourcesIndex + 1]) : 8;
+const maximumDocumentResources =
+  maximumDocumentResourcesIndex >= 0 ? Number(args[maximumDocumentResourcesIndex + 1]) : 4;
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
 if (
   !requestPath ||
@@ -21,12 +31,20 @@ if (
   !["fixture_only", "live_search"].includes(providerMode) ||
   !["free_only", "balanced", "paid_deep"].includes(providerPolicy) ||
   !["none", "selected_public_pages"].includes(extractionMode) ||
+  !["none", "selected_resources"].includes(structuredContentMode) ||
   !Number.isInteger(maximumExtractions) ||
   maximumExtractions < 1 ||
-  maximumExtractions > 100
+  maximumExtractions > 100 ||
+  !Number.isInteger(maximumStructuredResources) ||
+  maximumStructuredResources < 1 ||
+  maximumStructuredResources > 100 ||
+  !Number.isInteger(maximumDocumentResources) ||
+  maximumDocumentResources < 1 ||
+  maximumDocumentResources > maximumStructuredResources ||
+  (structuredContentMode === "selected_resources" && extractionMode !== "selected_public_pages")
 ) {
   console.error(
-    "Usage: pnpm discover <request.json> --provider-mode <fixture_only|live_search> [--provider-policy <free_only|balanced|paid_deep>] --output <artifact.json>",
+    "Usage: pnpm discover <request.json> --provider-mode <fixture_only|live_search> [--provider-policy <free_only|balanced|paid_deep>] --extraction-mode <none|selected_public_pages> [--max-extractions <1-100>] --structured-content-mode <none|selected_resources> [--max-structured-resources <1-100>] [--max-document-resources <1-total>] --output <artifact.json>",
   );
   process.exit(2);
 }
@@ -63,6 +81,14 @@ if (providerMode === "fixture_only") {
     behavior,
     extractionMode,
     maximumExtractions,
+  });
+  await writeControlledStructuredSidecars({
+    outputPath,
+    searchResults: artifact,
+    behavior,
+    structuredContentMode,
+    maximumStructuredResources,
+    maximumDocumentResources,
   });
   console.log(`Wrote fixture search_results.v2 for ${request.requestId}.`);
   process.exit(0);
@@ -459,6 +485,14 @@ await writeControlledExtractionSidecars({
   behavior,
   extractionMode,
   maximumExtractions,
+});
+await writeControlledStructuredSidecars({
+  outputPath,
+  searchResults: artifact,
+  behavior,
+  structuredContentMode,
+  maximumStructuredResources,
+  maximumDocumentResources,
 });
 console.log(
   `Wrote live search_results.v2, provider telemetry, and provider policy trace for ${request.requestId}.`,

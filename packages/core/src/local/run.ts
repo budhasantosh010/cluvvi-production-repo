@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   CluvviExtractionModeSchema,
+  CluvviStructuredContentModeSchema,
   DiscoveryProviderModeSchema,
   DiscoveryProviderPolicySchema,
   DiscoveryRuntimeModeSchema,
@@ -26,6 +27,8 @@ export const RunPhaseSchema = z.enum([
   "frontier",
   "extraction",
   "extraction_telemetry",
+  "structured_parsing",
+  "content_parse_telemetry",
   "normalization",
   "investigation",
   "buyer_identification",
@@ -138,8 +141,15 @@ export const LocalRunSchema = z
         discoveryProviderPolicy: DiscoveryProviderPolicySchema.default("free_only"),
         discoveryExtractionMode: CluvviExtractionModeSchema.default("none"),
         discoveryMaximumExtractions: z.number().int().min(1).max(100).default(8),
+        discoveryStructuredContentMode: CluvviStructuredContentModeSchema.default("none"),
+        discoveryMaximumStructuredResources: z.number().int().min(1).max(100).default(8),
+        discoveryMaximumDocumentResources: z.number().int().min(1).max(100).default(4),
         extractorVersion: z.string().min(1).default("basic_public_html_extractor@1.0.0"),
         frontierPolicyVersion: z.string().min(1).default("frontier_policy@1.0.0"),
+        structuredParserPolicyVersion: z.string().min(1).default("structured_parser_policy@1.0.0"),
+        anydocParserVersion: z.string().min(1).default("@firecrawl/anydoc@0.1.6"),
+        htmlMarkdownRendererVersion: z.string().min(1).default("sanitized_html_to_gfm@1.0.0"),
+        extractionQualityEvaluatorVersion: z.string().min(1).default("extraction_quality@1.0.0"),
       })
       .strict(),
     budget: RunBudgetSchema,

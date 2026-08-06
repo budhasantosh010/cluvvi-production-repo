@@ -25,3 +25,11 @@ export function sha256Hex(value: string | Uint8Array): string {
 export function canonicalDigest(value: unknown): string {
   return sha256Hex(canonicalJson(value));
 }
+
+export function deterministicArtifactId(
+  requestId: string,
+  artifactKind: string,
+  canonicalContentWithoutId: unknown,
+): string {
+  return `artifact_${sha256Hex(`${requestId}\n${artifactKind}\n${canonicalJson(canonicalContentWithoutId)}`)}`;
+}

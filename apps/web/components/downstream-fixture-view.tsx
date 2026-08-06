@@ -33,6 +33,17 @@ function confidenceTone(confidence: "low" | "medium" | "high"): string {
   return "border-neutral-200 bg-neutral-100 text-neutral-700";
 }
 
+function citationLabel(materialKind: string | undefined): string {
+  if (materialKind === "structured_section") return "Structured section";
+  if (materialKind === "structured_table") return "Structured table";
+  if (materialKind === "structured_metadata") return "Document metadata";
+  if (materialKind === "structured_footnote") return "Structured footnote";
+  if (materialKind === "extracted_page_text") return "Extracted public page";
+  if (materialKind === "extracted_metadata") return "Page metadata";
+  if (materialKind === "extracted_json_ld") return "Public JSON-LD";
+  return "Search snippet";
+}
+
 export function DownstreamFixtureView({
   artifacts,
   discoveryRuntimeMode,
@@ -62,7 +73,10 @@ export function DownstreamFixtureView({
   const identity = identityResult.data;
   const ranked = rankedResult.data;
   const buyerMap = buyerMapResult.data;
-  const extractedEvidence = evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages";
+  const structuredEvidence =
+    evidence.evidenceSourceMode === "snippet_plus_structured_public_content";
+  const extractedEvidence =
+    structuredEvidence || evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages";
   const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = discoveryProviderMode === "live_search";
   const rankingByEntity = new Map(
@@ -101,9 +115,11 @@ export function DownstreamFixtureView({
                   Cluvvi validated live <code>search_results.v2</code> and provider telemetry from
                   the standalone Discovery Engine, then ran deterministic Evidence, Identity,
                   Ranking, and Buyer Map logic.{" "}
-                  {extractedEvidence
-                    ? "Selected public-page metadata, visible text, and JSON-LD were included as untrusted evidence with complete provenance. "
-                    : "Only provider snippets were used; result pages were not fetched. "}
+                  {structuredEvidence
+                    ? "Selected public HTML and documents contributed bounded sections, tables, metadata, and footnotes as untrusted evidence with complete provenance. "
+                    : extractedEvidence
+                      ? "Selected public-page metadata, visible text, and JSON-LD were included as untrusted evidence with complete provenance. "
+                      : "Only provider snippets were used; result pages were not fetched. "}
                   Buyer identity and contact routes remain hypotheses for manual verification.
                 </>
               ) : localDiscovery ? (
@@ -123,20 +139,24 @@ export function DownstreamFixtureView({
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
             {liveDiscovery
-              ? extractedEvidence
-                ? "Live search + page evidence"
-                : "Live snippets · manual verification"
+              ? structuredEvidence
+                ? "Live search + structured evidence"
+                : extractedEvidence
+                  ? "Live search + page evidence"
+                  : "Live snippets · manual verification"
               : localDiscovery
-                ? extractedEvidence
-                  ? "Fixture search + public pages"
-                  : "Local engine · fixture providers"
+                ? structuredEvidence
+                  ? "Fixture search + structured evidence"
+                  : extractedEvidence
+                    ? "Fixture search + public pages"
+                    : "Local engine · fixture providers"
                 : "Synthetic · no live discovery"}
           </span>
         </div>
       </div>
 
       <div className="grid gap-8 p-6 sm:p-8">
-        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className="metric-card">
             <dt>Ranked opportunities</dt>
             <dd>{buyerMap.summary.rankedOpportunityCount}</dd>
@@ -152,6 +172,10 @@ export function DownstreamFixtureView({
           <div className="metric-card">
             <dt>Coverage gaps</dt>
             <dd>{buyerMap.summary.coverageGapCount}</dd>
+          </div>
+          <div className="metric-card">
+            <dt>Structured citations</dt>
+            <dd>{buyerMap.summary.structuredEvidenceCitationCount}</dd>
           </div>
         </dl>
 
@@ -283,6 +307,10 @@ export function DownstreamFixtureView({
                           <span>{citation.strength}</span>
                           <span>·</span>
                           <span>{citation.signalType.replaceAll("_", " ")}</span>
+                          <span>·</span>
+                          <span data-testid="buyer-map-provenance-badge">
+                            {citationLabel(citation.materialKind)}
+                          </span>
                         </div>
                         <p className="mt-2 text-sm leading-6 text-neutral-800">
                           {citation.summary}
@@ -290,6 +318,20 @@ export function DownstreamFixtureView({
                         <code className="mt-2 block break-all text-[11px] text-neutral-500">
                           {citation.sourceUrl}
                         </code>
+                        {(citation.sectionId !== undefined ||
+                          citation.tableId !== undefined ||
+                          citation.parserVersion !== undefined) && (
+                          <p className="mt-2 break-all font-mono text-[10px] text-neutral-500">
+                            {citation.headingPath?.join(" › ") ?? ""}
+                            {citation.sectionId === undefined
+                              ? ""
+                              : ` · section ${citation.sectionId}`}
+                            {citation.tableId === undefined ? "" : ` · table ${citation.tableId}`}
+                            {citation.parserVersion === undefined
+                              ? ""
+                              : ` · parser ${citation.parserVersion}`}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

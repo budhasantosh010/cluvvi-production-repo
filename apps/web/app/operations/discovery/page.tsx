@@ -31,6 +31,9 @@ export default async function DiscoveryOperationsPage() {
           providerPolicy={diagnostics.discoveryProviderPolicy}
           extractionMode={diagnostics.discoveryExtractionMode}
           maximumExtractions={diagnostics.discoveryMaximumExtractions}
+          structuredContentMode={diagnostics.discoveryStructuredContentMode}
+          maximumStructuredResources={diagnostics.discoveryMaximumStructuredResources}
+          maximumDocumentResources={diagnostics.discoveryMaximumDocumentResources}
           runtimeMode={diagnostics.discoveryRuntimeMode}
           runnerAvailable={diagnostics.runner.available}
         />

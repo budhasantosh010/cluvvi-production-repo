@@ -32,6 +32,10 @@ export const EvidenceMaterialKindV1Schema = z.enum([
   "extracted_page_text",
   "extracted_metadata",
   "extracted_json_ld",
+  "structured_section",
+  "structured_table",
+  "structured_metadata",
+  "structured_footnote",
 ]);
 export type EvidenceMaterialKindV1 = z.infer<typeof EvidenceMaterialKindV1Schema>;
 
@@ -47,6 +51,19 @@ export const EvidenceMaterialV1Schema = z
     trustClassification: z.enum(["provider_snippet", "untrusted_public_content"]),
     extractionItemId: z.string().min(1).optional(),
     frontierItemId: z.string().min(1).optional(),
+    structuredContentItemId: z.string().min(1).optional(),
+    sectionId: z.string().min(1).optional(),
+    tableId: z.string().min(1).optional(),
+    footnoteId: z.string().min(1).optional(),
+    parserProviderId: z.string().min(1).optional(),
+    parserVersion: z.string().min(1).optional(),
+    resourceKind: z.string().min(1).optional(),
+    structuredContentHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    contentCompleteness: z.enum(["complete", "partial", "truncated", "unavailable"]).optional(),
+    headingPath: z.array(z.string().min(1)).optional(),
     chunkIndex: z.number().int().nonnegative().optional(),
     characterStart: z.number().int().nonnegative().optional(),
     characterEnd: z.number().int().positive().optional(),
@@ -89,6 +106,19 @@ export const EvidenceProvenanceV1Schema = z
     materialKind: EvidenceMaterialKindV1Schema.optional(),
     extractionItemId: z.string().min(1).optional(),
     frontierItemId: z.string().min(1).optional(),
+    structuredContentItemId: z.string().min(1).optional(),
+    sectionId: z.string().min(1).optional(),
+    tableId: z.string().min(1).optional(),
+    footnoteId: z.string().min(1).optional(),
+    parserProviderId: z.string().min(1).optional(),
+    parserVersion: z.string().min(1).optional(),
+    resourceKind: z.string().min(1).optional(),
+    structuredContentHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    contentCompleteness: z.enum(["complete", "partial", "truncated", "unavailable"]).optional(),
+    headingPath: z.array(z.string().min(1)).optional(),
     extractedContentHash: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
@@ -180,7 +210,11 @@ export const EvidenceFindingsArtifactV1Schema = z
     generatedAt: z.iso.datetime(),
     sourceArtifact: SourceArtifactReferenceSchema,
     evidenceSourceMode: z
-      .enum(["snippet_only", "snippet_plus_extracted_public_pages"])
+      .enum([
+        "snippet_only",
+        "snippet_plus_extracted_public_pages",
+        "snippet_plus_structured_public_content",
+      ])
       .default("snippet_only"),
     materials: z.array(EvidenceMaterialV1Schema).default([]),
     extractionSummary: z
@@ -190,6 +224,10 @@ export const EvidenceFindingsArtifactV1Schema = z
         partialPages: z.number().int().nonnegative(),
         failedPages: z.number().int().nonnegative(),
         blockedPages: z.number().int().nonnegative(),
+        structuredResources: z.number().int().nonnegative().default(0),
+        structuredSections: z.number().int().nonnegative().default(0),
+        structuredTables: z.number().int().nonnegative().default(0),
+        structuredFootnotes: z.number().int().nonnegative().default(0),
         materialCount: z.number().int().nonnegative(),
       })
       .strict()
@@ -199,6 +237,10 @@ export const EvidenceFindingsArtifactV1Schema = z
         partialPages: 0,
         failedPages: 0,
         blockedPages: 0,
+        structuredResources: 0,
+        structuredSections: 0,
+        structuredTables: 0,
+        structuredFootnotes: 0,
         materialCount: 0,
       }),
     findings: z.array(EvidenceFindingV1Schema),

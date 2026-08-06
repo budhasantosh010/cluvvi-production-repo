@@ -9,6 +9,7 @@ import {
   type LocalDiscoveryExecutionRecordV1,
   type ProviderPolicyTraceV1,
   type SearchResultsArtifactV2,
+  type ValidatedExtractionArtifactSet,
 } from "@cluvvi/core";
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -28,6 +29,7 @@ import {
 } from "./discovery-exchange";
 import type { DiscoveryRuntime, DiscoveryRuntimeExecutionInput } from "./discovery-runtime";
 import { readValidatedExtractionArtifactSet } from "./extraction-artifact-reader";
+import { readValidatedStructuredContentArtifactSet } from "./structured-content-artifact-reader";
 
 interface ChildOutcome {
   exitCode: number | null;
@@ -505,10 +507,18 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly providerPolicy: LocalDiscoveryEngineConfig["providerPolicy"];
   readonly extractionMode: "none" | "selected_public_pages";
   readonly maximumExtractions: number;
+  readonly structuredContentMode: "none" | "selected_resources";
+  readonly maximumStructuredResources: number;
+  readonly maximumDocumentResources: number;
   readonly extractorVersion: string;
   readonly frontierPolicyVersion: string;
+  readonly structuredParserPolicyVersion: string;
+  readonly anydocParserVersion: string;
+  readonly htmlMarkdownRendererVersion: string;
+  readonly extractionQualityEvaluatorVersion: string;
   readonly providerConfigurationFingerprint: string;
   readonly extractionConfigurationFingerprint: string;
+  readonly structuredConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
   readonly #now: () => string;
@@ -528,14 +538,41 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.providerPolicy = this.#config.providerPolicy;
     this.extractionMode = this.#config.extractionMode ?? "none";
     this.maximumExtractions = this.#config.maximumExtractions ?? 8;
+    this.structuredContentMode = this.#config.structuredContentMode ?? "none";
+    this.maximumStructuredResources = this.#config.maximumStructuredResources ?? 8;
+    this.maximumDocumentResources = this.#config.maximumDocumentResources ?? 4;
     this.extractorVersion = this.#config.extractorVersion ?? "basic_public_html_extractor@1.0.0";
     this.frontierPolicyVersion = this.#config.frontierPolicyVersion ?? "frontier_policy@1.0.0";
+    this.structuredParserPolicyVersion =
+      this.#config.structuredParserPolicyVersion ?? "structured_parser_policy@1.0.0";
+    this.anydocParserVersion = this.#config.anydocParserVersion ?? "@firecrawl/anydoc@0.1.6";
+    this.htmlMarkdownRendererVersion =
+      this.#config.htmlMarkdownRendererVersion ?? "sanitized_html_to_gfm@1.0.0";
+    this.extractionQualityEvaluatorVersion =
+      this.#config.extractionQualityEvaluatorVersion ?? "extraction_quality@1.0.0";
     const publicEnvironment = publicDiscoveryProviderEnvironment(this.#config.providerEnvironment);
+    const structuredEnvironmentKey = (key: string) =>
+      key.startsWith("DISCOVERY_STRUCTURED_") ||
+      key.startsWith("DISCOVERY_DOCUMENT_") ||
+      key.startsWith("DISCOVERY_MARKDOWN_") ||
+      key.startsWith("DISCOVERY_SECTIONS_") ||
+      key.startsWith("DISCOVERY_TABLES_") ||
+      key.startsWith("DISCOVERY_TABLE_") ||
+      key.startsWith("DISCOVERY_LINKS_") ||
+      key.startsWith("DISCOVERY_FOOTNOTES_") ||
+      key.startsWith("DISCOVERY_ASSETS_") ||
+      key.startsWith("DISCOVERY_HTML_MARKDOWN_") ||
+      key.startsWith("DISCOVERY_ANYDOC_");
     const providerEnvironment = Object.fromEntries(
-      Object.entries(publicEnvironment).filter(([key]) => !key.startsWith("DISCOVERY_EXTRACTION_")),
+      Object.entries(publicEnvironment).filter(
+        ([key]) => !key.startsWith("DISCOVERY_EXTRACTION_") && !structuredEnvironmentKey(key),
+      ),
     );
     const extractionEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(([key]) => key.startsWith("DISCOVERY_EXTRACTION_")),
+    );
+    const structuredEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => structuredEnvironmentKey(key)),
     );
     this.providerConfigurationFingerprint = createHash("sha256")
       .update(
@@ -563,6 +600,21 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         }),
       )
       .digest("hex");
+    this.structuredConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          structuredContentMode: this.structuredContentMode,
+          maximumStructuredResources: this.maximumStructuredResources,
+          maximumDocumentResources: this.maximumDocumentResources,
+          structuredParserPolicyVersion: this.structuredParserPolicyVersion,
+          anydocParserVersion: this.anydocParserVersion,
+          htmlMarkdownRendererVersion: this.htmlMarkdownRendererVersion,
+          extractionQualityEvaluatorVersion: this.extractionQualityEvaluatorVersion,
+          structuredEnvironment,
+        }),
+      )
+      .digest("hex");
   }
 
   async readExtractionArtifactSet(input: {
@@ -573,6 +625,25 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       runsDirectory: this.#runsDirectory,
       runId: input.runId,
       searchResults: input.searchResults,
+    });
+  }
+
+  async readStructuredContentArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+    extraction?: ValidatedExtractionArtifactSet;
+  }) {
+    const extraction =
+      input.extraction ??
+      (await this.readExtractionArtifactSet({
+        runId: input.runId,
+        searchResults: input.searchResults,
+      }));
+    return readValidatedStructuredContentArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+      extraction,
     });
   }
 
@@ -588,6 +659,16 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       this.extractionMode,
       ...(this.extractionMode === "selected_public_pages"
         ? ["--max-extractions", String(this.maximumExtractions)]
+        : []),
+      "--structured-content-mode",
+      this.structuredContentMode,
+      ...(this.structuredContentMode === "selected_resources"
+        ? [
+            "--max-structured-resources",
+            String(this.maximumStructuredResources),
+            "--max-document-resources",
+            String(this.maximumDocumentResources),
+          ]
         : []),
       "--output",
       paths.outputPath,
@@ -1060,6 +1141,13 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       providerPolicy: this.providerPolicy,
       extractionMode: this.extractionMode,
       maximumExtractions: this.maximumExtractions,
+      structuredContentMode: this.structuredContentMode,
+      maximumStructuredResources: this.maximumStructuredResources,
+      maximumDocumentResources: this.maximumDocumentResources,
+      structuredParserPolicyVersion: this.structuredParserPolicyVersion,
+      anydocParserVersion: this.anydocParserVersion,
+      htmlMarkdownRendererVersion: this.htmlMarkdownRendererVersion,
+      extractionQualityEvaluatorVersion: this.extractionQualityEvaluatorVersion,
       startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - startedAtMs),
@@ -1094,6 +1182,17 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             frontierImported: false,
             extractedContentImported: false,
             extractionTelemetryImported: false,
+          }),
+      ...(this.structuredContentMode === "selected_resources"
+        ? {
+            structuredContentPath: paths.structuredContentPath,
+            structuredContentImported: false,
+            contentParseTelemetryPath: paths.contentParseTelemetryPath,
+            contentParseTelemetryImported: false,
+          }
+        : {
+            structuredContentImported: false,
+            contentParseTelemetryImported: false,
           }),
       providerIds,
       success: true,
@@ -1155,6 +1254,13 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       providerPolicy: this.providerPolicy,
       extractionMode: this.extractionMode,
       maximumExtractions: this.maximumExtractions,
+      structuredContentMode: this.structuredContentMode,
+      maximumStructuredResources: this.maximumStructuredResources,
+      maximumDocumentResources: this.maximumDocumentResources,
+      structuredParserPolicyVersion: this.structuredParserPolicyVersion,
+      anydocParserVersion: this.anydocParserVersion,
+      htmlMarkdownRendererVersion: this.htmlMarkdownRendererVersion,
+      extractionQualityEvaluatorVersion: this.extractionQualityEvaluatorVersion,
       startedAt: input.startedAt,
       completedAt,
       durationMs: Math.max(0, Date.parse(completedAt) - input.startedAtMs),
@@ -1186,6 +1292,17 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             frontierImported: false,
             extractedContentImported: false,
             extractionTelemetryImported: false,
+          }),
+      ...(this.structuredContentMode === "selected_resources"
+        ? {
+            structuredContentPath: input.paths.structuredContentPath,
+            structuredContentImported: false,
+            contentParseTelemetryPath: input.paths.contentParseTelemetryPath,
+            contentParseTelemetryImported: false,
+          }
+        : {
+            structuredContentImported: false,
+            contentParseTelemetryImported: false,
           }),
       success: false,
       errorCode: input.code,
@@ -1223,6 +1340,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
                 frontierPath: input.paths.frontierPath,
                 extractedContentPath: input.paths.extractedContentPath,
                 extractionTelemetryPath: input.paths.extractionTelemetryPath,
+              }
+            : {}),
+          ...(this.structuredContentMode === "selected_resources"
+            ? {
+                structuredContentPath: input.paths.structuredContentPath,
+                contentParseTelemetryPath: input.paths.contentParseTelemetryPath,
               }
             : {}),
           stdoutPath: input.paths.stdoutPath,

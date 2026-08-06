@@ -1,5 +1,6 @@
 import {
   BuyerMapArtifactV1Schema,
+  ContentParseTelemetryV1Schema,
   CrawlFrontierArtifactV1Schema,
   EvidenceFindingsArtifactV1Schema,
   ExtractedContentArtifactV1Schema,
@@ -8,6 +9,7 @@ import {
   MissionInputSchemaV1,
   ProviderPolicyTraceV1Schema,
   SearchResultsArtifactV2Schema,
+  StructuredContentArtifactV1Schema,
 } from "@cluvvi/core";
 import { SqliteCluvviStore } from "@cluvvi/storage";
 import { randomUUID } from "node:crypto";
@@ -67,8 +69,15 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
         providerPolicy: "free_only",
         extractionMode: "selected_public_pages",
         maximumExtractions: 3,
+        structuredContentMode: "selected_resources",
+        maximumStructuredResources: 3,
+        maximumDocumentResources: 1,
         extractorVersion: "basic_public_html_extractor@1.0.0",
         frontierPolicyVersion: "frontier_policy@1.0.0",
+        structuredParserPolicyVersion: "structured_parser_policy@1.0.0",
+        anydocParserVersion: "@firecrawl/anydoc@0.1.6",
+        htmlMarkdownRendererVersion: "sanitized_html_to_gfm@1.0.0",
+        extractionQualityEvaluatorVersion: "extraction_quality@1.0.0",
         providerEnvironment: {
           DISCOVERY_LIVE_PROVIDERS:
             "hacker_news_algolia,hacker_news_firebase,searxng_search,duckduckgo_html_search,startpage_html_search",
@@ -98,7 +107,20 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
           DISCOVERY_EXTRACTION_MIN_USEFUL_CHARACTERS: "120",
           DISCOVERY_EXTRACTION_RESPECT_ROBOTS: "true",
           DISCOVERY_EXTRACTION_ROBOTS_FAILURE_POLICY: "allow_with_warning",
-          DISCOVERY_EXTRACTION_USER_AGENT: "CluvviC1IIntegration/1.0",
+          DISCOVERY_EXTRACTION_USER_AGENT: "CluvviC1I5Integration/1.0",
+          DISCOVERY_STRUCTURED_MAX_RESOURCES: "3",
+          DISCOVERY_STRUCTURED_MAX_DOCUMENT_RESOURCES: "1",
+          DISCOVERY_DOCUMENT_MAX_BYTES: "10485760",
+          DISCOVERY_DOCUMENT_PARSE_TIMEOUT_MS: "30000",
+          DISCOVERY_DOCUMENT_WORKER_MAX_ATTEMPTS: "1",
+          DISCOVERY_MARKDOWN_MAX_CHARACTERS: "200000",
+          DISCOVERY_SECTIONS_MAX_PER_RESOURCE: "500",
+          DISCOVERY_TABLES_MAX_PER_RESOURCE: "100",
+          DISCOVERY_LINKS_MAX_PER_RESOURCE: "1000",
+          DISCOVERY_FOOTNOTES_MAX_PER_RESOURCE: "200",
+          DISCOVERY_ASSETS_MAX_PER_RESOURCE: "200",
+          DISCOVERY_ANYDOC_ENABLED: "true",
+          DISCOVERY_HTML_MARKDOWN_ENABLED: "true",
         },
       },
       runsDirectory,
@@ -112,10 +134,18 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
       discoveryProviderPolicy: discoveryRuntime.providerPolicy,
       discoveryExtractionMode: discoveryRuntime.extractionMode,
       discoveryMaximumExtractions: discoveryRuntime.maximumExtractions,
+      discoveryStructuredContentMode: discoveryRuntime.structuredContentMode,
+      discoveryMaximumStructuredResources: discoveryRuntime.maximumStructuredResources,
+      discoveryMaximumDocumentResources: discoveryRuntime.maximumDocumentResources,
       extractorVersion: discoveryRuntime.extractorVersion,
       frontierPolicyVersion: discoveryRuntime.frontierPolicyVersion,
+      structuredParserPolicyVersion: discoveryRuntime.structuredParserPolicyVersion,
+      anydocParserVersion: discoveryRuntime.anydocParserVersion,
+      htmlMarkdownRendererVersion: discoveryRuntime.htmlMarkdownRendererVersion,
+      extractionQualityEvaluatorVersion: discoveryRuntime.extractionQualityEvaluatorVersion,
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
       extractionConfigurationFingerprint: discoveryRuntime.extractionConfigurationFingerprint,
+      structuredConfigurationFingerprint: discoveryRuntime.structuredConfigurationFingerprint,
     });
 
     try {
@@ -138,6 +168,9 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
       expect(result.run.config.discoveryProviderPolicy).toBe("free_only");
       expect(result.run.config.discoveryExtractionMode).toBe("selected_public_pages");
       expect(result.run.config.discoveryMaximumExtractions).toBe(3);
+      expect(result.run.config.discoveryStructuredContentMode).toBe("selected_resources");
+      expect(result.run.config.discoveryMaximumStructuredResources).toBe(3);
+      expect(result.run.config.discoveryMaximumDocumentResources).toBe(1);
 
       const artifact = (artifactType: string) =>
         result.artifacts.find((entry) => entry.artifactType === artifactType)?.data;
@@ -146,6 +179,10 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
       const extracted = ExtractedContentArtifactV1Schema.parse(artifact("extracted_content"));
       const extractionTelemetry = ExtractionRunTelemetryV1Schema.parse(
         artifact("extraction_telemetry"),
+      );
+      const structured = StructuredContentArtifactV1Schema.parse(artifact("structured_content"));
+      const parseTelemetry = ContentParseTelemetryV1Schema.parse(
+        artifact("content_parse_telemetry"),
       );
 
       expect(search.results.length).toBeGreaterThan(0);
@@ -169,6 +206,17 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
         extracted.summary.successfulExtractions + extracted.summary.partialExtractions,
       ).toBeGreaterThan(0);
       expect(extracted.items.length).toBe(frontier.summary.selected);
+      expect(structured.requestId).toBe(search.requestId);
+      expect(structured.frontierArtifactId).toBe(frontier.artifactId);
+      expect(structured.extractedContentArtifactId).toBe(extracted.artifactId);
+      expect(structured.summary.selectedResources).toBeGreaterThan(0);
+      expect(structured.summary.selectedResources).toBeLessThanOrEqual(3);
+      expect(
+        structured.summary.successfulParses + structured.summary.partialParses,
+      ).toBeGreaterThan(0);
+      expect(structured.summary.totalSections).toBeGreaterThan(0);
+      expect(parseTelemetry.structuredContentArtifactId).toBe(structured.artifactId);
+      expect(parseTelemetry.totals.resourcesAttempted).toBeGreaterThan(0);
 
       const liveTelemetry = await readLiveProviderTelemetry({
         runsDirectory,
@@ -186,23 +234,26 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
       expect(policyTrace.paidFallbackUsed).toBe(false);
 
       const evidence = EvidenceFindingsArtifactV1Schema.parse(artifact("evidence_findings"));
-      expect(evidence.evidenceSourceMode).toBe("snippet_plus_extracted_public_pages");
+      expect(evidence.evidenceSourceMode).toBe("snippet_plus_structured_public_content");
       expect(
         evidence.materials.some(
           (material) =>
-            material.kind === "extracted_page_text" &&
-            material.trustClassification === "untrusted_public_content",
+            material.kind === "structured_section" &&
+            material.trustClassification === "untrusted_public_content" &&
+            material.structuredContentItemId !== undefined,
         ),
       ).toBe(true);
       const buyerMap = BuyerMapArtifactV1Schema.parse(artifact("buyer_map"));
-      expect(buyerMap.evidenceSourceMode).toBe("snippet_plus_extracted_public_pages");
+      expect(buyerMap.evidenceSourceMode).toBe("snippet_plus_structured_public_content");
       expect(buyerMap.summary.extractedEvidenceCitationCount).toBeGreaterThan(0);
+      expect(buyerMap.summary.structuredEvidenceCitationCount).toBeGreaterThan(0);
       expect(
         buyerMap.opportunities.some((opportunity) =>
           opportunity.evidence.some(
             (citation) =>
               citation.materialId !== undefined &&
-              citation.extractionItemId !== undefined &&
+              citation.structuredContentItemId !== undefined &&
+              citation.sectionId !== undefined &&
               citation.trustClassification === "untrusted_public_content",
           ),
         ),
@@ -218,8 +269,13 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
       expect(execution.frontierImported).toBe(true);
       expect(execution.extractedContentImported).toBe(true);
       expect(execution.extractionTelemetryImported).toBe(true);
+      expect(execution.structuredContentImported).toBe(true);
+      expect(execution.contentParseTelemetryImported).toBe(true);
       expect(execution.extractionMode).toBe("selected_public_pages");
       expect(execution.maximumExtractions).toBe(3);
+      expect(execution.structuredContentMode).toBe("selected_resources");
+      expect(execution.maximumStructuredResources).toBe(3);
+      expect(execution.maximumDocumentResources).toBe(1);
       expect(execution.arguments).toEqual(
         expect.arrayContaining([
           "--provider-mode",
@@ -230,6 +286,12 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
           "selected_public_pages",
           "--max-extractions",
           "3",
+          "--structured-content-mode",
+          "selected_resources",
+          "--max-structured-resources",
+          "3",
+          "--max-document-resources",
+          "1",
         ]),
       );
       expect(execution.projectCommitSha).toMatch(/^[a-f0-9]{40}$/u);
@@ -242,6 +304,8 @@ integration("C1-I real Project A extracted-evidence bridge", () => {
         frontier,
         extracted,
         extractionTelemetry,
+        structured,
+        parseTelemetry,
         execution,
       });
       expect(serialized).not.toMatch(

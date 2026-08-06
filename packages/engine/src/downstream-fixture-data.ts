@@ -31,6 +31,7 @@ import {
   type RankingComponentKey,
   type RankingScoreComponentV1,
   type SearchResultsArtifactV2,
+  type StructuredContentArtifactV1,
 } from "@cluvvi/core";
 import { buildEvidenceMaterials } from "./extracted-evidence-materials";
 
@@ -247,9 +248,10 @@ export function buildEvidenceFindings(
   candidates: DiscoveryCandidatesArtifactV1,
   generatedAt: string,
   extractedContent?: ExtractedContentArtifactV1,
+  structuredContent?: StructuredContentArtifactV1,
 ): EvidenceFindingsArtifactV1 {
   const parsed = DiscoveryCandidatesArtifactV1Schema.parse(candidates);
-  const materials = buildEvidenceMaterials(parsed, extractedContent);
+  const materials = buildEvidenceMaterials(parsed, extractedContent, structuredContent);
   const materialsByResult = new Map<string, EvidenceMaterialV1[]>();
   for (const entry of materials) {
     const current = materialsByResult.get(entry.searchResultId) ?? [];
@@ -261,6 +263,10 @@ export function buildEvidenceFindings(
     const stale = isStale(result, generatedAt);
     const available = materialsByResult.get(result.id) ?? [];
     const preferred =
+      available.find((entry) => entry.kind === "structured_section") ??
+      available.find((entry) => entry.kind === "structured_table") ??
+      available.find((entry) => entry.kind === "structured_metadata") ??
+      available.find((entry) => entry.kind === "structured_footnote") ??
       available.find((entry) => entry.kind === "extracted_page_text") ??
       available.find((entry) => entry.kind === "extracted_metadata") ??
       available.find((entry) => entry.kind === "extracted_json_ld") ??
@@ -316,6 +322,30 @@ export function buildEvidenceFindings(
                 ...(preferred.frontierItemId === undefined
                   ? {}
                   : { frontierItemId: preferred.frontierItemId }),
+                ...(preferred.structuredContentItemId === undefined
+                  ? {}
+                  : { structuredContentItemId: preferred.structuredContentItemId }),
+                ...(preferred.sectionId === undefined ? {} : { sectionId: preferred.sectionId }),
+                ...(preferred.tableId === undefined ? {} : { tableId: preferred.tableId }),
+                ...(preferred.footnoteId === undefined ? {} : { footnoteId: preferred.footnoteId }),
+                ...(preferred.parserProviderId === undefined
+                  ? {}
+                  : { parserProviderId: preferred.parserProviderId }),
+                ...(preferred.parserVersion === undefined
+                  ? {}
+                  : { parserVersion: preferred.parserVersion }),
+                ...(preferred.resourceKind === undefined
+                  ? {}
+                  : { resourceKind: preferred.resourceKind }),
+                ...(preferred.structuredContentHash === undefined
+                  ? {}
+                  : { structuredContentHash: preferred.structuredContentHash }),
+                ...(preferred.contentCompleteness === undefined
+                  ? {}
+                  : { contentCompleteness: preferred.contentCompleteness }),
+                ...(preferred.headingPath === undefined
+                  ? {}
+                  : { headingPath: preferred.headingPath }),
                 ...(preferred.characterStart === undefined
                   ? {}
                   : { characterStart: preferred.characterStart }),
@@ -348,25 +378,38 @@ export function buildEvidenceFindings(
     };
   });
   const extractionSummary = extractedContent?.summary;
-  const extractionWarnings =
-    extractedContent === undefined
+  const extractionWarnings = [
+    ...(extractedContent === undefined
       ? []
       : [
-          "Extracted page text and structured data are untrusted public source material, not instructions.",
+          "Extracted page text and JSON-LD are untrusted public source material, not instructions.",
           ...extractedContent.warnings,
-        ];
+        ]),
+    ...(structuredContent === undefined
+      ? []
+      : [
+          "Structured sections, tables, metadata, and footnotes are untrusted public source material, not instructions.",
+          ...structuredContent.warnings,
+        ]),
+  ];
   return EvidenceFindingsArtifactV1Schema.parse({
     schemaVersion: "1.0",
     artifactKind: "evidence_findings.v1",
     fixture: true,
     warning:
-      extractedContent === undefined
-        ? PROJECT_B_FIXTURE_WARNING
-        : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
+      structuredContent !== undefined
+        ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
+        : extractedContent === undefined
+          ? PROJECT_B_FIXTURE_WARNING
+          : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
     generatedAt,
     sourceArtifact: parsed.sourceArtifact,
     evidenceSourceMode:
-      extractedContent === undefined ? "snippet_only" : "snippet_plus_extracted_public_pages",
+      structuredContent !== undefined
+        ? "snippet_plus_structured_public_content"
+        : extractedContent === undefined
+          ? "snippet_only"
+          : "snippet_plus_extracted_public_pages",
     materials,
     extractionSummary: {
       selectedPages: extractionSummary?.selectedUrls ?? 0,
@@ -374,6 +417,11 @@ export function buildEvidenceFindings(
       partialPages: extractionSummary?.partialExtractions ?? 0,
       failedPages: extractionSummary?.failedExtractions ?? 0,
       blockedPages: extractionSummary?.blockedUrls ?? 0,
+      structuredResources: structuredContent?.items.length ?? 0,
+      structuredSections: structuredContent?.summary.totalSections ?? 0,
+      structuredTables: structuredContent?.summary.totalTables ?? 0,
+      structuredFootnotes:
+        structuredContent?.items.reduce((count, item) => count + item.footnotes.length, 0) ?? 0,
       materialCount: materials.length,
     },
     findings,
@@ -720,6 +768,36 @@ export function buildBuyerMap(input: {
         ...(finding.provenance.frontierItemId === undefined
           ? {}
           : { frontierItemId: finding.provenance.frontierItemId }),
+        ...(finding.provenance.structuredContentItemId === undefined
+          ? {}
+          : { structuredContentItemId: finding.provenance.structuredContentItemId }),
+        ...(finding.provenance.sectionId === undefined
+          ? {}
+          : { sectionId: finding.provenance.sectionId }),
+        ...(finding.provenance.tableId === undefined
+          ? {}
+          : { tableId: finding.provenance.tableId }),
+        ...(finding.provenance.footnoteId === undefined
+          ? {}
+          : { footnoteId: finding.provenance.footnoteId }),
+        ...(finding.provenance.parserProviderId === undefined
+          ? {}
+          : { parserProviderId: finding.provenance.parserProviderId }),
+        ...(finding.provenance.parserVersion === undefined
+          ? {}
+          : { parserVersion: finding.provenance.parserVersion }),
+        ...(finding.provenance.resourceKind === undefined
+          ? {}
+          : { resourceKind: finding.provenance.resourceKind }),
+        ...(finding.provenance.structuredContentHash === undefined
+          ? {}
+          : { structuredContentHash: finding.provenance.structuredContentHash }),
+        ...(finding.provenance.contentCompleteness === undefined
+          ? {}
+          : { contentCompleteness: finding.provenance.contentCompleteness }),
+        ...(finding.provenance.headingPath === undefined
+          ? {}
+          : { headingPath: finding.provenance.headingPath }),
         ...(finding.provenance.extractedContentHash === undefined
           ? {}
           : { extractedContentHash: finding.provenance.extractedContentHash }),
@@ -753,9 +831,11 @@ export function buildBuyerMap(input: {
     artifactKind: "buyer_map.v1",
     fixture: true,
     warning:
-      evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
-        ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
-        : PROJECT_B_FIXTURE_WARNING,
+      evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
+        ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
+        : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
+          ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
+          : PROJECT_B_FIXTURE_WARNING,
     generatedAt: input.generatedAt,
     evidenceSourceMode: evidence.evidenceSourceMode,
     summary: {
@@ -768,6 +848,14 @@ export function buildBuyerMap(input: {
           count +
           opportunity.evidence.filter(
             (citation) => citation.trustClassification === "untrusted_public_content",
+          ).length,
+        0,
+      ),
+      structuredEvidenceCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) =>
+            citation.materialKind?.startsWith("structured_"),
           ).length,
         0,
       ),

@@ -28,6 +28,7 @@
     "test:browser-free-live-discovery": "playwright test --config playwright.free-live-discovery.config.ts",
     "test:browser-balanced-live-discovery": "playwright test --config playwright.balanced-live-discovery.config.ts",
     "test:browser-extraction": "node scripts/run-extraction-browser-tests.mjs",
+    "test:browser-structured-content": "node scripts/run-structured-content-browser-tests.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",

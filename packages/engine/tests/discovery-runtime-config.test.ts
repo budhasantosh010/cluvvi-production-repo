@@ -42,8 +42,15 @@ describe("discovery runtime configuration", () => {
       providerPolicy: "free_only",
       extractionMode: "none",
       maximumExtractions: 8,
+      structuredContentMode: "none",
+      maximumStructuredResources: 8,
+      maximumDocumentResources: 4,
       extractorVersion: "basic_public_html_extractor@1.0.0",
       frontierPolicyVersion: "frontier_policy@1.0.0",
+      structuredParserPolicyVersion: "structured_parser_policy@1.0.0",
+      anydocParserVersion: "@firecrawl/anydoc@0.1.6",
+      htmlMarkdownRendererVersion: "sanitized_html_to_gfm@1.0.0",
+      extractionQualityEvaluatorVersion: "extraction_quality@1.0.0",
     });
   });
 
@@ -182,6 +189,88 @@ describe("discovery runtime configuration", () => {
     });
     if (config.mode !== "local_discovery_engine") throw new Error("Expected local config.");
     expect(config.local.providerEnvironment).not.toHaveProperty("TAVILY_API_KEY");
+  });
+
+  it("parses opt-in structured resources and forwards only safe parser settings", async () => {
+    const projectPath = await fakeProject();
+    const config = parseDiscoveryRuntimeConfig({
+      CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+      CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+      CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+      CLUVVI_DISCOVERY_EXTRACTION_MODE: "selected_public_pages",
+      CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE: "selected_resources",
+      CLUVVI_DISCOVERY_MAX_STRUCTURED_RESOURCES: "6",
+      CLUVVI_DISCOVERY_MAX_DOCUMENT_RESOURCES: "3",
+      DISCOVERY_STRUCTURED_MAX_RESOURCES: "6",
+      DISCOVERY_STRUCTURED_MAX_DOCUMENT_RESOURCES: "3",
+      DISCOVERY_DOCUMENT_MAX_BYTES: "10485760",
+      DISCOVERY_DOCUMENT_PARSE_TIMEOUT_MS: "20000",
+      DISCOVERY_DOCUMENT_WORKER_MAX_ATTEMPTS: "1",
+      DISCOVERY_MARKDOWN_MAX_CHARACTERS: "200000",
+      DISCOVERY_ANYDOC_ENABLED: "true",
+      DISCOVERY_ANYDOC_TEMP_ROOT: "must-not-forward",
+      PRIVATE_TOKEN: "must-not-forward",
+    });
+    expect(config).toMatchObject({
+      structuredContentMode: "selected_resources",
+      maximumStructuredResources: 6,
+      maximumDocumentResources: 3,
+      local: {
+        structuredContentMode: "selected_resources",
+        maximumStructuredResources: 6,
+        maximumDocumentResources: 3,
+        providerEnvironment: {
+          DISCOVERY_STRUCTURED_MAX_RESOURCES: "6",
+          DISCOVERY_STRUCTURED_MAX_DOCUMENT_RESOURCES: "3",
+          DISCOVERY_DOCUMENT_MAX_BYTES: "10485760",
+          DISCOVERY_DOCUMENT_PARSE_TIMEOUT_MS: "20000",
+          DISCOVERY_DOCUMENT_WORKER_MAX_ATTEMPTS: "1",
+          DISCOVERY_MARKDOWN_MAX_CHARACTERS: "200000",
+          DISCOVERY_ANYDOC_ENABLED: "true",
+        },
+      },
+    });
+    if (config.mode !== "local_discovery_engine") throw new Error("Expected local config.");
+    expect(config.local.providerEnvironment).not.toHaveProperty("DISCOVERY_ANYDOC_TEMP_ROOT");
+    expect(config.local.providerEnvironment).not.toHaveProperty("PRIVATE_TOKEN");
+  });
+
+  it("rejects structured mode without extraction and invalid structured budgets", async () => {
+    const projectPath = await fakeProject();
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+          CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+          CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+          CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE: "selected_resources",
+        }),
+      "LOCAL_DISCOVERY_STRUCTURED_CONTENT_REQUIRES_EXTRACTION",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+          CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+          CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+          CLUVVI_DISCOVERY_EXTRACTION_MODE: "selected_public_pages",
+          CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE: "recursive",
+        }),
+      "LOCAL_DISCOVERY_STRUCTURED_CONTENT_MODE_INVALID",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+          CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+          CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+          CLUVVI_DISCOVERY_EXTRACTION_MODE: "selected_public_pages",
+          CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE: "selected_resources",
+          CLUVVI_DISCOVERY_MAX_STRUCTURED_RESOURCES: "2",
+          CLUVVI_DISCOVERY_MAX_DOCUMENT_RESOURCES: "3",
+        }),
+      "LOCAL_DISCOVERY_STRUCTURED_BUDGET_INVALID",
+    );
   });
 
   it("rejects extraction in the internal fixture runtime and invalid extraction limits", async () => {

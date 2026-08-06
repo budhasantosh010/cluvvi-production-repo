@@ -6,6 +6,7 @@ import {
   LocalRunSchema,
   createOpaqueId,
   type CluvviExtractionMode,
+  type CluvviStructuredContentMode,
   type DiscoveryProviderMode,
   type DiscoveryProviderPolicy,
   type DiscoveryRuntimeMode,
@@ -33,8 +34,15 @@ export function createRunCreationRecords(input: {
   discoveryProviderPolicy?: DiscoveryProviderPolicy;
   discoveryExtractionMode?: CluvviExtractionMode;
   discoveryMaximumExtractions?: number;
+  discoveryStructuredContentMode?: CluvviStructuredContentMode;
+  discoveryMaximumStructuredResources?: number;
+  discoveryMaximumDocumentResources?: number;
   extractorVersion?: string;
   frontierPolicyVersion?: string;
+  structuredParserPolicyVersion?: string;
+  anydocParserVersion?: string;
+  htmlMarkdownRendererVersion?: string;
+  extractionQualityEvaluatorVersion?: string;
 }): RunCreationRecords {
   const now = input.now ?? new Date().toISOString();
   const mission = LocalMissionSchema.parse({
@@ -57,8 +65,18 @@ export function createRunCreationRecords(input: {
       discoveryProviderPolicy: input.discoveryProviderPolicy ?? "free_only",
       discoveryExtractionMode: input.discoveryExtractionMode ?? "none",
       discoveryMaximumExtractions: input.discoveryMaximumExtractions ?? 8,
+      discoveryStructuredContentMode: input.discoveryStructuredContentMode ?? "none",
+      discoveryMaximumStructuredResources: input.discoveryMaximumStructuredResources ?? 8,
+      discoveryMaximumDocumentResources: input.discoveryMaximumDocumentResources ?? 4,
       extractorVersion: input.extractorVersion ?? "basic_public_html_extractor@1.0.0",
       frontierPolicyVersion: input.frontierPolicyVersion ?? "frontier_policy@1.0.0",
+      structuredParserPolicyVersion:
+        input.structuredParserPolicyVersion ?? "structured_parser_policy@1.0.0",
+      anydocParserVersion: input.anydocParserVersion ?? "@firecrawl/anydoc@0.1.6",
+      htmlMarkdownRendererVersion:
+        input.htmlMarkdownRendererVersion ?? "sanitized_html_to_gfm@1.0.0",
+      extractionQualityEvaluatorVersion:
+        input.extractionQualityEvaluatorVersion ?? "extraction_quality@1.0.0",
     },
     budget: input.budget ?? DEFAULT_RUN_BUDGET,
     usage: EMPTY_RUN_USAGE,
@@ -77,6 +95,9 @@ export function createRunCreationRecords(input: {
       discoveryProviderPolicy: run.config.discoveryProviderPolicy,
       discoveryExtractionMode: run.config.discoveryExtractionMode,
       discoveryMaximumExtractions: run.config.discoveryMaximumExtractions,
+      discoveryStructuredContentMode: run.config.discoveryStructuredContentMode,
+      discoveryMaximumStructuredResources: run.config.discoveryMaximumStructuredResources,
+      discoveryMaximumDocumentResources: run.config.discoveryMaximumDocumentResources,
     },
     createdAt: now,
   });

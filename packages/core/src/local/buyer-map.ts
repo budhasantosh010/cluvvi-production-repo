@@ -17,10 +17,32 @@ export const BuyerMapCitationV1Schema = z
     discoveredAt: z.iso.datetime(),
     materialId: z.string().min(1).optional(),
     materialKind: z
-      .enum(["search_snippet", "extracted_page_text", "extracted_metadata", "extracted_json_ld"])
+      .enum([
+        "search_snippet",
+        "extracted_page_text",
+        "extracted_metadata",
+        "extracted_json_ld",
+        "structured_section",
+        "structured_table",
+        "structured_metadata",
+        "structured_footnote",
+      ])
       .optional(),
     extractionItemId: z.string().min(1).optional(),
     frontierItemId: z.string().min(1).optional(),
+    structuredContentItemId: z.string().min(1).optional(),
+    sectionId: z.string().min(1).optional(),
+    tableId: z.string().min(1).optional(),
+    footnoteId: z.string().min(1).optional(),
+    parserProviderId: z.string().min(1).optional(),
+    parserVersion: z.string().min(1).optional(),
+    resourceKind: z.string().min(1).optional(),
+    structuredContentHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    contentCompleteness: z.enum(["complete", "partial", "truncated", "unavailable"]).optional(),
+    headingPath: z.array(z.string().min(1)).optional(),
     extractedContentHash: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
@@ -73,10 +95,15 @@ export const BuyerMapArtifactV1Schema = z
         negativeEvidenceCount: z.number().int().nonnegative(),
         coverageGapCount: z.number().int().nonnegative(),
         extractedEvidenceCitationCount: z.number().int().nonnegative().default(0),
+        structuredEvidenceCitationCount: z.number().int().nonnegative().default(0),
       })
       .strict(),
     evidenceSourceMode: z
-      .enum(["snippet_only", "snippet_plus_extracted_public_pages"])
+      .enum([
+        "snippet_only",
+        "snippet_plus_extracted_public_pages",
+        "snippet_plus_structured_public_content",
+      ])
       .default("snippet_only"),
     opportunities: z.array(BuyerMapOpportunityV1Schema),
     coverageGaps: z.array(BuyerMapCoverageGapV1Schema),

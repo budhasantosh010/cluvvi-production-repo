@@ -8,6 +8,8 @@ export const DISCOVERY_EXCHANGE_FILE_NAMES = [
   "crawl-frontier.v1.json",
   "extracted-content.v1.json",
   "extraction-run-telemetry.v1.json",
+  "structured-content.v1.json",
+  "content-parse-telemetry.v1.json",
   "discovery-stdout.log",
   "discovery-stderr.log",
   "discovery-execution.json",
@@ -22,6 +24,8 @@ export interface DiscoveryExchangePaths {
   frontierPath: string;
   extractedContentPath: string;
   extractionTelemetryPath: string;
+  structuredContentPath: string;
+  contentParseTelemetryPath: string;
   stdoutPath: string;
   stderrPath: string;
   executionPath: string;
@@ -42,6 +46,8 @@ export function discoveryExchangePaths(
     frontierPath: resolve(directory, "crawl-frontier.v1.json"),
     extractedContentPath: resolve(directory, "extracted-content.v1.json"),
     extractionTelemetryPath: resolve(directory, "extraction-run-telemetry.v1.json"),
+    structuredContentPath: resolve(directory, "structured-content.v1.json"),
+    contentParseTelemetryPath: resolve(directory, "content-parse-telemetry.v1.json"),
     stdoutPath: resolve(directory, "discovery-stdout.log"),
     stderrPath: resolve(directory, "discovery-stderr.log"),
     executionPath: resolve(directory, "discovery-execution.json"),

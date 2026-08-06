@@ -187,7 +187,9 @@ describe("C0.5 local browser runtime", () => {
 
       const resumed = await service.getRun(created.view.run.id);
       expect(resumed?.run.status).toBe("completed");
-      expect(resumed?.events.filter((event) => event.eventType === "stage_reused")).toHaveLength(8);
+      expect(resumed?.events.filter((event) => event.eventType === "stage_reused")).toHaveLength(
+        10,
+      );
       const investigationAttempts = (await store.listStageExecutions(created.view.run.id)).filter(
         (execution) => execution.stageName === "investigation",
       );

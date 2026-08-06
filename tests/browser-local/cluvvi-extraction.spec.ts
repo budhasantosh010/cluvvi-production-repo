@@ -112,14 +112,14 @@ test("operations page exposes the active extraction mode and an honest preview s
   await page.goto("/operations/discovery", { waitUntil: "networkidle" });
   await hideDevelopmentUi(page);
   await expect(page.getByTestId("discovery-mode-selector")).toBeVisible();
-  const selector = page.getByLabel("Public-page evidence mode");
+  const selector = page.getByLabel("Public-page extraction");
   await expect(selector).toHaveValue("selected_public_pages");
   await expect(page.getByTestId("discovery-runtime-summary")).toContainText(
     "selected public pages",
   );
   await selector.selectOption("none");
   await expect(page.getByText("Preview only", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Previewing a mode that is not active/u)).toBeVisible();
+  await expect(page.getByText(/Preview only\. Set/u)).toBeVisible();
   await page.screenshot({
     path: resolve(output, "c1-i-operations-mode-selector-desktop.png"),
     fullPage: true,
@@ -352,7 +352,7 @@ test("operations selector remains usable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/operations/discovery", { waitUntil: "networkidle" });
   await hideDevelopmentUi(page);
-  const selector = page.getByLabel("Public-page evidence mode");
+  const selector = page.getByLabel("Public-page extraction");
   await expect(selector).toBeVisible();
   await selector.selectOption("none");
   await expect(page.getByText("Preview only", { exact: true })).toBeVisible();

@@ -2565,3 +2565,219 @@ The parked Supabase implementation still contains migrations and database-backed
 **Resolution:** The proof now uses the established bounded free-search configuration, still forbids paid providers, requires at least one selected page, and passed with three attempts, two successes, one partial result, and zero paid usage.
 
 **One-line solution:** Reuse the proven bounded free-search profile while keeping strict nonzero extraction and zero-paid assertions.
+
+## 144. The first structured bridge run skipped both new stages
+
+**What failed:** All structured integration cases completed without `structured_content` or `content_parse_telemetry` artifacts.
+
+**Where:** `packages/engine/tests/structured-content-bridge.integration.test.ts` at the `CluvviEngine` composition seam.
+
+**When:** First controlled C1-I.5 bridge run.
+
+**Why:** The test supplied `structuredContentMode`, but the engine constructor and persisted run schema use `discoveryStructuredContentMode`; the unknown field was ignored and the run defaulted to `none`.
+
+**How it appeared:** Successful runs had 14 artifacts, structured artifacts were undefined, and the forced structured-stage failure resolved instead of rejecting.
+
+**What was tried:** Traced the run factory and constructor field names, corrected the composition property, and reran the complete controlled matrix.
+
+**Current status:** Resolved; 11/11 structured bridge cases pass.
+
+**One-line solution:** Use the run schema’s exact `discoveryStructuredContentMode` field at every composition root.
+
+## 145. The controlled fixture accepted structured flags but did not emit the sidecars
+
+**What failed:** The fixture CLI parsed structured arguments but initially wrote only search and extraction files.
+
+**Where:** `tests/fixtures/local-discovery-engine/fixture-cli.mjs`.
+
+**When:** Building deterministic cross-process C1-I.5 tests.
+
+**Why:** `writeControlledStructuredSidecars` existed in a separate module but was not called by the CLI.
+
+**How it appeared:** Structured readers reported missing sidecars even with `selected_resources` enabled.
+
+**What was tried:** Added strict structured argument validation and called the generator after extraction sidecars.
+
+**Current status:** Resolved.
+
+**One-line solution:** Make the executable fixture exercise the same complete file contract as Project A.
+
+## 146. The production web build imported Node networking code into the client bundle
+
+**What failed:** `next build` stopped during Turbopack client chunk generation.
+
+**Where:** `packages/core/src/local/extraction/structured-validators.ts`, reached through the client-facing core barrel and `run-view-client.tsx`.
+
+**When:** First C1-I.5 production web build.
+
+**Why:** The shared validator imported `isIP` from `node:net`, which is unavailable in browser chunks.
+
+**How it appeared:** Turbopack reported that the client chunking context did not support external module `node:net`.
+
+**What was tried:** Removed the Node import and reused the validator’s deterministic IPv4 parser plus bounded IPv6 recognition; reran private-URL rejection and the production build.
+
+**Current status:** Resolved; private/local URL rejection and production build both pass.
+
+**One-line solution:** Keep client-exported schema/validation modules browser-safe and isolate Node-only helpers behind server-only modules.
+
+## 147. The expanded operations panel overflowed a 390-pixel viewport
+
+**What failed:** The maintained mobile operations proof measured a 416-pixel document width on a 390-pixel viewport.
+
+**Where:** `apps/web/components/discovery-operations-panel.tsx`.
+
+**When:** C1-I browser regression after adding the structured selector.
+
+**Why:** Native select intrinsic widths resisted shrinking inside the new two-selector grid.
+
+**How it appeared:** Nine of ten C1-I browser proofs passed; the mobile selector proof failed its page-level overflow assertion.
+
+**What was tried:** Inspected the actual failure screenshot, then added `min-w-0`, `max-w-full`, and panel overflow containment to the selectors and their containers.
+
+**Current status:** Resolved; the exact mobile proof and production build pass.
+
+**One-line solution:** Explicitly allow native form controls and grid children to shrink on mobile.
+
+## 148. Existing extraction browser assertions used pre-C1-I.5 labels and warning copy
+
+**What failed:** The operations proof could not find the extraction selector and then expected an obsolete preview sentence.
+
+**Where:** `tests/browser-local/cluvvi-extraction.spec.ts`.
+
+**When:** Maintained C1-I regression run.
+
+**Why:** The accessible label changed from `Public-page evidence mode` to `Public-page extraction`, and the warning now gives the exact environment variables to set.
+
+**How it appeared:** The first browser proof timed out despite the selector and truthful preview state being visibly present.
+
+**What was tried:** Updated only the stale semantic selectors/copy and reran the exact proof before continuing the suite.
+
+**Current status:** Resolved.
+
+**One-line solution:** Keep browser assertions aligned with current accessible labels while preserving behavioral checks.
+
+## 149. Extremely tall full-page mobile screenshots duplicated stitched content
+
+**What failed:** Chromium produced a visually duplicated full-page mobile screenshot for a very tall completed run.
+
+**Where:** `tests/browser-local/cluvvi-structured-content.spec.ts` visual evidence capture.
+
+**When:** First structured browser visual inspection.
+
+**Why:** Full-page stitching became unreliable at the run page’s extreme rendered height; the DOM overflow assertion itself still passed.
+
+**How it appeared:** Repeated page sections were visible in the PNG although the live browser layout was correct.
+
+**What was tried:** Replaced the full-page capture with a screenshot of the structured evidence panel and reran all six browser proofs.
+
+**Current status:** Resolved; the focused mobile artifact is clean and 6/6 browser tests pass.
+
+**One-line solution:** Capture the relevant panel instead of stitching an extreme-height mobile page.
+
+## 150. Harness temporarily reattached as a shared read-only session
+
+**What failed:** A documentation write was denied after the coding session unexpectedly fell back to shared read-only mode.
+
+**Where:** Harness workspace state while creating `docs/C1_I5_STRUCTURED_DOCUMENT_EVIDENCE.md`.
+
+**When:** Final documentation pass.
+
+**Why:** The task attachment was lost even though the workspace remained open.
+
+**How it appeared:** `file_write is denied in read_only mode`.
+
+**What was tried:** Reopened the same workspace with tracked task `T-94961de4a23bb38e39b0ef54` and continued without recreating or discarding work.
+
+**Current status:** Resolved; no repository content was lost.
+
+**One-line solution:** Reattach the existing task ID before further writes when Harness falls back to shared read-only mode.
+
+## 151. The final aggregate gate stopped on formatting drift
+
+**What failed:** `pnpm check` stopped at `prettier --check` before lint, typecheck, tests, or build could run.
+
+**Where:** Thirty-three changed C1-I.5 source, test, and documentation files.
+
+**When:** Final release gate after implementation and browser proof completion.
+
+**Why:** The interrupted multi-session implementation left valid code and documentation that had not yet received one repository formatter pass.
+
+**How it appeared:** Prettier listed the affected files and exited with code 1; no later gate had started.
+
+**What was tried:** Recorded the failure, formatted only tracked changed and untracked milestone files, then reran the same aggregate gate from the beginning.
+
+**Current status:** Resolved; the final aggregate gate passes.
+
+**One-line solution:** Format the complete milestone patch once immediately before the final aggregate release gate.
+
+## 152. The first targeted Prettier command passed every path as one argument
+
+**What failed:** Prettier reported that no files matched a single giant path containing the entire changed-file list.
+
+**Where:** The Windows PowerShell release-format command.
+
+**When:** Immediately after failure 151.
+
+**Why:** The array returned by `git ls-files` was expanded as one argument instead of individual file arguments.
+
+**How it appeared:** Prettier printed all paths inside one quoted pattern and exited with code 1 without changing files.
+
+**What was tried:** Retried with PowerShell argument splatting (`@files`) so each path reached Prettier separately.
+
+**Current status:** Resolved; all milestone files were formatted successfully.
+
+**One-line solution:** Use PowerShell argument splatting when forwarding a generated file array to a CLI.
+
+## 153. The post-format aggregate gate found one unnecessary nullish fallback
+
+**What failed:** ESLint stopped on `@typescript-eslint/no-unnecessary-condition` in the structured failure view.
+
+**Where:** `apps/web/components/structured-content-view.tsx`.
+
+**When:** Second final aggregate-gate attempt.
+
+**Why:** The `failed` condition already proves `failureCode` is defined, making `failureCode ?? "unknown"` unreachable fallback code.
+
+**How it appeared:** Format check passed, then lint reported exactly one error at the failure-message template.
+
+**What was tried:** Removed only the dead fallback and retained the existing failure narrowing and UI behavior.
+
+**Current status:** Resolved; the final aggregate gate passes.
+
+**One-line solution:** Let TypeScript control-flow narrowing remove impossible fallback branches instead of suppressing the lint rule.
+
+## 154. Four default-mode tests expected the pre-C1-I.5 stage and argument counts
+
+**What failed:** The aggregate test suite reported four assertion failures while all structured-content tests passed.
+
+**Where:** `packages/application/tests/local-browser-runtime.test.ts`, `packages/engine/tests/local-engine.e2e.test.ts`, and `packages/engine/tests/local-process-discovery-runtime.test.ts`.
+
+**When:** Third aggregate-gate attempt after format, lint, and typecheck passed.
+
+**Why:** C1-I.5 adds two explicit durable stages that are skipped when structured mode is `none`, and the bridge always records `--structured-content-mode none`; older default-mode tests still expected eight reused stages, three skipped stages, and the shorter CLI argument list.
+
+**How it appeared:** Expected counts were lower by exactly two, and the argument assertion omitted the new explicit mode pair.
+
+**What was tried:** Updated only the stale expectations to ten reused stages, five skipped stages, and the explicit structured-mode arguments; production behavior was not changed.
+
+**Current status:** Resolved; the final aggregate gate passes.
+
+**One-line solution:** Update default-mode regression expectations whenever new explicit no-op durable stages are added to the authoritative pipeline.
+
+## 155. One same-file test edit did not persist during the first expectation update
+
+**What failed:** One `local-engine.e2e` skipped-stage assertion still expected three after the other stale expectations had been corrected.
+
+**Where:** `packages/engine/tests/local-engine.e2e.test.ts`.
+
+**When:** Fourth aggregate-gate attempt.
+
+**Why:** Two independent replacements targeted the same file in one batch, and only the later replacement survived the write sequence.
+
+**How it appeared:** All other previously failing tests passed; the remaining assertion still showed expected `3` versus received `5`.
+
+**What was tried:** Read the final file directly, changed the one remaining value to five, and reran the aggregate gate.
+
+**Current status:** Resolved; the final aggregate gate passes.
+
+**One-line solution:** Verify final same-file content after batch edits that contain multiple replacements for the same path.

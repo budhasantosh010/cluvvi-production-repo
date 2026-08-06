@@ -30,8 +30,15 @@ async function createRuntime(): Promise<WebLocalRuntime> {
       discoveryProviderPolicy: discoveryConfig.providerPolicy,
       discoveryExtractionMode: discoveryConfig.extractionMode,
       discoveryMaximumExtractions: discoveryConfig.maximumExtractions,
+      discoveryStructuredContentMode: discoveryConfig.structuredContentMode,
+      discoveryMaximumStructuredResources: discoveryConfig.maximumStructuredResources,
+      discoveryMaximumDocumentResources: discoveryConfig.maximumDocumentResources,
       extractorVersion: discoveryConfig.extractorVersion,
       frontierPolicyVersion: discoveryConfig.frontierPolicyVersion,
+      structuredParserPolicyVersion: discoveryConfig.structuredParserPolicyVersion,
+      anydocParserVersion: discoveryConfig.anydocParserVersion,
+      htmlMarkdownRendererVersion: discoveryConfig.htmlMarkdownRendererVersion,
+      extractionQualityEvaluatorVersion: discoveryConfig.extractionQualityEvaluatorVersion,
     }),
   };
 }

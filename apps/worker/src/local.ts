@@ -42,11 +42,23 @@ async function main(): Promise<void> {
       discoveryProviderPolicy: discoveryRuntime.providerPolicy,
       discoveryExtractionMode: discoveryRuntime.extractionMode ?? "none",
       discoveryMaximumExtractions: discoveryRuntime.maximumExtractions ?? 8,
+      discoveryStructuredContentMode: discoveryRuntime.structuredContentMode ?? "none",
+      discoveryMaximumStructuredResources: discoveryRuntime.maximumStructuredResources ?? 8,
+      discoveryMaximumDocumentResources: discoveryRuntime.maximumDocumentResources ?? 4,
       extractorVersion: discoveryRuntime.extractorVersion ?? "basic_public_html_extractor@1.0.0",
       frontierPolicyVersion: discoveryRuntime.frontierPolicyVersion ?? "frontier_policy@1.0.0",
+      structuredParserPolicyVersion:
+        discoveryRuntime.structuredParserPolicyVersion ?? "structured_parser_policy@1.0.0",
+      anydocParserVersion: discoveryRuntime.anydocParserVersion ?? "@firecrawl/anydoc@0.1.6",
+      htmlMarkdownRendererVersion:
+        discoveryRuntime.htmlMarkdownRendererVersion ?? "sanitized_html_to_gfm@1.0.0",
+      extractionQualityEvaluatorVersion:
+        discoveryRuntime.extractionQualityEvaluatorVersion ?? "extraction_quality@1.0.0",
       providerConfigurationFingerprint: discoveryRuntime.providerConfigurationFingerprint,
       extractionConfigurationFingerprint:
         discoveryRuntime.extractionConfigurationFingerprint ?? "fixture-no-extraction",
+      structuredConfigurationFingerprint:
+        discoveryRuntime.structuredConfigurationFingerprint ?? "fixture-no-structured-content",
       stageDelayMs: Number(process.env["CLUVVI_FIXTURE_STAGE_DELAY_MS"] ?? 120),
     }),
     runnerId,

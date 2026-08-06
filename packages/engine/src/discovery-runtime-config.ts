@@ -1,5 +1,6 @@
 import type {
   CluvviExtractionMode,
+  CluvviStructuredContentMode,
   DiscoveryProviderMode,
   DiscoveryProviderPolicy,
 } from "@cluvvi/core";
@@ -49,12 +50,34 @@ export const DISCOVERY_PROVIDER_ENV_ALLOWLIST = [
   "DISCOVERY_EXTRACTION_RESPECT_ROBOTS",
   "DISCOVERY_EXTRACTION_ROBOTS_FAILURE_POLICY",
   "DISCOVERY_EXTRACTION_USER_AGENT",
+  "DISCOVERY_STRUCTURED_MAX_RESOURCES",
+  "DISCOVERY_STRUCTURED_MAX_DOCUMENT_RESOURCES",
+  "DISCOVERY_DOCUMENT_MAX_BYTES",
+  "DISCOVERY_DOCUMENT_PARSE_TIMEOUT_MS",
+  "DISCOVERY_DOCUMENT_WORKER_MAX_ATTEMPTS",
+  "DISCOVERY_MARKDOWN_MAX_CHARACTERS",
+  "DISCOVERY_SECTIONS_MAX_PER_RESOURCE",
+  "DISCOVERY_TABLES_MAX_PER_RESOURCE",
+  "DISCOVERY_LINKS_MAX_PER_RESOURCE",
+  "DISCOVERY_FOOTNOTES_MAX_PER_RESOURCE",
+  "DISCOVERY_ASSETS_MAX_PER_RESOURCE",
+  "DISCOVERY_TABLE_MAX_ROWS",
+  "DISCOVERY_TABLE_MAX_COLUMNS",
+  "DISCOVERY_TABLE_MAX_CELL_CHARACTERS",
+  "DISCOVERY_TABLE_MAX_TOTAL_CELLS",
+  "DISCOVERY_HTML_MARKDOWN_ENABLED",
+  "DISCOVERY_ANYDOC_ENABLED",
+  "DISCOVERY_ANYDOC_WORKER_CONCURRENCY",
 ] as const;
 
 export type DiscoveryProviderEnvironmentKey = (typeof DISCOVERY_PROVIDER_ENV_ALLOWLIST)[number];
 
 export const CLUVVI_EXTRACTOR_VERSION = "basic_public_html_extractor@1.0.0";
 export const CLUVVI_FRONTIER_POLICY_VERSION = "frontier_policy@1.0.0";
+export const CLUVVI_STRUCTURED_PARSER_POLICY_VERSION = "structured_parser_policy@1.0.0";
+export const CLUVVI_ANYDOC_PARSER_VERSION = "@firecrawl/anydoc@0.1.6";
+export const CLUVVI_HTML_MARKDOWN_RENDERER_VERSION = "sanitized_html_to_gfm@1.0.0";
+export const CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION = "extraction_quality@1.0.0";
 
 export interface LocalDiscoveryEngineConfig {
   projectPath: string;
@@ -65,8 +88,15 @@ export interface LocalDiscoveryEngineConfig {
   providerPolicy: DiscoveryProviderPolicy;
   extractionMode?: CluvviExtractionMode;
   maximumExtractions?: number;
+  structuredContentMode?: CluvviStructuredContentMode;
+  maximumStructuredResources?: number;
+  maximumDocumentResources?: number;
   extractorVersion?: string;
   frontierPolicyVersion?: string;
+  structuredParserPolicyVersion?: string;
+  anydocParserVersion?: string;
+  htmlMarkdownRendererVersion?: string;
+  extractionQualityEvaluatorVersion?: string;
   providerEnvironment: Record<string, string | undefined>;
 }
 
@@ -77,8 +107,15 @@ export type DiscoveryRuntimeConfig =
       providerPolicy: "free_only";
       extractionMode: "none";
       maximumExtractions: number;
+      structuredContentMode: "none";
+      maximumStructuredResources: number;
+      maximumDocumentResources: number;
       extractorVersion: string;
       frontierPolicyVersion: string;
+      structuredParserPolicyVersion: string;
+      anydocParserVersion: string;
+      htmlMarkdownRendererVersion: string;
+      extractionQualityEvaluatorVersion: string;
     }
   | {
       mode: "local_discovery_engine";
@@ -86,8 +123,15 @@ export type DiscoveryRuntimeConfig =
       providerPolicy: DiscoveryProviderPolicy;
       extractionMode: CluvviExtractionMode;
       maximumExtractions: number;
+      structuredContentMode: CluvviStructuredContentMode;
+      maximumStructuredResources: number;
+      maximumDocumentResources: number;
       extractorVersion: string;
       frontierPolicyVersion: string;
+      structuredParserPolicyVersion: string;
+      anydocParserVersion: string;
+      htmlMarkdownRendererVersion: string;
+      extractionQualityEvaluatorVersion: string;
       local: LocalDiscoveryEngineConfig;
     };
 
@@ -104,6 +148,8 @@ const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 300_000;
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_EXTRACTIONS = 8;
+const DEFAULT_MAX_STRUCTURED_RESOURCES = 8;
+const DEFAULT_MAX_DOCUMENT_RESOURCES = 4;
 
 function configuredValue(
   environment: Readonly<Record<string, string | undefined>>,
@@ -159,6 +205,29 @@ function parseMaximumExtractions(value: string | undefined): number {
   return parsed;
 }
 
+function parseStructuredContentMode(value: string | undefined): CluvviStructuredContentMode {
+  const mode = value ?? "none";
+  if (mode === "none" || mode === "selected_resources") return mode;
+  throw new DiscoveryRuntimeConfigurationError(
+    "LOCAL_DISCOVERY_STRUCTURED_CONTENT_MODE_INVALID",
+    "CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE must be none or selected_resources.",
+  );
+}
+
+function parseStructuredBudget(
+  value: string | undefined,
+  fallback: number,
+  key: string,
+  code: string,
+): number {
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+    throw new DiscoveryRuntimeConfigurationError(code, `${key} must be an integer from 1 to 100.`);
+  }
+  return parsed;
+}
+
 function pathIsDirectory(path: string): boolean {
   try {
     return statSync(path).isDirectory();
@@ -205,12 +274,37 @@ export function parseDiscoveryRuntimeConfig(
   const maximumExtractions = parseMaximumExtractions(
     configuredValue(environment, "CLUVVI_DISCOVERY_MAX_EXTRACTIONS"),
   );
+  const structuredContentMode = parseStructuredContentMode(
+    configuredValue(environment, "CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE"),
+  );
+  const maximumStructuredResources = parseStructuredBudget(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_STRUCTURED_RESOURCES"),
+    DEFAULT_MAX_STRUCTURED_RESOURCES,
+    "CLUVVI_DISCOVERY_MAX_STRUCTURED_RESOURCES",
+    "LOCAL_DISCOVERY_MAX_STRUCTURED_RESOURCES_INVALID",
+  );
+  const maximumDocumentResources = parseStructuredBudget(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_DOCUMENT_RESOURCES"),
+    DEFAULT_MAX_DOCUMENT_RESOURCES,
+    "CLUVVI_DISCOVERY_MAX_DOCUMENT_RESOURCES",
+    "LOCAL_DISCOVERY_MAX_DOCUMENT_RESOURCES_INVALID",
+  );
+  if (maximumDocumentResources > maximumStructuredResources) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_STRUCTURED_BUDGET_INVALID",
+      "CLUVVI_DISCOVERY_MAX_DOCUMENT_RESOURCES cannot exceed CLUVVI_DISCOVERY_MAX_STRUCTURED_RESOURCES.",
+    );
+  }
 
   if (rawMode === "fixture") {
-    if (providerMode !== "fixture_only" || extractionMode !== "none") {
+    if (
+      providerMode !== "fixture_only" ||
+      extractionMode !== "none" ||
+      structuredContentMode !== "none"
+    ) {
       throw new DiscoveryRuntimeConfigurationError(
         "DISCOVERY_ENGINE_NOT_CONFIGURED",
-        "Live search or public-page extraction requires CLUVVI_DISCOVERY_MODE=local_discovery_engine.",
+        "Live search, public-page extraction, or structured parsing requires CLUVVI_DISCOVERY_MODE=local_discovery_engine.",
       );
     }
     return {
@@ -219,8 +313,15 @@ export function parseDiscoveryRuntimeConfig(
       providerPolicy: "free_only",
       extractionMode: "none",
       maximumExtractions,
+      structuredContentMode: "none",
+      maximumStructuredResources,
+      maximumDocumentResources,
       extractorVersion: CLUVVI_EXTRACTOR_VERSION,
       frontierPolicyVersion: CLUVVI_FRONTIER_POLICY_VERSION,
+      structuredParserPolicyVersion: CLUVVI_STRUCTURED_PARSER_POLICY_VERSION,
+      anydocParserVersion: CLUVVI_ANYDOC_PARSER_VERSION,
+      htmlMarkdownRendererVersion: CLUVVI_HTML_MARKDOWN_RENDERER_VERSION,
+      extractionQualityEvaluatorVersion: CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION,
     };
   }
   if (rawMode !== "local_discovery_engine") {
@@ -233,6 +334,15 @@ export function parseDiscoveryRuntimeConfig(
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_PROVIDER_POLICY_INVALID",
       "balanced and paid_deep require CLUVVI_DISCOVERY_PROVIDER_MODE=live_search.",
+    );
+  }
+  if (
+    structuredContentMode === "selected_resources" &&
+    extractionMode !== "selected_public_pages"
+  ) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_STRUCTURED_CONTENT_REQUIRES_EXTRACTION",
+      "selected_resources requires CLUVVI_DISCOVERY_EXTRACTION_MODE=selected_public_pages.",
     );
   }
 
@@ -282,8 +392,15 @@ export function parseDiscoveryRuntimeConfig(
     providerPolicy,
     extractionMode,
     maximumExtractions,
+    structuredContentMode,
+    maximumStructuredResources,
+    maximumDocumentResources,
     extractorVersion: CLUVVI_EXTRACTOR_VERSION,
     frontierPolicyVersion: CLUVVI_FRONTIER_POLICY_VERSION,
+    structuredParserPolicyVersion: CLUVVI_STRUCTURED_PARSER_POLICY_VERSION,
+    anydocParserVersion: CLUVVI_ANYDOC_PARSER_VERSION,
+    htmlMarkdownRendererVersion: CLUVVI_HTML_MARKDOWN_RENDERER_VERSION,
+    extractionQualityEvaluatorVersion: CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION,
     local: {
       projectPath,
       command,
@@ -292,8 +409,15 @@ export function parseDiscoveryRuntimeConfig(
       providerPolicy,
       extractionMode,
       maximumExtractions,
+      structuredContentMode,
+      maximumStructuredResources,
+      maximumDocumentResources,
       extractorVersion: CLUVVI_EXTRACTOR_VERSION,
       frontierPolicyVersion: CLUVVI_FRONTIER_POLICY_VERSION,
+      structuredParserPolicyVersion: CLUVVI_STRUCTURED_PARSER_POLICY_VERSION,
+      anydocParserVersion: CLUVVI_ANYDOC_PARSER_VERSION,
+      htmlMarkdownRendererVersion: CLUVVI_HTML_MARKDOWN_RENDERER_VERSION,
+      extractionQualityEvaluatorVersion: CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION,
       providerEnvironment: allowedDiscoveryProviderEnvironment(environment),
       keepExchangeFiles: parseBoolean(
         configuredValue(environment, "CLUVVI_DISCOVERY_KEEP_EXCHANGE_FILES"),
