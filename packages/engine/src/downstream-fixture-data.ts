@@ -12,6 +12,7 @@ import {
   type BuyerHypothesisV1,
   type BuyerMapArtifactV1,
   type BuyerMapCoverageGapV1,
+  type ValidatedCommunityAnalysisSet,
   type DiscoveryCandidateEntityV1,
   type DiscoveryCandidatesArtifactV1,
   type EvidenceFindingV1,
@@ -454,6 +455,319 @@ function hiringEvidence(input: {
   return { materials, findings };
 }
 
+function communityEvidence(input: {
+  candidates: DiscoveryCandidatesArtifactV1;
+  community?: ValidatedCommunityAnalysisSet;
+}): { materials: EvidenceMaterialV1[]; findings: EvidenceFindingV1[] } {
+  if (input.community === undefined || input.candidates.results.length === 0)
+    return { materials: [], findings: [] };
+  const materials: EvidenceMaterialV1[] = [];
+  const findings: EvidenceFindingV1[] = [];
+  const contextByThread = new Map(
+    input.community.threadContext.threads.map((entry) => [entry.threadArtifactId, entry]),
+  );
+  const commentsById = new Map(
+    input.community.commentCollections.flatMap((collection) =>
+      collection.comments.map((comment) => [comment.commentId, { collection, comment }] as const),
+    ),
+  );
+  const resultForConcept = (concepts: string[]): NormalizedDiscoveryResultV2 | undefined => {
+    const normalized = [
+      ...new Set(
+        concepts.map((value) => value.trim().toLowerCase()).filter((value) => value.length > 1),
+      ),
+    ];
+    if (normalized.length !== 1) return undefined;
+    const concept = normalized[0];
+    if (concept === undefined) return undefined;
+    const matchingEntities = input.candidates.entities.filter((entity) => {
+      const names = [entity.displayName, entity.domain]
+        .filter((value): value is string => value !== undefined)
+        .map((value) => value.trim().toLowerCase());
+      return names.includes(concept);
+    });
+    if (matchingEntities.length !== 1) return undefined;
+    const entity = matchingEntities[0];
+    if (entity === undefined) return undefined;
+    return entity.resultIds
+      .map((resultId) => input.candidates.results.find((result) => result.id === resultId))
+      .find((result) => result !== undefined);
+  };
+  for (const thread of input.community.threads) {
+    const context = contextByThread.get(thread.artifactId);
+    if (context === undefined || context.contentSafety.excluded) continue;
+    const concepts = input.community.plan.queries
+      .filter((query) => context.queryIds.includes(query.queryId) && query.selected)
+      .map((query) => query.primaryEntity)
+      .filter((value): value is string => value !== undefined);
+    const result = resultForConcept(concepts);
+    if (result === undefined) continue;
+    const bestEngagement = [...context.engagementObservations].sort(
+      (left, right) =>
+        Number(left.stalePossible) - Number(right.stalePossible) ||
+        right.confidence - left.confidence,
+    )[0];
+    const content = `${thread.title ?? ""}\n${thread.body ?? ""}`.trim().slice(0, 20_000);
+    if (content.length === 0) continue;
+    const materialId = `material_community_thread_${thread.artifactId}`;
+    materials.push({
+      id: materialId,
+      kind: "reddit_thread",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: thread.url,
+      content,
+      contentHash: fingerprint({ threadArtifactId: thread.artifactId, content }),
+      trustClassification: "untrusted_public_content",
+      threadArtifactId: thread.artifactId,
+      subreddit: context.subreddit,
+      communityQueryIntents: context.queryIntents,
+      relevanceScore: context.relevanceScore,
+      redditLocalScore: context.redditLocalScore,
+      engagementState:
+        bestEngagement === undefined
+          ? "unknown"
+          : bestEngagement.source === "arctic_shift_archive"
+            ? "archived"
+            : "live",
+      ...(bestEngagement === undefined
+        ? {}
+        : {
+            engagementSource: bestEngagement.source,
+            engagementObservationSource: bestEngagement.source,
+            engagementStalePossible: bestEngagement.stalePossible,
+          }),
+      ...(thread.createdAt === undefined ? {} : { publishedAt: thread.createdAt }),
+      limitations: [
+        ...thread.limitations,
+        ...context.limitations,
+        "Public Reddit discussion is anecdotal sampled evidence. It does not establish representative demand, company identity, buyer identity, budget, authority, or purchase intent.",
+      ],
+    });
+    findings.push({
+      id: `finding_community_thread_${fingerprint({ threadArtifactId: thread.artifactId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "community_signal",
+      positive: true,
+      strength: context.relevanceScore >= 0.75 && context.dedicated ? "moderate" : "weak",
+      summary: `A public r/${context.subreddit} thread contains mission-relevant discussion. This is anecdotal community context, not proof of commercial intent.`,
+      supportingText: content,
+      sourceUrl: thread.url,
+      providerId: "reddit_keyless",
+      sourceZone: result.sourceZone,
+      stale: context.dateConfidence < 0.5,
+      materialId,
+      materialKind: "reddit_thread",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: thread.url,
+        providerId: "reddit_keyless",
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        ...(thread.createdAt === undefined ? {} : { publishedAt: thread.createdAt }),
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "reddit_thread",
+        trustClassification: "untrusted_public_content",
+        threadArtifactId: thread.artifactId,
+        subreddit: context.subreddit,
+        communityQueryIds: context.queryIds,
+        communityQueryIntents: context.queryIntents,
+        relevanceScore: context.relevanceScore,
+        redditLocalScore: context.redditLocalScore,
+        engagementState:
+          bestEngagement === undefined
+            ? "unknown"
+            : bestEngagement.source === "arctic_shift_archive"
+              ? "archived"
+              : "live",
+        ...(bestEngagement === undefined
+          ? {}
+          : {
+              engagementSource: bestEngagement.source,
+              engagementObservationSource: bestEngagement.source,
+              engagementStalePossible: bestEngagement.stalePossible,
+            }),
+      },
+    });
+  }
+  for (const collection of input.community.commentCollections) {
+    const thread = input.community.threads.find(
+      (entry) => entry.artifactId === collection.threadArtifactId,
+    );
+    const context = contextByThread.get(collection.threadArtifactId);
+    if (thread === undefined || context === undefined || context.contentSafety.excluded) continue;
+    const concepts = input.community.plan.queries
+      .filter((query) => context.queryIds.includes(query.queryId) && query.selected)
+      .map((query) => query.primaryEntity)
+      .filter((value): value is string => value !== undefined);
+    const result = resultForConcept(concepts);
+    if (result === undefined) continue;
+    for (const comment of collection.comments) {
+      const body = comment.body.slice(0, 20_000);
+      const materialId = `material_community_comment_${comment.commentId}`;
+      materials.push({
+        id: materialId,
+        kind: "reddit_comment",
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        sourceUrl: thread.url,
+        content: body,
+        contentHash: fingerprint({
+          threadArtifactId: thread.artifactId,
+          commentId: comment.commentId,
+          body,
+        }),
+        trustClassification: "untrusted_public_content",
+        threadArtifactId: thread.artifactId,
+        commentCollectionArtifactId: collection.artifactId,
+        commentId: comment.commentId,
+        subreddit: context.subreddit,
+        communityQueryIds: context.queryIds,
+        communityQueryIntents: context.queryIntents,
+        relevanceScore: context.relevanceScore,
+        redditLocalScore: context.redditLocalScore,
+        ...(comment.createdAt === undefined ? {} : { publishedAt: comment.createdAt }),
+        limitations: [
+          ...comment.limitations,
+          "A Reddit comment is anecdotal untrusted public content and cannot identify or qualify a buyer.",
+        ],
+      });
+      findings.push({
+        id: `finding_community_comment_${fingerprint({ threadArtifactId: thread.artifactId, commentId: comment.commentId }).slice(0, 16)}`,
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        signalType: "community_signal",
+        positive: true,
+        strength: "weak",
+        summary: `A selected public Reddit comment in r/${context.subreddit} adds anecdotal context for an already-known discovery entity. It does not identify a buyer or establish purchase intent.`,
+        supportingText: body,
+        sourceUrl: thread.url,
+        providerId: "reddit_keyless",
+        sourceZone: result.sourceZone,
+        stale: false,
+        materialId,
+        materialKind: "reddit_comment",
+        provenance: {
+          searchResultId: result.id,
+          queryId: result.queryId,
+          query: result.query,
+          sourceUrl: thread.url,
+          providerId: "reddit_keyless",
+          providerCategory: result.providerCategory,
+          sourceZone: result.sourceZone,
+          searchMethod: result.searchMethod,
+          signalIntent: result.signalIntent,
+          ...(comment.createdAt === undefined ? {} : { publishedAt: comment.createdAt }),
+          discoveredAt: result.discoveredAt,
+          materialId,
+          materialKind: "reddit_comment",
+          trustClassification: "untrusted_public_content",
+          threadArtifactId: thread.artifactId,
+          commentId: comment.commentId,
+          subreddit: context.subreddit,
+          communityQueryIds: context.queryIds,
+          communityQueryIntents: context.queryIntents,
+          relevanceScore: context.relevanceScore,
+          redditLocalScore: context.redditLocalScore,
+        },
+      });
+    }
+  }
+  for (const signal of input.community.signals.signals) {
+    const supportingThread = input.community.threads.find((thread) =>
+      signal.supportingThreadArtifactIds.includes(thread.artifactId),
+    );
+    if (supportingThread === undefined) continue;
+    const context = contextByThread.get(supportingThread.artifactId);
+    if (context === undefined || context.contentSafety.excluded) continue;
+    const signalEntityConcepts = input.community.plan.queries
+      .filter((query) => context.queryIds.includes(query.queryId) && query.selected)
+      .map((query) => query.primaryEntity)
+      .filter((value): value is string => value !== undefined);
+    const result = resultForConcept(signalEntityConcepts);
+    if (result === undefined) continue;
+    const content = `${signal.observedFacts.join(" ")} ${signal.inference}`.slice(0, 20_000);
+    const materialId = `material_community_signal_${signal.signalId}`;
+    materials.push({
+      id: materialId,
+      kind: "community_signal",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: supportingThread.url,
+      content,
+      contentHash: fingerprint({ signalId: signal.signalId, content }),
+      trustClassification: "untrusted_public_content",
+      threadArtifactId: supportingThread.artifactId,
+      communitySignalId: signal.signalId,
+      communitySignalType: signal.type,
+      subreddit: context.subreddit,
+      communityQueryIds: context.queryIds,
+      communityQueryIntents: context.queryIntents,
+      relevanceScore: signal.missionRelevance.score,
+      confidence: signal.confidence,
+      independentThreadCount: signal.independentThreadCount,
+      limitations: [
+        ...signal.limitations,
+        "Deterministic community signals summarize sampled discussion only; they do not prove representative demand, budget, authority, or purchase intent.",
+      ],
+    });
+    findings.push({
+      id: `finding_community_signal_${fingerprint({ signalId: signal.signalId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "community_signal",
+      positive: true,
+      strength:
+        signal.missionRelevance.relevant &&
+        signal.missionRelevance.score >= 0.7 &&
+        signal.confidence >= 0.7 &&
+        signal.independentThreadCount >= 2
+          ? "moderate"
+          : "weak",
+      summary: `${signal.inference} This remains anecdotal public-community evidence and does not establish a commercial decision.`,
+      supportingText: content,
+      sourceUrl: supportingThread.url,
+      providerId: "reddit_keyless",
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "community_signal",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: supportingThread.url,
+        providerId: "reddit_keyless",
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "community_signal",
+        trustClassification: "untrusted_public_content",
+        threadArtifactId: supportingThread.artifactId,
+        communitySignalId: signal.signalId,
+        communitySignalType: signal.type,
+        subreddit: context.subreddit,
+        communityQueryIds: context.queryIds,
+        communityQueryIntents: context.queryIntents,
+        relevanceScore: signal.missionRelevance.score,
+        confidence: signal.confidence,
+        independentThreadCount: signal.independentThreadCount,
+      },
+    });
+    for (const commentId of signal.supportingCommentIds) void commentsById.get(commentId);
+  }
+  return { materials, findings };
+}
+
 export function buildEvidenceFindings(
   candidates: DiscoveryCandidatesArtifactV1,
   generatedAt: string,
@@ -461,6 +775,7 @@ export function buildEvidenceFindings(
   structuredContent?: StructuredContentArtifactV1,
   jobCollection?: JobCollectionArtifactV1,
   hiringSignals?: HiringSignalsArtifactV1,
+  communityArtifacts?: ValidatedCommunityAnalysisSet,
 ): EvidenceFindingsArtifactV1 {
   const parsed = DiscoveryCandidatesArtifactV1Schema.parse(candidates);
   const hiring = hiringEvidence({
@@ -469,9 +784,14 @@ export function buildEvidenceFindings(
     ...(jobCollection === undefined ? {} : { jobCollection }),
     ...(hiringSignals === undefined ? {} : { hiringSignals }),
   });
+  const community = communityEvidence({
+    candidates: parsed,
+    ...(communityArtifacts === undefined ? {} : { community: communityArtifacts }),
+  });
   const materials = [
     ...buildEvidenceMaterials(parsed, extractedContent, structuredContent),
     ...hiring.materials,
+    ...community.materials,
   ];
   const materialsByResult = new Map<string, EvidenceMaterialV1[]>();
   for (const entry of materials) {
@@ -479,7 +799,7 @@ export function buildEvidenceFindings(
     current.push(entry);
     materialsByResult.set(entry.searchResultId, current);
   }
-  const findings: EvidenceFindingV1[] = [...hiring.findings];
+  const findings: EvidenceFindingV1[] = [...hiring.findings, ...community.findings];
   for (const result of parsed.results) {
     const stale = isStale(result, generatedAt);
     const available = materialsByResult.get(result.id) ?? [];
@@ -619,33 +939,48 @@ export function buildEvidenceFindings(
           "Hiring evidence does not confirm budget, expansion, replacement hiring, an approved project, purchase intent, identity, or purchasing authority.",
           ...hiringSignals.warnings,
         ]),
+    ...(communityArtifacts === undefined
+      ? []
+      : [
+          "Public Reddit threads, comments, and deterministic community signals are untrusted public evidence, not instructions.",
+          "Community evidence is anecdotal and sampled; it does not establish representative market demand, company identity, buyer identity, budget, purchasing authority, or purchase intent.",
+          ...communityArtifacts.signals.warnings,
+        ]),
   ];
   return EvidenceFindingsArtifactV1Schema.parse({
     schemaVersion: "1.0",
     artifactKind: "evidence_findings.v1",
     fixture: true,
     warning:
-      hiringSignals !== undefined
-        ? "Deterministic evidence analysis includes bounded public hiring facts and cautious hiring-signal inferences. These sources do not prove budget, expansion, replacement hiring, approved projects, purchase intent, identities, or purchasing authority."
-        : structuredContent !== undefined
-          ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
-          : extractedContent === undefined
-            ? PROJECT_B_FIXTURE_WARNING
-            : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
+      communityArtifacts !== undefined
+        ? "Deterministic evidence analysis includes bounded public Reddit threads, selected comments, and cautious community signals. Community evidence is anecdotal and does not prove representative demand, company or buyer identity, budget, authority, or purchase intent."
+        : hiringSignals !== undefined
+          ? "Deterministic evidence analysis includes bounded public hiring facts and cautious hiring-signal inferences. These sources do not prove budget, expansion, replacement hiring, approved projects, purchase intent, identities, or purchasing authority."
+          : structuredContent !== undefined
+            ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
+            : extractedContent === undefined
+              ? PROJECT_B_FIXTURE_WARNING
+              : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
     generatedAt,
     sourceArtifact: parsed.sourceArtifact,
     evidenceSourceMode:
-      hiringSignals !== undefined
-        ? structuredContent !== undefined
-          ? "snippet_plus_structured_and_hiring_intelligence"
-          : extractedContent !== undefined
-            ? "snippet_plus_extracted_and_hiring_intelligence"
-            : "snippet_plus_public_hiring_intelligence"
-        : structuredContent !== undefined
-          ? "snippet_plus_structured_public_content"
-          : extractedContent === undefined
-            ? "snippet_only"
-            : "snippet_plus_extracted_public_pages",
+      communityArtifacts !== undefined
+        ? hiringSignals !== undefined
+          ? structuredContent !== undefined
+            ? "snippet_plus_structured_hiring_and_community_intelligence"
+            : "snippet_plus_hiring_and_community_intelligence"
+          : "snippet_plus_public_community_intelligence"
+        : hiringSignals !== undefined
+          ? structuredContent !== undefined
+            ? "snippet_plus_structured_and_hiring_intelligence"
+            : extractedContent !== undefined
+              ? "snippet_plus_extracted_and_hiring_intelligence"
+              : "snippet_plus_public_hiring_intelligence"
+          : structuredContent !== undefined
+            ? "snippet_plus_structured_public_content"
+            : extractedContent === undefined
+              ? "snippet_only"
+              : "snippet_plus_extracted_public_pages",
     materials,
     extractionSummary: {
       selectedPages: extractionSummary?.selectedUrls ?? 0,
@@ -698,7 +1033,12 @@ export function buildBuyerHypotheses(
   const hypotheses: BuyerHypothesisV1[] = parsed.entities.map((entity) => {
     const findings = parsed.findings.filter((finding) => finding.entityKey === entity.entityKey);
     const positive = findings.filter((finding) => finding.positive);
-    const strongPositive = positive.filter((finding) => finding.strength === "strong").length;
+    const identityPositive = positive.filter(
+      (finding) => finding.signalType !== "community_signal",
+    );
+    const strongPositive = identityPositive.filter(
+      (finding) => finding.strength === "strong",
+    ).length;
     const strongNegative = findings.filter(
       (finding) => !finding.positive && finding.strength === "strong",
     ).length;
@@ -711,10 +1051,19 @@ export function buildBuyerHypotheses(
     const hiringCompanyDomain = [...jobFindings, ...signalFindings].find(
       (finding) => finding.provenance.companyDomain !== undefined,
     )?.provenance.companyDomain;
+    const communityThreadFindings = findings.filter(
+      (finding) => finding.materialKind === "reddit_thread",
+    );
+    const communityCommentFindings = findings.filter(
+      (finding) => finding.materialKind === "reddit_comment",
+    );
+    const communitySignalFindings = findings.filter(
+      (finding) => finding.materialKind === "community_signal",
+    );
     const confidence =
       strongPositive >= 2 && strongNegative === 0
         ? "high"
-        : positive.length > 0 && strongNegative === 0
+        : identityPositive.length > 0 && strongNegative === 0
           ? "medium"
           : "low";
     return {
@@ -728,6 +1077,25 @@ export function buildBuyerHypotheses(
       rationale: `${positive.length} positive and ${findings.length - positive.length} negative evidence findings support this role hypothesis. No real person was identified.`,
       sourceResultIds: [...new Set(findings.map((finding) => finding.searchResultId))],
       evidenceFindingIds: findings.map((finding) => finding.id),
+      ...(communityThreadFindings.length === 0 &&
+      communityCommentFindings.length === 0 &&
+      communitySignalFindings.length === 0
+        ? {}
+        : {
+            communityIdentityEvidence: {
+              observedThreadFindingIds: communityThreadFindings.map((finding) => finding.id),
+              observedCommentFindingIds: communityCommentFindings.map((finding) => finding.id),
+              inferredSignalFindingIds: communitySignalFindings.map((finding) => finding.id),
+              confidence: "low" as const,
+              conservativeMatch: true as const,
+              userIdentityUsed: false as const,
+              limitations: [
+                "Community evidence was attached only to an already-existing discovery entity and did not create or identify a buyer.",
+                "Reddit usernames and handles are never used as company, buyer, or contact identities.",
+                "Community discussion does not establish budget, authority, representative demand, or purchase intent.",
+              ],
+            },
+          }),
       ...(jobFindings.length === 0 && signalFindings.length === 0
         ? {}
         : {
@@ -841,30 +1209,65 @@ export function buildRankedOpportunities(input: {
     );
     const positive = findings.filter((finding) => finding.positive);
     const negative = findings.filter((finding) => !finding.positive);
-    const hasPain = positive.some(
+    const nonCommunityFindings = findings.filter(
+      (finding) => finding.signalType !== "community_signal",
+    );
+    const nonCommunityPositive = nonCommunityFindings.filter((finding) => finding.positive);
+    const hasPain = nonCommunityPositive.some(
       (finding) =>
         (finding.signalType === "problem_signal" ||
           finding.signalType === "manual_process_signal") &&
         finding.strength !== "weak",
     );
-    const hasRecent = positive.some((finding) => isRecent(finding, input.generatedAt));
-    const hasHiring = positive.some((finding) => finding.signalType === "hiring_signal");
-    const hasWorkaround = positive.some((finding) =>
+    const hasRecent = nonCommunityPositive.some((finding) => isRecent(finding, input.generatedAt));
+    const hasHiring = nonCommunityPositive.some(
+      (finding) => finding.signalType === "hiring_signal",
+    );
+    const communityFindings = positive.filter(
+      (finding) => finding.signalType === "community_signal",
+    );
+    const qualifyingCommunitySignalTypes = new Set([
+      "pain",
+      "complaint",
+      "workflow_friction",
+      "switching_intent",
+      "competitor_dissatisfaction",
+    ]);
+    const qualifyingCommunityFindings = communityFindings.filter(
+      (finding) =>
+        finding.materialKind === "community_signal" &&
+        finding.strength !== "weak" &&
+        finding.provenance.communitySignalType !== undefined &&
+        qualifyingCommunitySignalTypes.has(finding.provenance.communitySignalType) &&
+        (finding.provenance.independentThreadCount ?? 0) >= 2 &&
+        (finding.provenance.confidence ?? 0) >= 0.7 &&
+        (finding.provenance.relevanceScore ?? 0) >= 0.7,
+    );
+    const hasCommunity = qualifyingCommunityFindings.length > 0;
+    const communityIndependentThreadCount = Math.max(
+      0,
+      ...qualifyingCommunityFindings.map(
+        (finding) => finding.provenance.independentThreadCount ?? 0,
+      ),
+    );
+    const hasWorkaround = nonCommunityPositive.some((finding) =>
       ["competitor_signal", "workaround_signal", "manual_process_signal"].includes(
         finding.signalType,
       ),
     );
     const hasClearCompany = hypothesis.companyDomain !== undefined;
     const hasRoute = hypothesis.manualContactRoute.instructions.length > 0;
-    const exclusionText = `${hypothesis.companyName} ${hypothesis.companyDomain ?? ""} ${findings
+    const exclusionText = `${hypothesis.companyName} ${hypothesis.companyDomain ?? ""} ${nonCommunityFindings
       .map((finding) => finding.summary)
       .join(" ")}`;
     const hasExclusionConflict =
-      negative.some((finding) => finding.signalType === "negative_signal") ||
-      textMatchesExclusion(exclusionText, input.mission.input.exclusions);
+      negative.some(
+        (finding) =>
+          finding.signalType !== "community_signal" && finding.signalType === "negative_signal",
+      ) || textMatchesExclusion(exclusionText, input.mission.input.exclusions);
     const weakOrStale =
-      positive.length === 0 ||
-      positive.every((finding) => finding.strength === "weak" || finding.stale);
+      nonCommunityPositive.length === 0 ||
+      nonCommunityPositive.every((finding) => finding.strength === "weak" || finding.stale);
     const components: RankingScoreComponentV1[] = [
       scoreComponent(
         "clear_pain",
@@ -923,7 +1326,9 @@ export function buildRankedOpportunities(input: {
           : "The opportunity has at least one current moderate or strong signal.",
       ),
     ];
-    const score = components.reduce((sum, component) => sum + component.points, 0);
+    const communityPoints = hasCommunity ? 1 : 0;
+    const score =
+      components.reduce((sum, component) => sum + component.points, 0) + communityPoints;
     const confidence =
       score >= 14 && !hasExclusionConflict ? "high" : score >= 7 ? "medium" : "low";
     const risks = [
@@ -945,6 +1350,15 @@ export function buildRankedOpportunities(input: {
       score,
       confidence,
       scoreComponents: components,
+      communityContribution: {
+        applied: hasCommunity,
+        points: communityPoints,
+        maximumShareOfPositiveScore: 0.08,
+        rationale: hasCommunity
+          ? "A repeated, mission-relevant pain, switching, or competitor-dissatisfaction signal across at least two independent Reddit threads contributes exactly one capped point. Community evidence cannot establish representative demand, buyer identity, budget, authority, or purchase intent."
+          : "No qualifying repeated community signal was applied. Single threads, single weak comments, ambiguous links, low-confidence signals, and duplicate-route evidence contribute zero points.",
+        independentThreadCount: communityIndependentThreadCount,
+      },
       hiringContribution: {
         applied: hasHiring,
         points: hasHiring ? 1 : 0,
@@ -1122,6 +1536,36 @@ export function buildBuyerMap(input: {
         ...(finding.provenance.confidence === undefined
           ? {}
           : { confidence: finding.provenance.confidence }),
+        ...(finding.provenance.threadArtifactId === undefined
+          ? {}
+          : { threadArtifactId: finding.provenance.threadArtifactId }),
+        ...(finding.provenance.commentCollectionArtifactId === undefined
+          ? {}
+          : { commentCollectionArtifactId: finding.provenance.commentCollectionArtifactId }),
+        ...(finding.provenance.commentId === undefined
+          ? {}
+          : { commentId: finding.provenance.commentId }),
+        ...(finding.provenance.communitySignalId === undefined
+          ? {}
+          : { communitySignalId: finding.provenance.communitySignalId }),
+        ...(finding.provenance.communitySignalType === undefined
+          ? {}
+          : { communitySignalType: finding.provenance.communitySignalType }),
+        ...(finding.provenance.subreddit === undefined
+          ? {}
+          : { subreddit: finding.provenance.subreddit }),
+        ...(finding.provenance.relevanceScore === undefined
+          ? {}
+          : { relevanceScore: finding.provenance.relevanceScore }),
+        ...(finding.provenance.redditLocalScore === undefined
+          ? {}
+          : { redditLocalScore: finding.provenance.redditLocalScore }),
+        ...(finding.provenance.engagementSource === undefined
+          ? {}
+          : { engagementSource: finding.provenance.engagementSource }),
+        ...(finding.provenance.engagementStalePossible === undefined
+          ? {}
+          : { engagementStalePossible: finding.provenance.engagementStalePossible }),
       })),
       risks: opportunity.risks,
       limitations: opportunity.limitations,
@@ -1148,13 +1592,15 @@ export function buildBuyerMap(input: {
     schemaVersion: "1.0",
     artifactKind: "buyer_map.v1",
     fixture: true,
-    warning: evidence.evidenceSourceMode.includes("hiring_intelligence")
-      ? "Buyer Map includes bounded public hiring evidence. Jobs and hiring signals do not verify budget, expansion, replacement hiring, approved projects, identities, purchasing authority, or buying intent."
-      : evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
-        ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
-        : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
-          ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
-          : PROJECT_B_FIXTURE_WARNING,
+    warning: evidence.evidenceSourceMode.includes("community_intelligence")
+      ? "Buyer Map includes sampled public Reddit evidence. Community threads, comments, and deterministic signals are anecdotal and do not verify representative demand, company or buyer identity, budget, purchasing authority, or buying intent."
+      : evidence.evidenceSourceMode.includes("hiring_intelligence")
+        ? "Buyer Map includes bounded public hiring evidence. Jobs and hiring signals do not verify budget, expansion, replacement hiring, approved projects, identities, purchasing authority, or buying intent."
+        : evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
+          ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
+          : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
+            ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
+            : PROJECT_B_FIXTURE_WARNING,
     generatedAt: input.generatedAt,
     evidenceSourceMode: evidence.evidenceSourceMode,
     summary: {
@@ -1189,6 +1635,27 @@ export function buildBuyerMap(input: {
         (count, opportunity) =>
           count +
           opportunity.evidence.filter((citation) => citation.materialKind === "hiring_signal")
+            .length,
+        0,
+      ),
+      redditThreadCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "reddit_thread")
+            .length,
+        0,
+      ),
+      redditCommentCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "reddit_comment")
+            .length,
+        0,
+      ),
+      communitySignalCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "community_signal")
             .length,
         0,
       ),

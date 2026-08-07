@@ -2,6 +2,12 @@ import {
   BuyerHypothesesArtifactV1Schema,
   BuyerMapArtifactV1Schema,
   CluvviError,
+  CommentCollectionManifestArtifactV1Schema,
+  CommunityCommentContextArtifactV1Schema,
+  CommunitySignalsArtifactV1Schema,
+  CommunitySourcePlanArtifactV1Schema,
+  CommunitySourceRunTelemetryArtifactV1Schema,
+  CommunityThreadContextArtifactV1Schema,
   ContentParseTelemetryV1Schema,
   CrawlFrontierArtifactV1Schema,
   DiscoveryCandidatesArtifactV1Schema,
@@ -20,6 +26,7 @@ import {
   SourceAdapterRunTelemetryV1Schema,
   SourceTargetPlanArtifactV1Schema,
   StructuredContentArtifactV1Schema,
+  ThreadManifestArtifactV1Schema,
   type ArtifactType,
   type SearchResultsArtifactV2,
 } from "@cluvvi/core";
@@ -123,6 +130,36 @@ const AnyObjectSchema: RuntimeSchema<Record<string, unknown>> = {
     return value as Record<string, unknown>;
   },
 };
+
+type CommunityStageInput = { searchResults: SearchResultsArtifactV2; upstream: unknown };
+function communityStageInputSchema(
+  upstreamSchema: RuntimeSchema<unknown>,
+): RuntimeSchema<CommunityStageInput> {
+  return {
+    parse(value: unknown): CommunityStageInput {
+      const object = AnyObjectSchema.parse(value);
+      return {
+        searchResults: SearchResultsArtifactV2Schema.parse(object["searchResults"]),
+        upstream: upstreamSchema.parse(object["upstream"]),
+      };
+    },
+  };
+}
+function loadCommunityStageInput(
+  upstreamType: ArtifactType,
+): (context: StageContext) => Promise<unknown> {
+  return async (context) => {
+    const [searchResults, upstream] = await Promise.all([
+      context.getLatestArtifact("search_results"),
+      context.getLatestArtifact(upstreamType),
+    ]);
+    if (searchResults === null)
+      throw new Error(`Community stage ${context.run.phase} requires search_results.`);
+    if (upstream === null)
+      throw new Error(`Community stage ${context.run.phase} requires ${upstreamType}.`);
+    return { searchResults: searchResults.data, upstream: upstream.data };
+  };
+}
 
 interface DiscoveryStageInput {
   request: BridgeDiscoveryRequestV1;
@@ -354,6 +391,155 @@ async function requireHiringArtifactSet(
   });
 }
 
+function assertCommunityConfigured(runtime: DiscoveryRuntime, context: StageContext): void {
+  if (
+    runtime.sourceAdapterMode !== "selected_sources" ||
+    !runtime.sourceFamilies?.includes("community") ||
+    context.run.config.discoverySourceAdapterMode !== "selected_sources" ||
+    !context.run.config.discoverySourceFamilies.includes("community")
+  ) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_CONFIGURED",
+      category: "configuration",
+      message:
+        "The run requested public Reddit community intelligence, but the active Discovery runtime is not configured for the community source family.",
+      retryable: true,
+      stage: context.run.phase,
+      context: {
+        retrySafe: true,
+        resumeSupported: true,
+        discoveryReuseExpected: true,
+        hiringReuseExpected: true,
+      },
+    });
+  }
+}
+async function requireCommunityPlan(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertCommunityConfigured(runtime, context);
+  if (runtime.readCommunityPlan === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the community source plan.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readCommunityPlan({ runId: context.run.id, searchResults });
+}
+
+async function requireCommunityThreadManifest(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertCommunityConfigured(runtime, context);
+  if (runtime.readCommunityThreadManifest === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the Reddit thread manifest.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readCommunityThreadManifest({ runId: context.run.id, searchResults });
+}
+
+async function requireCommunityThreads(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertCommunityConfigured(runtime, context);
+  if (runtime.readCommunityThreads === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated Reddit thread artifacts.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readCommunityThreads({ runId: context.run.id, searchResults });
+}
+
+async function requireCommunityCommentManifest(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertCommunityConfigured(runtime, context);
+  if (runtime.readCommunityCommentManifest === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the Reddit comment manifest.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readCommunityCommentManifest({ runId: context.run.id, searchResults });
+}
+
+async function requireCommunityComments(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertCommunityConfigured(runtime, context);
+  if (runtime.readCommunityComments === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated Reddit comment artifacts.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readCommunityComments({ runId: context.run.id, searchResults });
+}
+
+async function requireCommunityAnalysis(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertCommunityConfigured(runtime, context);
+  if (runtime.readCommunityAnalysis === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated community signals.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readCommunityAnalysis({ runId: context.run.id, searchResults });
+}
+
+async function requireCommunityTelemetry(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertCommunityConfigured(runtime, context);
+  if (runtime.readCommunityArtifactSet === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_COMMUNITY_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import community telemetry.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  return runtime.readCommunityArtifactSet({ runId: context.run.id, searchResults });
+}
+
 export function createDownstreamFixtureStages(
   input: { discoveryRuntime?: DiscoveryRuntime } = {},
 ): readonly EngineStage<unknown, unknown>[] {
@@ -552,6 +738,126 @@ export function createDownstreamFixtureStages(
       },
     }),
     createDownstreamStage({
+      name: "community_planning",
+      artifactType: "community_source_plan",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: CommunitySourcePlanArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("community"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_community_source_plan",
+      async execute(searchResults, context) {
+        return (await requireCommunityPlan(discoveryRuntime, context, searchResults)).plan;
+      },
+    }),
+    createDownstreamStage({
+      name: "community_retrieval",
+      artifactType: "thread_manifest",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(CommunitySourcePlanArtifactV1Schema),
+      outputSchema: ThreadManifestArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("community"),
+      loadInput: loadCommunityStageInput("community_source_plan"),
+      toolName: "local_discovery_engine_import_thread_manifest",
+      async execute(input, context) {
+        return (
+          await requireCommunityThreadManifest(discoveryRuntime, context, input.searchResults)
+        ).threadManifest;
+      },
+    }),
+    createDownstreamStage({
+      name: "community_thread_context",
+      artifactType: "community_thread_context",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(ThreadManifestArtifactV1Schema),
+      outputSchema: CommunityThreadContextArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("community"),
+      loadInput: loadCommunityStageInput("thread_manifest"),
+      toolName: "local_discovery_engine_import_community_thread_context",
+      async execute(input, context) {
+        return (await requireCommunityThreads(discoveryRuntime, context, input.searchResults))
+          .threadContext;
+      },
+    }),
+    createDownstreamStage({
+      name: "community_comment_retrieval",
+      artifactType: "comment_collection_manifest",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(CommunityThreadContextArtifactV1Schema),
+      outputSchema: CommentCollectionManifestArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("community"),
+      loadInput: loadCommunityStageInput("community_thread_context"),
+      toolName: "local_discovery_engine_import_comment_collection_manifest",
+      async execute(input, context) {
+        return (
+          await requireCommunityCommentManifest(discoveryRuntime, context, input.searchResults)
+        ).commentManifest;
+      },
+    }),
+    createDownstreamStage({
+      name: "community_comment_context",
+      artifactType: "community_comment_context",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(CommentCollectionManifestArtifactV1Schema),
+      outputSchema: CommunityCommentContextArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("community"),
+      loadInput: loadCommunityStageInput("comment_collection_manifest"),
+      toolName: "local_discovery_engine_import_community_comment_context",
+      async execute(input, context) {
+        return (await requireCommunityComments(discoveryRuntime, context, input.searchResults))
+          .commentContext;
+      },
+    }),
+    createDownstreamStage({
+      name: "community_analysis",
+      artifactType: "community_signals",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(CommunityCommentContextArtifactV1Schema),
+      outputSchema: CommunitySignalsArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("community"),
+      loadInput: loadCommunityStageInput("community_comment_context"),
+      toolName: "local_discovery_engine_import_community_signals",
+      async execute(input, context) {
+        return (await requireCommunityAnalysis(discoveryRuntime, context, input.searchResults))
+          .signals;
+      },
+    }),
+    createDownstreamStage({
+      name: "community_source_telemetry",
+      artifactType: "community_source_telemetry",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(CommunitySignalsArtifactV1Schema),
+      outputSchema: CommunitySourceRunTelemetryArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("community"),
+      loadInput: loadCommunityStageInput("community_signals"),
+      toolName: "local_discovery_engine_import_community_source_telemetry",
+      async execute(input, context) {
+        return (await requireCommunityTelemetry(discoveryRuntime, context, input.searchResults))
+          .telemetry;
+      },
+    }),
+    createDownstreamStage({
       name: "normalization",
       artifactType: "candidates",
       version: "2.0.0",
@@ -571,7 +877,21 @@ export function createDownstreamFixtureStages(
       inputSchema: EvidenceStageInputSchema,
       outputSchema: EvidenceFindingsArtifactV1Schema,
       loadInput: loadEvidenceInput,
-      execute(input, context) {
+      async execute(input, context) {
+        let community;
+        if (
+          context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+          context.run.config.discoverySourceFamilies.includes("community")
+        ) {
+          const searchArtifact = await context.getLatestArtifact("search_results");
+          if (searchArtifact === null)
+            throw new Error("Community evidence requires the search_results artifact.");
+          community = await requireCommunityAnalysis(
+            discoveryRuntime,
+            context,
+            SearchResultsArtifactV2Schema.parse(searchArtifact.data),
+          );
+        }
         return buildEvidenceFindings(
           input.candidates,
           context.now(),
@@ -579,6 +899,7 @@ export function createDownstreamFixtureStages(
           input.structuredContent,
           input.jobCollection,
           input.hiringSignals,
+          community,
         );
       },
     }),

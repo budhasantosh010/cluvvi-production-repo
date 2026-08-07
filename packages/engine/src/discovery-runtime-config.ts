@@ -85,6 +85,33 @@ export const DISCOVERY_PROVIDER_ENV_ALLOWLIST = [
   "DISCOVERY_HIRING_ALLOW_AUTHENTICATED_FREE",
   "DISCOVERY_HIRING_MIN_TARGET_CONFIDENCE",
   "DISCOVERY_HIRING_MIN_BOARD_RELATIONSHIP_CONFIDENCE",
+  "DISCOVERY_REDDIT_ENABLED",
+  "DISCOVERY_REDDIT_DEPTH",
+  "DISCOVERY_REDDIT_MAX_QUERIES",
+  "DISCOVERY_REDDIT_MAX_DISCOVERED_SUBREDDITS",
+  "DISCOVERY_REDDIT_MAX_SELECTED_SUBREDDITS",
+  "DISCOVERY_REDDIT_MAX_THREADS",
+  "DISCOVERY_REDDIT_MAX_THREADS_DRILLED_QUICK",
+  "DISCOVERY_REDDIT_MAX_THREADS_DRILLED_DEFAULT",
+  "DISCOVERY_REDDIT_MAX_THREADS_DRILLED_DEEP",
+  "DISCOVERY_REDDIT_MAX_COMMENTS_PER_THREAD",
+  "DISCOVERY_REDDIT_MAX_TOTAL_COMMENTS",
+  "DISCOVERY_REDDIT_RSS_TIMEOUT_MS",
+  "DISCOVERY_REDDIT_LISTING_TIMEOUT_MS",
+  "DISCOVERY_REDDIT_COMMENT_TIMEOUT_MS",
+  "DISCOVERY_REDDIT_ENRICH_BUDGET_MS",
+  "DISCOVERY_REDDIT_MAX_CONCURRENCY",
+  "DISCOVERY_REDDIT_MAX_DOMAIN_CONCURRENCY",
+  "DISCOVERY_REDDIT_MAX_RSS_RESPONSE_BYTES",
+  "DISCOVERY_REDDIT_MAX_HTML_RESPONSE_BYTES",
+  "DISCOVERY_REDDIT_ARCTIC_ENABLED",
+  "DISCOVERY_REDDIT_ARCTIC_TIMEOUT_MS",
+  "DISCOVERY_REDDIT_ARCTIC_BATCH_SIZE",
+  "DISCOVERY_REDDIT_ARCTIC_MAX_BATCHES",
+  "DISCOVERY_REDDIT_ARCTIC_PACE_MS",
+  "DISCOVERY_REDDIT_ARCTIC_CACHE_MAX",
+  "DISCOVERY_REDDIT_RELEVANCE_FLOOR",
+  "DISCOVERY_REDDIT_CONTENT_SAFETY_FILTER",
 ] as const;
 
 export type DiscoveryProviderEnvironmentKey = (typeof DISCOVERY_PROVIDER_ENV_ALLOWLIST)[number];
@@ -95,6 +122,7 @@ export const CLUVVI_STRUCTURED_PARSER_POLICY_VERSION = "structured_parser_policy
 export const CLUVVI_ANYDOC_PARSER_VERSION = "@firecrawl/anydoc@0.1.6";
 export const CLUVVI_HTML_MARKDOWN_RENDERER_VERSION = "sanitized_html_to_gfm@1.0.0";
 export const CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION = "extraction_quality@1.0.0";
+export const CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION = "community_signals@1.0.0";
 export const CLUVVI_HIRING_SIGNAL_RULE_VERSION = "hiring_signals@1.0.0";
 export const CLUVVI_HIRING_TAXONOMY_VERSION = "hiring_taxonomy@1.0.0";
 export const CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION = "hiring_technology_lexicon@1.0.0";
@@ -117,6 +145,12 @@ export interface LocalDiscoveryEngineConfig {
   maximumHiringBoardsPerTarget?: number;
   maximumHiringJobsPerBoard?: number;
   maximumHiringJobsTotal?: number;
+  redditDepth?: "quick" | "default" | "deep";
+  maximumRedditQueries?: number;
+  maximumRedditSubreddits?: number;
+  maximumRedditThreads?: number;
+  maximumRedditThreadDrill?: number;
+  communitySignalRuleVersion?: string;
   hiringSignalRuleVersion?: string;
   hiringTaxonomyVersion?: string;
   hiringTechnologyLexiconVersion?: string;
@@ -145,6 +179,12 @@ export type DiscoveryRuntimeConfig =
       maximumHiringBoardsPerTarget: number;
       maximumHiringJobsPerBoard: number;
       maximumHiringJobsTotal: number;
+      redditDepth: "quick" | "default" | "deep";
+      maximumRedditQueries: number;
+      maximumRedditSubreddits: number;
+      maximumRedditThreads: number;
+      maximumRedditThreadDrill: number;
+      communitySignalRuleVersion: string;
       hiringSignalRuleVersion: string;
       hiringTaxonomyVersion: string;
       hiringTechnologyLexiconVersion: string;
@@ -170,6 +210,12 @@ export type DiscoveryRuntimeConfig =
       maximumHiringBoardsPerTarget: number;
       maximumHiringJobsPerBoard: number;
       maximumHiringJobsTotal: number;
+      redditDepth: "quick" | "default" | "deep";
+      maximumRedditQueries: number;
+      maximumRedditSubreddits: number;
+      maximumRedditThreads: number;
+      maximumRedditThreadDrill: number;
+      communitySignalRuleVersion: string;
       hiringSignalRuleVersion: string;
       hiringTaxonomyVersion: string;
       hiringTechnologyLexiconVersion: string;
@@ -201,6 +247,11 @@ const DEFAULT_MAX_HIRING_TARGETS = 10;
 const DEFAULT_MAX_HIRING_BOARDS_PER_TARGET = 4;
 const DEFAULT_MAX_HIRING_JOBS_PER_BOARD = 250;
 const DEFAULT_MAX_HIRING_JOBS_TOTAL = 2_000;
+const DEFAULT_REDDIT_DEPTH = "default" as const;
+const DEFAULT_MAX_REDDIT_QUERIES = 8;
+const DEFAULT_MAX_REDDIT_SUBREDDITS = 20;
+const DEFAULT_MAX_REDDIT_THREADS = 100;
+const DEFAULT_MAX_REDDIT_THREAD_DRILL = 5;
 
 function configuredValue(
   environment: Readonly<Record<string, string | undefined>>,
@@ -284,10 +335,10 @@ function parseSourceFamilies(value: string | undefined): CluvviSourceFamily[] {
         .filter(Boolean),
     ),
   ];
-  if (families.some((family) => family !== "hiring")) {
+  if (families.some((family) => family !== "hiring" && family !== "community")) {
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
-      "CLUVVI_DISCOVERY_SOURCE_FAMILIES currently supports only hiring.",
+      "CLUVVI_DISCOVERY_SOURCE_FAMILIES currently supports hiring and community.",
     );
   }
   return families as CluvviSourceFamily[];
@@ -437,16 +488,67 @@ export function parseDiscoveryRuntimeConfig(
       "CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD cannot exceed CLUVVI_DISCOVERY_MAX_HIRING_JOBS_TOTAL.",
     );
   }
+  const redditDepthValue =
+    configuredValue(environment, "CLUVVI_DISCOVERY_REDDIT_DEPTH") ?? DEFAULT_REDDIT_DEPTH;
+  if (
+    !(["quick", "default", "deep"] as const).includes(
+      redditDepthValue as "quick" | "default" | "deep",
+    )
+  ) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_REDDIT_DEPTH_INVALID",
+      "CLUVVI_DISCOVERY_REDDIT_DEPTH must be quick, default, or deep.",
+    );
+  }
+  const redditDepth = redditDepthValue as "quick" | "default" | "deep";
+  const maximumRedditQueries = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_REDDIT_QUERIES"),
+    DEFAULT_MAX_REDDIT_QUERIES,
+    1,
+    8,
+    "CLUVVI_DISCOVERY_MAX_REDDIT_QUERIES",
+    "LOCAL_DISCOVERY_MAX_REDDIT_QUERIES_INVALID",
+  );
+  const maximumRedditSubreddits = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_REDDIT_SUBREDDITS"),
+    DEFAULT_MAX_REDDIT_SUBREDDITS,
+    1,
+    20,
+    "CLUVVI_DISCOVERY_MAX_REDDIT_SUBREDDITS",
+    "LOCAL_DISCOVERY_MAX_REDDIT_SUBREDDITS_INVALID",
+  );
+  const maximumRedditThreads = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_REDDIT_THREADS"),
+    DEFAULT_MAX_REDDIT_THREADS,
+    1,
+    200,
+    "CLUVVI_DISCOVERY_MAX_REDDIT_THREADS",
+    "LOCAL_DISCOVERY_MAX_REDDIT_THREADS_INVALID",
+  );
+  const maximumRedditThreadDrill = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL"),
+    DEFAULT_MAX_REDDIT_THREAD_DRILL,
+    1,
+    20,
+    "CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL",
+    "LOCAL_DISCOVERY_MAX_REDDIT_THREAD_DRILL_INVALID",
+  );
+  if (maximumRedditThreadDrill > maximumRedditThreads) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_REDDIT_BUDGET_INVALID",
+      "CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL cannot exceed CLUVVI_DISCOVERY_MAX_REDDIT_THREADS.",
+    );
+  }
   if (sourceAdapterMode === "none" && sourceFamilies.length > 0) {
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
       "Source families require CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE=selected_sources.",
     );
   }
-  if (sourceAdapterMode === "selected_sources" && !sourceFamilies.includes("hiring")) {
+  if (sourceAdapterMode === "selected_sources" && sourceFamilies.length === 0) {
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
-      "selected_sources currently requires CLUVVI_DISCOVERY_SOURCE_FAMILIES=hiring.",
+      "selected_sources requires at least one approved source family.",
     );
   }
 
@@ -477,6 +579,12 @@ export function parseDiscoveryRuntimeConfig(
       maximumHiringBoardsPerTarget,
       maximumHiringJobsPerBoard,
       maximumHiringJobsTotal,
+      redditDepth,
+      maximumRedditQueries,
+      maximumRedditSubreddits,
+      maximumRedditThreads,
+      maximumRedditThreadDrill,
+      communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
       hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
       hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
       hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
@@ -565,6 +673,12 @@ export function parseDiscoveryRuntimeConfig(
     maximumHiringBoardsPerTarget,
     maximumHiringJobsPerBoard,
     maximumHiringJobsTotal,
+    redditDepth,
+    maximumRedditQueries,
+    maximumRedditSubreddits,
+    maximumRedditThreads,
+    maximumRedditThreadDrill,
+    communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
     hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
     hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
     hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
@@ -591,6 +705,12 @@ export function parseDiscoveryRuntimeConfig(
       maximumHiringBoardsPerTarget,
       maximumHiringJobsPerBoard,
       maximumHiringJobsTotal,
+      redditDepth,
+      maximumRedditQueries,
+      maximumRedditSubreddits,
+      maximumRedditThreads,
+      maximumRedditThreadDrill,
+      communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
       hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
       hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
       hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,

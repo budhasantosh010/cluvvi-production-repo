@@ -45,6 +45,12 @@ export function createRunCreationRecords(input: {
   discoveryMaximumHiringBoardsPerTarget?: number;
   discoveryMaximumHiringJobsPerBoard?: number;
   discoveryMaximumHiringJobsTotal?: number;
+  discoveryRedditDepth?: "quick" | "default" | "deep";
+  discoveryMaximumRedditQueries?: number;
+  discoveryMaximumRedditSubreddits?: number;
+  discoveryMaximumRedditThreads?: number;
+  discoveryMaximumRedditThreadDrill?: number;
+  communitySignalRuleVersion?: string;
   hiringSignalRuleVersion?: string;
   hiringTaxonomyVersion?: string;
   hiringTechnologyLexiconVersion?: string;
@@ -85,6 +91,12 @@ export function createRunCreationRecords(input: {
       discoveryMaximumHiringBoardsPerTarget: input.discoveryMaximumHiringBoardsPerTarget ?? 4,
       discoveryMaximumHiringJobsPerBoard: input.discoveryMaximumHiringJobsPerBoard ?? 250,
       discoveryMaximumHiringJobsTotal: input.discoveryMaximumHiringJobsTotal ?? 2_000,
+      discoveryRedditDepth: input.discoveryRedditDepth ?? "default",
+      discoveryMaximumRedditQueries: input.discoveryMaximumRedditQueries ?? 8,
+      discoveryMaximumRedditSubreddits: input.discoveryMaximumRedditSubreddits ?? 20,
+      discoveryMaximumRedditThreads: input.discoveryMaximumRedditThreads ?? 100,
+      discoveryMaximumRedditThreadDrill: input.discoveryMaximumRedditThreadDrill ?? 5,
+      communitySignalRuleVersion: input.communitySignalRuleVersion ?? "community_signals@1.0.0",
       hiringSignalRuleVersion: input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0",
       hiringTaxonomyVersion: input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0",
       hiringTechnologyLexiconVersion:
@@ -125,6 +137,12 @@ export function createRunCreationRecords(input: {
       discoveryMaximumHiringBoardsPerTarget: run.config.discoveryMaximumHiringBoardsPerTarget,
       discoveryMaximumHiringJobsPerBoard: run.config.discoveryMaximumHiringJobsPerBoard,
       discoveryMaximumHiringJobsTotal: run.config.discoveryMaximumHiringJobsTotal,
+      discoveryRedditDepth: run.config.discoveryRedditDepth,
+      discoveryMaximumRedditQueries: run.config.discoveryMaximumRedditQueries,
+      discoveryMaximumRedditSubreddits: run.config.discoveryMaximumRedditSubreddits,
+      discoveryMaximumRedditThreads: run.config.discoveryMaximumRedditThreads,
+      discoveryMaximumRedditThreadDrill: run.config.discoveryMaximumRedditThreadDrill,
+      communitySignalRuleVersion: run.config.communitySignalRuleVersion,
     },
     createdAt: now,
   });

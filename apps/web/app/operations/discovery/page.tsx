@@ -41,6 +41,12 @@ export default async function DiscoveryOperationsPage() {
           maximumHiringBoardsPerTarget={diagnostics.discoveryMaximumHiringBoardsPerTarget}
           maximumHiringJobsPerBoard={diagnostics.discoveryMaximumHiringJobsPerBoard}
           maximumHiringJobsTotal={diagnostics.discoveryMaximumHiringJobsTotal}
+          redditDepth={diagnostics.discoveryRedditDepth}
+          maximumRedditQueries={diagnostics.discoveryMaximumRedditQueries}
+          maximumRedditSubreddits={diagnostics.discoveryMaximumRedditSubreddits}
+          maximumRedditThreads={diagnostics.discoveryMaximumRedditThreads}
+          maximumRedditThreadDrill={diagnostics.discoveryMaximumRedditThreadDrill}
+          communitySignalRuleVersion={diagnostics.communitySignalRuleVersion}
           runtimeMode={diagnostics.discoveryRuntimeMode}
           runnerAvailable={diagnostics.runner.available}
         />

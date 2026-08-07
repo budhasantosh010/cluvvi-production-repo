@@ -51,6 +51,12 @@ describe("discovery runtime configuration", () => {
       maximumHiringBoardsPerTarget: 4,
       maximumHiringJobsPerBoard: 250,
       maximumHiringJobsTotal: 2_000,
+      redditDepth: "default",
+      maximumRedditQueries: 8,
+      maximumRedditSubreddits: 20,
+      maximumRedditThreads: 100,
+      maximumRedditThreadDrill: 5,
+      communitySignalRuleVersion: "community_signals@1.0.0",
       hiringSignalRuleVersion: "hiring_signals@1.0.0",
       hiringTaxonomyVersion: "hiring_taxonomy@1.0.0",
       hiringTechnologyLexiconVersion: "hiring_technology_lexicon@1.0.0",
@@ -339,6 +345,70 @@ describe("discovery runtime configuration", () => {
     ).toEqual({});
   });
 
+  it("parses bounded Reddit community intelligence and rejects invalid Reddit budgets", async () => {
+    const projectPath = await fakeProject();
+    const base = {
+      CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+      CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+      CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+      CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
+      CLUVVI_DISCOVERY_SOURCE_FAMILIES: "community",
+    };
+    const config = parseDiscoveryRuntimeConfig({
+      ...base,
+      CLUVVI_DISCOVERY_REDDIT_DEPTH: "deep",
+      CLUVVI_DISCOVERY_MAX_REDDIT_QUERIES: "6",
+      CLUVVI_DISCOVERY_MAX_REDDIT_SUBREDDITS: "12",
+      CLUVVI_DISCOVERY_MAX_REDDIT_THREADS: "80",
+      CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL: "8",
+      DISCOVERY_REDDIT_RSS_TIMEOUT_MS: "9000",
+      DISCOVERY_REDDIT_ARCTIC_ENABLED: "true",
+      PRIVATE_TOKEN: "must-not-forward",
+    });
+    expect(config).toMatchObject({
+      sourceAdapterMode: "selected_sources",
+      sourceFamilies: ["community"],
+      redditDepth: "deep",
+      maximumRedditQueries: 6,
+      maximumRedditSubreddits: 12,
+      maximumRedditThreads: 80,
+      maximumRedditThreadDrill: 8,
+      communitySignalRuleVersion: "community_signals@1.0.0",
+      local: {
+        sourceAdapterMode: "selected_sources",
+        sourceFamilies: ["community"],
+        redditDepth: "deep",
+        maximumRedditQueries: 6,
+        maximumRedditSubreddits: 12,
+        maximumRedditThreads: 80,
+        maximumRedditThreadDrill: 8,
+        providerEnvironment: {
+          DISCOVERY_REDDIT_RSS_TIMEOUT_MS: "9000",
+          DISCOVERY_REDDIT_ARCTIC_ENABLED: "true",
+        },
+      },
+    });
+    if (config.mode !== "local_discovery_engine") throw new Error("Expected local config.");
+    expect(config.local.providerEnvironment).not.toHaveProperty("PRIVATE_TOKEN");
+    expectCode(
+      () => parseDiscoveryRuntimeConfig({ ...base, CLUVVI_DISCOVERY_REDDIT_DEPTH: "extreme" }),
+      "LOCAL_DISCOVERY_REDDIT_DEPTH_INVALID",
+    );
+    expectCode(
+      () => parseDiscoveryRuntimeConfig({ ...base, CLUVVI_DISCOVERY_MAX_REDDIT_QUERIES: "9" }),
+      "LOCAL_DISCOVERY_MAX_REDDIT_QUERIES_INVALID",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          ...base,
+          CLUVVI_DISCOVERY_MAX_REDDIT_THREADS: "3",
+          CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL: "5",
+        }),
+      "LOCAL_DISCOVERY_REDDIT_BUDGET_INVALID",
+    );
+  });
+
   it("rejects invalid source-adapter mode, family, and hiring budgets", async () => {
     expectCode(
       () =>
@@ -363,7 +433,7 @@ describe("discovery runtime configuration", () => {
         parseDiscoveryRuntimeConfig({
           ...base,
           CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
-          CLUVVI_DISCOVERY_SOURCE_FAMILIES: "community",
+          CLUVVI_DISCOVERY_SOURCE_FAMILIES: "github",
         }),
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
     );

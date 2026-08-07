@@ -65,6 +65,12 @@ export interface CapabilityReport {
   discoveryMaximumHiringBoardsPerTarget: number;
   discoveryMaximumHiringJobsPerBoard: number;
   discoveryMaximumHiringJobsTotal: number;
+  discoveryRedditDepth: "quick" | "default" | "deep";
+  discoveryMaximumRedditQueries: number;
+  discoveryMaximumRedditSubreddits: number;
+  discoveryMaximumRedditThreads: number;
+  discoveryMaximumRedditThreadDrill: number;
+  communitySignalRuleVersion: string;
   capabilities: {
     localEngine: true;
     missionCompiler: false;
@@ -99,6 +105,12 @@ export interface LocalDiagnostics {
   discoveryMaximumHiringBoardsPerTarget: number;
   discoveryMaximumHiringJobsPerBoard: number;
   discoveryMaximumHiringJobsTotal: number;
+  discoveryRedditDepth: "quick" | "default" | "deep";
+  discoveryMaximumRedditQueries: number;
+  discoveryMaximumRedditSubreddits: number;
+  discoveryMaximumRedditThreads: number;
+  discoveryMaximumRedditThreadDrill: number;
+  communitySignalRuleVersion: string;
   runner: {
     available: boolean;
     heartbeat: RunnerHeartbeat | null;

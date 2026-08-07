@@ -83,6 +83,12 @@ export class CluvviEngine {
   readonly #discoveryMaximumHiringBoardsPerTarget: number;
   readonly #discoveryMaximumHiringJobsPerBoard: number;
   readonly #discoveryMaximumHiringJobsTotal: number;
+  readonly #discoveryRedditDepth: "quick" | "default" | "deep";
+  readonly #discoveryMaximumRedditQueries: number;
+  readonly #discoveryMaximumRedditSubreddits: number;
+  readonly #discoveryMaximumRedditThreads: number;
+  readonly #discoveryMaximumRedditThreadDrill: number;
+  readonly #communitySignalRuleVersion: string;
   readonly #hiringSignalRuleVersion: string;
   readonly #hiringTaxonomyVersion: string;
   readonly #hiringTechnologyLexiconVersion: string;
@@ -96,6 +102,7 @@ export class CluvviEngine {
   readonly #extractionConfigurationFingerprint: string;
   readonly #structuredConfigurationFingerprint: string;
   readonly #sourceAdapterConfigurationFingerprint: string;
+  readonly #communityConfigurationFingerprint: string;
 
   constructor(input: {
     store: CluvviStore;
@@ -119,6 +126,12 @@ export class CluvviEngine {
     discoveryMaximumHiringBoardsPerTarget?: number;
     discoveryMaximumHiringJobsPerBoard?: number;
     discoveryMaximumHiringJobsTotal?: number;
+    discoveryRedditDepth?: "quick" | "default" | "deep";
+    discoveryMaximumRedditQueries?: number;
+    discoveryMaximumRedditSubreddits?: number;
+    discoveryMaximumRedditThreads?: number;
+    discoveryMaximumRedditThreadDrill?: number;
+    communitySignalRuleVersion?: string;
     hiringSignalRuleVersion?: string;
     hiringTaxonomyVersion?: string;
     hiringTechnologyLexiconVersion?: string;
@@ -132,6 +145,7 @@ export class CluvviEngine {
     extractionConfigurationFingerprint?: string;
     structuredConfigurationFingerprint?: string;
     sourceAdapterConfigurationFingerprint?: string;
+    communityConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -154,6 +168,13 @@ export class CluvviEngine {
     this.#discoveryMaximumHiringBoardsPerTarget = input.discoveryMaximumHiringBoardsPerTarget ?? 4;
     this.#discoveryMaximumHiringJobsPerBoard = input.discoveryMaximumHiringJobsPerBoard ?? 250;
     this.#discoveryMaximumHiringJobsTotal = input.discoveryMaximumHiringJobsTotal ?? 2_000;
+    this.#discoveryRedditDepth = input.discoveryRedditDepth ?? "default";
+    this.#discoveryMaximumRedditQueries = input.discoveryMaximumRedditQueries ?? 8;
+    this.#discoveryMaximumRedditSubreddits = input.discoveryMaximumRedditSubreddits ?? 20;
+    this.#discoveryMaximumRedditThreads = input.discoveryMaximumRedditThreads ?? 100;
+    this.#discoveryMaximumRedditThreadDrill = input.discoveryMaximumRedditThreadDrill ?? 5;
+    this.#communitySignalRuleVersion =
+      input.communitySignalRuleVersion ?? "community_signals@1.0.0";
     this.#hiringSignalRuleVersion = input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
     this.#hiringTaxonomyVersion = input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
     this.#hiringTechnologyLexiconVersion =
@@ -175,6 +196,8 @@ export class CluvviEngine {
       input.structuredConfigurationFingerprint ?? "fixture-no-structured-content";
     this.#sourceAdapterConfigurationFingerprint =
       input.sourceAdapterConfigurationFingerprint ?? "fixture-no-source-adapters";
+    this.#communityConfigurationFingerprint =
+      input.communityConfigurationFingerprint ?? "fixture-no-community-sources";
   }
 
   async start(input: {
@@ -202,6 +225,12 @@ export class CluvviEngine {
       discoveryMaximumHiringBoardsPerTarget: this.#discoveryMaximumHiringBoardsPerTarget,
       discoveryMaximumHiringJobsPerBoard: this.#discoveryMaximumHiringJobsPerBoard,
       discoveryMaximumHiringJobsTotal: this.#discoveryMaximumHiringJobsTotal,
+      discoveryRedditDepth: this.#discoveryRedditDepth,
+      discoveryMaximumRedditQueries: this.#discoveryMaximumRedditQueries,
+      discoveryMaximumRedditSubreddits: this.#discoveryMaximumRedditSubreddits,
+      discoveryMaximumRedditThreads: this.#discoveryMaximumRedditThreads,
+      discoveryMaximumRedditThreadDrill: this.#discoveryMaximumRedditThreadDrill,
+      communitySignalRuleVersion: this.#communitySignalRuleVersion,
       hiringSignalRuleVersion: this.#hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.#hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.#hiringTechnologyLexiconVersion,
@@ -297,7 +326,30 @@ export class CluvviEngine {
             "hiring_analysis",
             "source_adapter_telemetry",
           ].includes(stage.name)
-            ? { sourceAdapterConfiguration: this.#sourceAdapterConfigurationFingerprint }
+            ? {
+                sourceAdapterConfiguration: this.#sourceAdapterConfigurationFingerprint,
+                sourceFamily: "hiring",
+              }
+            : {}),
+          ...([
+            "community_planning",
+            "community_retrieval",
+            "community_thread_context",
+            "community_comment_retrieval",
+            "community_comment_context",
+            "community_analysis",
+            "community_source_telemetry",
+          ].includes(stage.name)
+            ? {
+                communityConfiguration: this.#communityConfigurationFingerprint,
+                sourceFamily: "community",
+                redditDepth: this.#discoveryRedditDepth,
+                maximumRedditQueries: this.#discoveryMaximumRedditQueries,
+                maximumRedditSubreddits: this.#discoveryMaximumRedditSubreddits,
+                maximumRedditThreads: this.#discoveryMaximumRedditThreads,
+                maximumRedditThreadDrill: this.#discoveryMaximumRedditThreadDrill,
+                communitySignalRuleVersion: this.#communitySignalRuleVersion,
+              }
             : {}),
         });
         const previousSkipped = (await this.#store.listStageExecutions(run.id)).find(
@@ -360,6 +412,17 @@ export class CluvviEngine {
           "source_adapter_telemetry",
         ].includes(stage.name)
           ? { sourceAdapterConfiguration: this.#sourceAdapterConfigurationFingerprint }
+          : {}),
+        ...([
+          "community_planning",
+          "community_retrieval",
+          "community_thread_context",
+          "community_comment_retrieval",
+          "community_comment_context",
+          "community_analysis",
+          "community_source_telemetry",
+        ].includes(stage.name)
+          ? { communityConfiguration: this.#communityConfigurationFingerprint }
           : {}),
       });
       const previous = await this.#store.findCompletedStageExecution(

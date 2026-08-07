@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  CommunityQueryIntentV1Schema,
+  CommunitySignalTypeV1Schema,
+} from "./community/community-artifacts";
+import {
   HiringProviderIdV1Schema,
   RoleFamilyV1Schema,
   SeniorityLevelV1Schema,
@@ -20,6 +24,7 @@ export const EvidenceSignalTypeSchema = z.enum([
   "buyer_fit_signal",
   "company_fit_signal",
   "hiring_signal",
+  "community_signal",
   "procurement_signal",
   "budget_signal",
   "competitor_signal",
@@ -44,6 +49,9 @@ export const EvidenceMaterialKindV1Schema = z.enum([
   "structured_footnote",
   "public_job_posting",
   "hiring_signal",
+  "reddit_thread",
+  "reddit_comment",
+  "community_signal",
 ]);
 export type EvidenceMaterialKindV1 = z.infer<typeof EvidenceMaterialKindV1Schema>;
 
@@ -71,6 +79,25 @@ export const EvidenceMaterialV1Schema = z
     department: z.string().min(1).optional(),
     technologyMentions: z.array(z.string().min(1)).max(100).optional(),
     confidence: z.number().min(0).max(1).optional(),
+    threadArtifactId: z.string().min(1).optional(),
+    commentCollectionArtifactId: z.string().min(1).optional(),
+    commentId: z.string().min(1).optional(),
+    communitySignalId: z.string().min(1).optional(),
+    communitySignalType: CommunitySignalTypeV1Schema.optional(),
+    subreddit: z.string().min(2).max(21).optional(),
+    communityQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    communityQueryIntents: z.array(CommunityQueryIntentV1Schema).max(20).optional(),
+    relevanceScore: z.number().min(0).max(1).optional(),
+    redditLocalScore: z.number().min(0).max(2).optional(),
+    engagementSource: z
+      .enum(["reddit_live_listing", "reddit_live_comments", "arctic_shift_archive"])
+      .optional(),
+    engagementObservationSource: z
+      .enum(["reddit_live_listing", "reddit_live_comments", "arctic_shift_archive"])
+      .optional(),
+    engagementState: z.enum(["unknown", "live", "archived"]).optional(),
+    engagementStalePossible: z.boolean().optional(),
+    independentThreadCount: z.number().int().nonnegative().optional(),
     extractionItemId: z.string().min(1).optional(),
     frontierItemId: z.string().min(1).optional(),
     structuredContentItemId: z.string().min(1).optional(),
@@ -162,6 +189,25 @@ export const EvidenceProvenanceV1Schema = z
     department: z.string().min(1).optional(),
     technologyMentions: z.array(z.string().min(1)).max(100).optional(),
     confidence: z.number().min(0).max(1).optional(),
+    threadArtifactId: z.string().min(1).optional(),
+    commentCollectionArtifactId: z.string().min(1).optional(),
+    commentId: z.string().min(1).optional(),
+    communitySignalId: z.string().min(1).optional(),
+    communitySignalType: CommunitySignalTypeV1Schema.optional(),
+    subreddit: z.string().min(2).max(21).optional(),
+    communityQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    communityQueryIntents: z.array(CommunityQueryIntentV1Schema).max(20).optional(),
+    relevanceScore: z.number().min(0).max(1).optional(),
+    redditLocalScore: z.number().min(0).max(2).optional(),
+    engagementSource: z
+      .enum(["reddit_live_listing", "reddit_live_comments", "arctic_shift_archive"])
+      .optional(),
+    engagementObservationSource: z
+      .enum(["reddit_live_listing", "reddit_live_comments", "arctic_shift_archive"])
+      .optional(),
+    engagementState: z.enum(["unknown", "live", "archived"]).optional(),
+    engagementStalePossible: z.boolean().optional(),
+    independentThreadCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type EvidenceProvenanceV1 = z.infer<typeof EvidenceProvenanceV1Schema>;
@@ -253,6 +299,9 @@ export const EvidenceFindingsArtifactV1Schema = z
         "snippet_plus_public_hiring_intelligence",
         "snippet_plus_extracted_and_hiring_intelligence",
         "snippet_plus_structured_and_hiring_intelligence",
+        "snippet_plus_public_community_intelligence",
+        "snippet_plus_hiring_and_community_intelligence",
+        "snippet_plus_structured_hiring_and_community_intelligence",
       ])
       .default("snippet_only"),
     materials: z.array(EvidenceMaterialV1Schema).default([]),

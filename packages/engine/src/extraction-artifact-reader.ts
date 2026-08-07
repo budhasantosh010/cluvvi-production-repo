@@ -87,19 +87,24 @@ export async function readValidatedExtractionArtifactSet(input: {
   searchResults: SearchResultsArtifactV2;
 }): Promise<ValidatedExtractionArtifactSet> {
   const paths = discoveryExchangePaths(input.runsDirectory, input.runId);
-  const [frontier, extractedContent, telemetry] = await Promise.all([
-    readJson(paths.frontierPath, "CRAWL_FRONTIER_MISSING", "CRAWL_FRONTIER_INVALID_JSON"),
-    readJson(
-      paths.extractedContentPath,
-      "EXTRACTED_CONTENT_MISSING",
-      "EXTRACTED_CONTENT_INVALID_JSON",
-    ),
-    readJson(
-      paths.extractionTelemetryPath,
-      "EXTRACTION_TELEMETRY_MISSING",
-      "EXTRACTION_TELEMETRY_INVALID_JSON",
-    ),
-  ]);
+  // Preserve deterministic failure precedence across companion files. A missing frontier
+  // must win before content, and missing content must win before telemetry, rather than
+  // depending on which Promise rejects first on the local filesystem.
+  const frontier = await readJson(
+    paths.frontierPath,
+    "CRAWL_FRONTIER_MISSING",
+    "CRAWL_FRONTIER_INVALID_JSON",
+  );
+  const extractedContent = await readJson(
+    paths.extractedContentPath,
+    "EXTRACTED_CONTENT_MISSING",
+    "EXTRACTED_CONTENT_INVALID_JSON",
+  );
+  const telemetry = await readJson(
+    paths.extractionTelemetryPath,
+    "EXTRACTION_TELEMETRY_MISSING",
+    "EXTRACTION_TELEMETRY_INVALID_JSON",
+  );
   try {
     const validated = validateExtractionArtifactSet(
       input.searchResults,

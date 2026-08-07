@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { writeControlledExtractionSidecars } from "./extraction-sidecars.mjs";
 import { writeControlledHiringSidecars } from "./hiring-sidecars.mjs";
+import { writeControlledCommunitySidecars } from "./community-sidecars.mjs";
 import { writeControlledStructuredSidecars } from "./structured-sidecars.mjs";
 
 const args = process.argv.slice(2);
@@ -18,6 +19,11 @@ const sourceFamiliesIndex = args.indexOf("--source-families");
 const maximumHiringTargetsIndex = args.indexOf("--max-hiring-targets");
 const maximumHiringBoardsPerTargetIndex = args.indexOf("--max-hiring-boards-per-target");
 const maximumHiringJobsPerBoardIndex = args.indexOf("--max-hiring-jobs-per-board");
+const redditDepthIndex = args.indexOf("--reddit-depth");
+const maximumRedditQueriesIndex = args.indexOf("--reddit-max-queries");
+const maximumRedditSubredditsIndex = args.indexOf("--reddit-max-subreddits");
+const maximumRedditThreadsIndex = args.indexOf("--reddit-max-threads");
+const maximumRedditThreadDrillIndex = args.indexOf("--reddit-max-thread-drill");
 const outputIndex = args.indexOf("--output");
 const providerMode = providerModeIndex >= 0 ? args[providerModeIndex + 1] : "fixture_only";
 const providerPolicy = providerPolicyIndex >= 0 ? args[providerPolicyIndex + 1] : "free_only";
@@ -44,6 +50,21 @@ const maximumHiringBoardsPerTarget =
   maximumHiringBoardsPerTargetIndex >= 0 ? Number(args[maximumHiringBoardsPerTargetIndex + 1]) : 4;
 const maximumHiringJobsPerBoard =
   maximumHiringJobsPerBoardIndex >= 0 ? Number(args[maximumHiringJobsPerBoardIndex + 1]) : 250;
+const redditDepth = redditDepthIndex >= 0 ? args[redditDepthIndex + 1] : "default";
+const maximumRedditQueries =
+  maximumRedditQueriesIndex >= 0 ? Number(args[maximumRedditQueriesIndex + 1]) : 8;
+const maximumRedditSubreddits =
+  maximumRedditSubredditsIndex >= 0 ? Number(args[maximumRedditSubredditsIndex + 1]) : 20;
+const maximumRedditThreads =
+  maximumRedditThreadsIndex >= 0 ? Number(args[maximumRedditThreadsIndex + 1]) : 100;
+const maximumRedditThreadDrill =
+  maximumRedditThreadDrillIndex >= 0
+    ? Number(args[maximumRedditThreadDrillIndex + 1])
+    : redditDepth === "quick"
+      ? 3
+      : redditDepth === "deep"
+        ? 8
+        : 5;
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
 if (
   !requestPath ||
@@ -62,8 +83,8 @@ if (
   maximumDocumentResources < 1 ||
   maximumDocumentResources > maximumStructuredResources ||
   !["none", "selected_sources"].includes(sourceAdapterMode) ||
-  sourceFamilies.some((family) => family !== "hiring") ||
-  (sourceAdapterMode === "selected_sources" && !sourceFamilies.includes("hiring")) ||
+  sourceFamilies.some((family) => family !== "hiring" && family !== "community") ||
+  (sourceAdapterMode === "selected_sources" && sourceFamilies.length === 0) ||
   !Number.isInteger(maximumHiringTargets) ||
   maximumHiringTargets < 1 ||
   maximumHiringTargets > 100 ||
@@ -73,6 +94,20 @@ if (
   !Number.isInteger(maximumHiringJobsPerBoard) ||
   maximumHiringJobsPerBoard < 1 ||
   maximumHiringJobsPerBoard > 1000 ||
+  !["quick", "default", "deep"].includes(redditDepth) ||
+  !Number.isInteger(maximumRedditQueries) ||
+  maximumRedditQueries < 1 ||
+  maximumRedditQueries > 8 ||
+  !Number.isInteger(maximumRedditSubreddits) ||
+  maximumRedditSubreddits < 1 ||
+  maximumRedditSubreddits > 20 ||
+  !Number.isInteger(maximumRedditThreads) ||
+  maximumRedditThreads < 1 ||
+  maximumRedditThreads > 200 ||
+  !Number.isInteger(maximumRedditThreadDrill) ||
+  maximumRedditThreadDrill < 1 ||
+  maximumRedditThreadDrill > 20 ||
+  maximumRedditThreadDrill > maximumRedditThreads ||
   (structuredContentMode === "selected_resources" && extractionMode !== "selected_public_pages")
 ) {
   console.error(
@@ -105,7 +140,30 @@ const templatePath = resolve(
 const template = JSON.parse(await readFile(templatePath, "utf8"));
 
 if (providerMode === "fixture_only") {
-  const artifact = { ...template, requestId: request.requestId };
+  const communityResults = sourceFamilies.includes("community")
+    ? template.results.map((result, index) =>
+        index === 0
+          ? {
+              ...result,
+              title: "Fixture Frame Studio public workflow page",
+              url: "https://frame-studio.invalid/workflow",
+              domain: "frame-studio.invalid",
+              authorOrCompany: "Fixture Frame Studio",
+              credibility: "official",
+            }
+          : result,
+      )
+    : template.results;
+  const artifact = {
+    ...template,
+    requestId: request.requestId,
+    results: communityResults,
+    summary: {
+      ...template.summary,
+      rawResults: communityResults.length,
+      dedupedResults: communityResults.length,
+    },
+  };
   await writeFile(outputPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
   await writeControlledExtractionSidecars({
     outputPath,
@@ -131,6 +189,18 @@ if (providerMode === "fixture_only") {
     maximumHiringTargets,
     maximumHiringBoardsPerTarget,
     maximumHiringJobsPerBoard,
+  });
+  await writeControlledCommunitySidecars({
+    outputPath,
+    searchResults: artifact,
+    behavior,
+    sourceAdapterMode,
+    sourceFamilies,
+    redditDepth,
+    maximumRedditQueries,
+    maximumRedditSubreddits,
+    maximumRedditThreads,
+    maximumRedditThreadDrill,
   });
   console.log(`Wrote fixture search_results.v2 for ${request.requestId}.`);
   process.exit(0);

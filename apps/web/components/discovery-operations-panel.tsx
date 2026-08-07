@@ -24,6 +24,12 @@ interface DiscoveryOperationsPanelProps {
   maximumHiringBoardsPerTarget: number;
   maximumHiringJobsPerBoard: number;
   maximumHiringJobsTotal: number;
+  redditDepth: "quick" | "default" | "deep";
+  maximumRedditQueries: number;
+  maximumRedditSubreddits: number;
+  maximumRedditThreads: number;
+  maximumRedditThreadDrill: number;
+  communitySignalRuleVersion: string;
   runtimeMode: "fixture" | "local_discovery_engine";
   runnerAvailable: boolean;
 }
@@ -42,6 +48,12 @@ export function DiscoveryOperationsPanel({
   maximumHiringBoardsPerTarget,
   maximumHiringJobsPerBoard,
   maximumHiringJobsTotal,
+  redditDepth,
+  maximumRedditQueries,
+  maximumRedditSubreddits,
+  maximumRedditThreads,
+  maximumRedditThreadDrill,
+  communitySignalRuleVersion,
   runtimeMode,
   runnerAvailable,
 }: DiscoveryOperationsPanelProps) {
@@ -51,13 +63,28 @@ export function DiscoveryOperationsPanel({
     useState<CluvviStructuredContentMode>(structuredContentMode);
   const [previewSourceAdapterMode, setPreviewSourceAdapterMode] =
     useState<CluvviSourceAdapterMode>(sourceAdapterMode);
+  const activeFamilyMode =
+    sourceFamilies.includes("hiring") && sourceFamilies.includes("community")
+      ? "both"
+      : sourceFamilies.includes("community")
+        ? "community"
+        : "hiring";
+  const [previewSourceFamilyMode, setPreviewSourceFamilyMode] = useState<
+    "hiring" | "community" | "both"
+  >(activeFamilyMode);
   const active =
     previewExtractionMode === extractionMode &&
     previewStructuredMode === structuredContentMode &&
-    previewSourceAdapterMode === sourceAdapterMode;
+    previewSourceAdapterMode === sourceAdapterMode &&
+    (previewSourceAdapterMode === "none" || previewSourceFamilyMode === activeFamilyMode);
   const selectedPages = previewExtractionMode === "selected_public_pages";
   const selectedStructured = previewStructuredMode === "selected_resources";
-  const selectedHiring = previewSourceAdapterMode === "selected_sources";
+  const selectedHiring =
+    previewSourceAdapterMode === "selected_sources" &&
+    (previewSourceFamilyMode === "hiring" || previewSourceFamilyMode === "both");
+  const selectedCommunity =
+    previewSourceAdapterMode === "selected_sources" &&
+    (previewSourceFamilyMode === "community" || previewSourceFamilyMode === "both");
 
   return (
     <div className="grid gap-6">
@@ -84,7 +111,7 @@ export function DiscoveryOperationsPanel({
           </span>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="mt-6 grid gap-4 lg:grid-cols-4">
           <label className="block min-w-0" htmlFor="extraction-mode-preview">
             <span className="field-label">Public-page extraction</span>
             <select
@@ -124,6 +151,7 @@ export function DiscoveryOperationsPanel({
             <span className="field-label">Public source adapters</span>
             <select
               id="source-adapter-mode-preview"
+              aria-label="Public source adapters"
               className="field-input mt-2 w-full min-w-0 max-w-full"
               value={previewSourceAdapterMode}
               onChange={(event) =>
@@ -131,12 +159,29 @@ export function DiscoveryOperationsPanel({
               }
             >
               <option value="none">Disabled — no source-family sidecars</option>
-              <option value="selected_sources">Hiring — public ATS and careers evidence</option>
+              <option value="selected_sources">Selected public source families</option>
+            </select>
+          </label>
+          <label className="block min-w-0" htmlFor="source-family-preview">
+            <span className="field-label">Source families</span>
+            <select
+              id="source-family-preview"
+              aria-label="Source families"
+              className="field-input mt-2 w-full min-w-0 max-w-full"
+              value={previewSourceFamilyMode}
+              disabled={previewSourceAdapterMode === "none"}
+              onChange={(event) =>
+                setPreviewSourceFamilyMode(event.target.value as "hiring" | "community" | "both")
+              }
+            >
+              <option value="hiring">Hiring — public ATS/jobs</option>
+              <option value="community">Community — keyless public Reddit</option>
+              <option value="both">Hiring + community</option>
             </select>
           </label>
         </div>
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-4">
+        <div className="mt-6 grid gap-4 xl:grid-cols-5">
           <article
             className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
               !selectedPages
@@ -219,6 +264,34 @@ export function DiscoveryOperationsPanel({
               <li>• No candidate data, applications, or private ATS APIs</li>
             </ul>
           </article>
+          <article
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
+              selectedCommunity
+                ? "border-neutral-950 bg-neutral-950 text-white"
+                : "border-neutral-200 bg-neutral-50 text-neutral-900"
+            }`}
+            data-testid="community-mode-card"
+          >
+            <p className={`eyebrow ${selectedCommunity ? "text-neutral-300" : ""}`}>
+              C1-J.2 community
+            </p>
+            <h3 className="mt-2 text-lg font-semibold">Keyless public Reddit intelligence</h3>
+            <ul
+              className={`mt-3 grid gap-2 text-sm leading-6 ${selectedCommunity ? "text-neutral-300" : "text-neutral-600"}`}
+            >
+              <li>
+                • Depth {redditDepth}; up to {maximumRedditQueries} semantic queries
+              </li>
+              <li>
+                • Up to {maximumRedditSubreddits} selected subreddits and {maximumRedditThreads}{" "}
+                threads
+              </li>
+              <li>• Relevance-first drill into at most {maximumRedditThreadDrill} threads</li>
+              <li>• RSS breadth, Shreddit where available, optional Arctic score backfill</li>
+              <li>• No Reddit login, OAuth, cookies, paid API, or challenge bypass</li>
+              <li>• Sampled discussion is anecdotal; engagement may be unknown or stale</li>
+            </ul>
+          </article>
         </div>
 
         {!active && (
@@ -252,6 +325,12 @@ export function DiscoveryOperationsPanel({
             ["Maximum boards per target", String(maximumHiringBoardsPerTarget)],
             ["Maximum jobs per board", String(maximumHiringJobsPerBoard)],
             ["Maximum hiring jobs total", String(maximumHiringJobsTotal)],
+            ["Reddit depth", redditDepth],
+            ["Maximum Reddit queries", String(maximumRedditQueries)],
+            ["Maximum selected subreddits", String(maximumRedditSubreddits)],
+            ["Maximum Reddit threads", String(maximumRedditThreads)],
+            ["Maximum Reddit thread drill", String(maximumRedditThreadDrill)],
+            ["Community signal rules", communitySignalRuleVersion],
             ["Structured parser policy", "structured_parser_policy@1.0.0"],
             ["AnyDoc parser", "@firecrawl/anydoc@0.1.6"],
             ["HTML renderer", "sanitized_html_to_gfm@1.0.0"],
@@ -267,12 +346,15 @@ export function DiscoveryOperationsPanel({
 
       <section className="rounded-3xl border border-violet-200 bg-violet-50 p-6 sm:p-8">
         <p className="eyebrow text-violet-700">Hard scope boundary</p>
-        <h2 className="mt-2 text-xl font-semibold text-violet-950">What C1-J still does not do</h2>
+        <h2 className="mt-2 text-xl font-semibold text-violet-950">
+          What C1-J.2 still does not do
+        </h2>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-violet-900">
-          No recursive crawling, browser or JavaScript rendering, OCR execution, comments or
-          transcripts, platform adapters, identity verification, contacts, enrichment, outreach,
-          monitoring, or workflow automation. Parsing a document does not prove a claim, identity,
-          buyer role, budget, or purchase intent.
+          No recursive crawling, browser or JavaScript challenge bypass, OCR execution, private
+          communities, direct messages, authenticated Reddit access, contact enrichment, outreach,
+          monitoring, or workflow automation. Public Reddit discussion is sampled anecdotal
+          evidence; it does not prove representative demand, company or buyer identity, budget,
+          purchasing authority, or purchase intent.
         </p>
       </section>
     </div>

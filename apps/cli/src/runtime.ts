@@ -33,6 +33,13 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
     discoveryMaximumHiringBoardsPerTarget: discoveryRuntime.maximumHiringBoardsPerTarget ?? 4,
     discoveryMaximumHiringJobsPerBoard: discoveryRuntime.maximumHiringJobsPerBoard ?? 250,
     discoveryMaximumHiringJobsTotal: discoveryRuntime.maximumHiringJobsTotal ?? 2_000,
+    discoveryRedditDepth: discoveryRuntime.redditDepth ?? "default",
+    discoveryMaximumRedditQueries: discoveryRuntime.maximumRedditQueries ?? 8,
+    discoveryMaximumRedditSubreddits: discoveryRuntime.maximumRedditSubreddits ?? 20,
+    discoveryMaximumRedditThreads: discoveryRuntime.maximumRedditThreads ?? 100,
+    discoveryMaximumRedditThreadDrill: discoveryRuntime.maximumRedditThreadDrill ?? 5,
+    communitySignalRuleVersion:
+      discoveryRuntime.communitySignalRuleVersion ?? "community_signals@1.0.0",
     hiringSignalRuleVersion: discoveryRuntime.hiringSignalRuleVersion ?? "hiring_signals@1.0.0",
     hiringTaxonomyVersion: discoveryRuntime.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0",
     hiringTechnologyLexiconVersion:
@@ -53,6 +60,8 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
       discoveryRuntime.structuredConfigurationFingerprint ?? "fixture-no-structured-content",
     sourceAdapterConfigurationFingerprint:
       discoveryRuntime.sourceAdapterConfigurationFingerprint ?? "fixture-no-source-adapters",
+    communityConfigurationFingerprint:
+      discoveryRuntime.communityConfigurationFingerprint ?? "fixture-no-community-sources",
     ...(eventSink === undefined ? {} : { eventSink }),
   });
   return { paths, store, engine, discoveryConfig };

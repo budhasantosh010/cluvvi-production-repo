@@ -43,6 +43,9 @@ function citationLabel(materialKind: string | undefined): string {
   if (materialKind === "extracted_json_ld") return "Public JSON-LD";
   if (materialKind === "public_job_posting") return "Observed public job";
   if (materialKind === "hiring_signal") return "Cautious hiring signal";
+  if (materialKind === "reddit_thread") return "Public Reddit thread";
+  if (materialKind === "reddit_comment") return "Selected Reddit comment";
+  if (materialKind === "community_signal") return "Cautious community signal";
   return "Search snippet";
 }
 
@@ -83,6 +86,7 @@ export function DownstreamFixtureView({
     evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages" ||
     evidence.evidenceSourceMode === "snippet_plus_extracted_and_hiring_intelligence";
   const hiringEvidence = evidence.evidenceSourceMode.includes("hiring_intelligence");
+  const communityEvidence = evidence.evidenceSourceMode.includes("community_intelligence");
   const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = discoveryProviderMode === "live_search";
   const rankingByEntity = new Map(
@@ -129,6 +133,9 @@ export function DownstreamFixtureView({
                   {hiringEvidence
                     ? "Observed public job postings and deterministic hiring signals are also shown as bounded, untrusted evidence; they do not prove budget, expansion, replacement hiring, approved projects, or purchase intent. "
                     : ""}
+                  {communityEvidence
+                    ? "Sampled public Reddit threads, selected comments, and deterministic community signals are shown as anecdotal context; they do not prove representative demand, buyer identity, budget, authority, or purchase intent. "
+                    : ""}
                   Buyer identity and contact routes remain hypotheses for manual verification.
                 </>
               ) : localDiscovery ? (
@@ -147,29 +154,33 @@ export function DownstreamFixtureView({
             </p>
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
-            {hiringEvidence
-              ? liveDiscovery
-                ? "Live search + public hiring evidence"
-                : "Public hiring evidence · manual verification"
-              : liveDiscovery
-                ? structuredEvidence
-                  ? "Live search + structured evidence"
-                  : extractedEvidence
-                    ? "Live search + page evidence"
-                    : "Live snippets · manual verification"
-                : localDiscovery
+            {communityEvidence
+              ? hiringEvidence
+                ? "Public hiring + community evidence"
+                : "Public Reddit evidence · anecdotal"
+              : hiringEvidence
+                ? liveDiscovery
+                  ? "Live search + public hiring evidence"
+                  : "Public hiring evidence · manual verification"
+                : liveDiscovery
                   ? structuredEvidence
-                    ? "Fixture search + structured evidence"
+                    ? "Live search + structured evidence"
                     : extractedEvidence
-                      ? "Fixture search + public pages"
-                      : "Local engine · fixture providers"
-                  : "Synthetic · no live discovery"}
+                      ? "Live search + page evidence"
+                      : "Live snippets · manual verification"
+                  : localDiscovery
+                    ? structuredEvidence
+                      ? "Fixture search + structured evidence"
+                      : extractedEvidence
+                        ? "Fixture search + public pages"
+                        : "Local engine · fixture providers"
+                    : "Synthetic · no live discovery"}
           </span>
         </div>
       </div>
 
       <div className="grid gap-8 p-6 sm:p-8">
-        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-10">
           <div className="metric-card">
             <dt>Ranked opportunities</dt>
             <dd>{buyerMap.summary.rankedOpportunityCount}</dd>
@@ -197,6 +208,18 @@ export function DownstreamFixtureView({
           <div className="metric-card" data-testid="buyer-map-hiring-signal-count">
             <dt>Hiring signal citations</dt>
             <dd>{buyerMap.summary.hiringSignalCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-reddit-thread-count">
+            <dt>Reddit thread citations</dt>
+            <dd>{buyerMap.summary.redditThreadCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-reddit-comment-count">
+            <dt>Reddit comment citations</dt>
+            <dd>{buyerMap.summary.redditCommentCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-community-signal-count">
+            <dt>Community signal citations</dt>
+            <dd>{buyerMap.summary.communitySignalCitationCount}</dd>
           </div>
         </dl>
 
@@ -306,6 +329,22 @@ export function DownstreamFixtureView({
                             </strong>
                           </div>
                         ))}
+                        {ranking !== undefined && (
+                          <div
+                            className="mt-2 rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs leading-5 text-violet-950"
+                            data-testid="buyer-map-community-ranking"
+                          >
+                            <strong>
+                              Community contribution: +{ranking.communityContribution.points} / 1
+                              max
+                            </strong>
+                            <p className="mt-1">{ranking.communityContribution.rationale}</p>
+                            <p className="mt-1 text-violet-700">
+                              {ranking.communityContribution.independentThreadCount} independent
+                              thread(s) · maximum 8% of positive score
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -352,6 +391,41 @@ export function DownstreamFixtureView({
                               ? ""
                               : ` · parser ${citation.parserVersion}`}
                           </p>
+                        )}
+                        {(citation.materialKind === "reddit_thread" ||
+                          citation.materialKind === "reddit_comment" ||
+                          citation.materialKind === "community_signal") && (
+                          <div
+                            className="mt-3 grid gap-1 rounded-xl border border-violet-200 bg-violet-50/70 p-3 text-[11px] leading-5 text-violet-950"
+                            data-testid="buyer-map-community-provenance"
+                          >
+                            <p className="break-words">
+                              {citation.subreddit === undefined
+                                ? "Public Reddit"
+                                : `r/${citation.subreddit}`}
+                              {citation.relevanceScore === undefined
+                                ? ""
+                                : ` · relevance ${citation.relevanceScore.toFixed(2)}`}
+                              {citation.redditLocalScore === undefined
+                                ? ""
+                                : ` · local score ${citation.redditLocalScore.toFixed(2)}`}
+                            </p>
+                            {citation.communitySignalType !== undefined && (
+                              <p>Signal: {citation.communitySignalType.replaceAll("_", " ")}</p>
+                            )}
+                            {citation.engagementObservationSource !== undefined && (
+                              <p>
+                                Engagement:{" "}
+                                {citation.engagementObservationSource.replaceAll("_", " ")}
+                                {citation.engagementStalePossible ? " · possibly stale" : ""}
+                              </p>
+                            )}
+                            <p className="text-violet-700">
+                              Sampled public discussion is anecdotal. It does not prove
+                              representative demand, buyer identity, budget, authority, or purchase
+                              intent.
+                            </p>
+                          </div>
                         )}
                         {(citation.materialKind === "public_job_posting" ||
                           citation.materialKind === "hiring_signal") && (

@@ -9,6 +9,7 @@ import {
   type LocalDiscoveryExecutionRecordV1,
   type ProviderPolicyTraceV1,
   type SearchResultsArtifactV2,
+  type ValidatedCommunityArtifactSet,
   type ValidatedExtractionArtifactSet,
   type ValidatedStructuredContentArtifactSet,
 } from "@cluvvi/core";
@@ -32,6 +33,15 @@ import {
 import type { DiscoveryRuntime, DiscoveryRuntimeExecutionInput } from "./discovery-runtime";
 import { readValidatedExtractionArtifactSet } from "./extraction-artifact-reader";
 import { readValidatedHiringArtifactSet } from "./hiring-artifact-reader";
+import {
+  readValidatedCommunityAnalysis,
+  readValidatedCommunityArtifactSet,
+  readValidatedCommunityCommentManifestSet,
+  readValidatedCommunityComments,
+  readValidatedCommunityPlan,
+  readValidatedCommunityThreadManifestSet,
+  readValidatedCommunityThreads,
+} from "./community-artifact-reader";
 import { readValidatedStructuredContentArtifactSet } from "./structured-content-artifact-reader";
 
 interface ChildOutcome {
@@ -514,11 +524,17 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumStructuredResources: number;
   readonly maximumDocumentResources: number;
   readonly sourceAdapterMode: "none" | "selected_sources";
-  readonly sourceFamilies: readonly "hiring"[];
+  readonly sourceFamilies: readonly ("hiring" | "community")[];
   readonly maximumHiringTargets: number;
   readonly maximumHiringBoardsPerTarget: number;
   readonly maximumHiringJobsPerBoard: number;
   readonly maximumHiringJobsTotal: number;
+  readonly redditDepth: "quick" | "default" | "deep";
+  readonly maximumRedditQueries: number;
+  readonly maximumRedditSubreddits: number;
+  readonly maximumRedditThreads: number;
+  readonly maximumRedditThreadDrill: number;
+  readonly communitySignalRuleVersion: string;
   readonly hiringSignalRuleVersion: string;
   readonly hiringTaxonomyVersion: string;
   readonly hiringTechnologyLexiconVersion: string;
@@ -532,6 +548,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly extractionConfigurationFingerprint: string;
   readonly structuredConfigurationFingerprint: string;
   readonly sourceAdapterConfigurationFingerprint: string;
+  readonly communityConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
   readonly #now: () => string;
@@ -560,6 +577,15 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.maximumHiringBoardsPerTarget = this.#config.maximumHiringBoardsPerTarget ?? 4;
     this.maximumHiringJobsPerBoard = this.#config.maximumHiringJobsPerBoard ?? 250;
     this.maximumHiringJobsTotal = this.#config.maximumHiringJobsTotal ?? 2_000;
+    this.redditDepth = this.#config.redditDepth ?? "default";
+    this.maximumRedditQueries = this.#config.maximumRedditQueries ?? 8;
+    this.maximumRedditSubreddits = this.#config.maximumRedditSubreddits ?? 20;
+    this.maximumRedditThreads = this.#config.maximumRedditThreads ?? 100;
+    this.maximumRedditThreadDrill =
+      this.#config.maximumRedditThreadDrill ??
+      (this.redditDepth === "quick" ? 3 : this.redditDepth === "deep" ? 8 : 5);
+    this.communitySignalRuleVersion =
+      this.#config.communitySignalRuleVersion ?? "community_signals@1.0.0";
     this.hiringSignalRuleVersion = this.#config.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
     this.hiringTaxonomyVersion = this.#config.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
     this.hiringTechnologyLexiconVersion =
@@ -587,12 +613,14 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       key.startsWith("DISCOVERY_HTML_MARKDOWN_") ||
       key.startsWith("DISCOVERY_ANYDOC_");
     const hiringEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_HIRING_");
+    const redditEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_REDDIT_");
     const providerEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(
         ([key]) =>
           !key.startsWith("DISCOVERY_EXTRACTION_") &&
           !structuredEnvironmentKey(key) &&
-          !hiringEnvironmentKey(key),
+          !hiringEnvironmentKey(key) &&
+          !redditEnvironmentKey(key),
       ),
     );
     const extractionEnvironment = Object.fromEntries(
@@ -603,6 +631,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     );
     const hiringEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(([key]) => hiringEnvironmentKey(key)),
+    );
+    const redditEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => redditEnvironmentKey(key)),
     );
     this.providerConfigurationFingerprint = createHash("sha256")
       .update(
@@ -650,7 +681,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         JSON.stringify({
           runtimeMode: this.mode,
           sourceAdapterMode: this.sourceAdapterMode,
-          sourceFamilies: this.sourceFamilies,
+          hiringEnabled: this.sourceFamilies.includes("hiring"),
           maximumHiringTargets: this.maximumHiringTargets,
           maximumHiringBoardsPerTarget: this.maximumHiringBoardsPerTarget,
           maximumHiringJobsPerBoard: this.maximumHiringJobsPerBoard,
@@ -659,6 +690,22 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
           hiringTaxonomyVersion: this.hiringTaxonomyVersion,
           hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
           hiringEnvironment,
+        }),
+      )
+      .digest("hex");
+    this.communityConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          sourceAdapterMode: this.sourceAdapterMode,
+          communityEnabled: this.sourceFamilies.includes("community"),
+          redditDepth: this.redditDepth,
+          maximumRedditQueries: this.maximumRedditQueries,
+          maximumRedditSubreddits: this.maximumRedditSubreddits,
+          maximumRedditThreads: this.maximumRedditThreads,
+          maximumRedditThreadDrill: this.maximumRedditThreadDrill,
+          communitySignalRuleVersion: this.communitySignalRuleVersion,
+          redditEnvironment,
         }),
       )
       .digest("hex");
@@ -691,6 +738,71 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       runId: input.runId,
       searchResults: input.searchResults,
       extraction,
+    });
+  }
+
+  async readCommunityPlan(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedCommunityPlan({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readCommunityThreadManifest(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedCommunityThreadManifestSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readCommunityThreads(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedCommunityThreads({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readCommunityCommentManifest(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedCommunityCommentManifestSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readCommunityComments(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedCommunityComments({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readCommunityAnalysis(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedCommunityAnalysis({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readCommunityArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityArtifactSet> {
+    return readValidatedCommunityArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
     });
   }
 
@@ -756,12 +868,30 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         ? [
             "--source-families",
             this.sourceFamilies.join(","),
-            "--max-hiring-targets",
-            String(this.maximumHiringTargets),
-            "--max-hiring-boards-per-target",
-            String(this.maximumHiringBoardsPerTarget),
-            "--max-hiring-jobs-per-board",
-            String(this.maximumHiringJobsPerBoard),
+            ...(this.sourceFamilies.includes("hiring")
+              ? [
+                  "--max-hiring-targets",
+                  String(this.maximumHiringTargets),
+                  "--max-hiring-boards-per-target",
+                  String(this.maximumHiringBoardsPerTarget),
+                  "--max-hiring-jobs-per-board",
+                  String(this.maximumHiringJobsPerBoard),
+                ]
+              : []),
+            ...(this.sourceFamilies.includes("community")
+              ? [
+                  "--reddit-depth",
+                  this.redditDepth,
+                  "--reddit-max-queries",
+                  String(this.maximumRedditQueries),
+                  "--reddit-max-subreddits",
+                  String(this.maximumRedditSubreddits),
+                  "--reddit-max-threads",
+                  String(this.maximumRedditThreads),
+                  "--reddit-max-thread-drill",
+                  String(this.maximumRedditThreadDrill),
+                ]
+              : []),
           ]
         : []),
       "--output",
@@ -1244,6 +1374,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       maximumHiringBoardsPerTarget: this.maximumHiringBoardsPerTarget,
       maximumHiringJobsPerBoard: this.maximumHiringJobsPerBoard,
       maximumHiringJobsTotal: this.maximumHiringJobsTotal,
+      redditDepth: this.redditDepth,
+      maximumRedditQueries: this.maximumRedditQueries,
+      maximumRedditSubreddits: this.maximumRedditSubreddits,
+      maximumRedditThreads: this.maximumRedditThreads,
+      maximumRedditThreadDrill: this.maximumRedditThreadDrill,
+      communitySignalRuleVersion: this.communitySignalRuleVersion,
       hiringSignalRuleVersion: this.hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
@@ -1297,7 +1433,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             structuredContentImported: false,
             contentParseTelemetryImported: false,
           }),
-      ...(this.sourceAdapterMode === "selected_sources"
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("hiring")
         ? {
             sourceTargetPlanPath: paths.sourceTargetPlanPath,
             sourceTargetPlanImported: false,
@@ -1314,6 +1450,35 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             jobCollectionImported: false,
             hiringSignalsImported: false,
             sourceAdapterTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("community")
+        ? {
+            communitySourcePlanPath: paths.communitySourcePlanPath,
+            communitySourcePlanImported: false,
+            threadManifestPath: paths.threadManifestPath,
+            threadManifestImported: false,
+            communityThreadContextPath: paths.communityThreadContextPath,
+            communityThreadContextImported: false,
+            commentCollectionManifestPath: paths.commentCollectionManifestPath,
+            commentCollectionManifestImported: false,
+            communityCommentContextPath: paths.communityCommentContextPath,
+            communityCommentContextImported: false,
+            communitySignalsPath: paths.communitySignalsPath,
+            communitySignalsImported: false,
+            communitySourceTelemetryPath: paths.communitySourceTelemetryPath,
+            communitySourceTelemetryImported: false,
+            communityThreadsDirectory: paths.communityThreadsDirectory,
+            communityCommentsDirectory: paths.communityCommentsDirectory,
+            communityConfigurationFingerprint: this.communityConfigurationFingerprint,
+          }
+        : {
+            communitySourcePlanImported: false,
+            threadManifestImported: false,
+            communityThreadContextImported: false,
+            commentCollectionManifestImported: false,
+            communityCommentContextImported: false,
+            communitySignalsImported: false,
+            communitySourceTelemetryImported: false,
           }),
       providerIds,
       success: true,
@@ -1384,6 +1549,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       maximumHiringBoardsPerTarget: this.maximumHiringBoardsPerTarget,
       maximumHiringJobsPerBoard: this.maximumHiringJobsPerBoard,
       maximumHiringJobsTotal: this.maximumHiringJobsTotal,
+      redditDepth: this.redditDepth,
+      maximumRedditQueries: this.maximumRedditQueries,
+      maximumRedditSubreddits: this.maximumRedditSubreddits,
+      maximumRedditThreads: this.maximumRedditThreads,
+      maximumRedditThreadDrill: this.maximumRedditThreadDrill,
+      communitySignalRuleVersion: this.communitySignalRuleVersion,
       hiringSignalRuleVersion: this.hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
@@ -1434,7 +1605,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             structuredContentImported: false,
             contentParseTelemetryImported: false,
           }),
-      ...(this.sourceAdapterMode === "selected_sources"
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("hiring")
         ? {
             sourceTargetPlanPath: input.paths.sourceTargetPlanPath,
             sourceTargetPlanImported: false,
@@ -1451,6 +1622,35 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             jobCollectionImported: false,
             hiringSignalsImported: false,
             sourceAdapterTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("community")
+        ? {
+            communitySourcePlanPath: input.paths.communitySourcePlanPath,
+            communitySourcePlanImported: false,
+            threadManifestPath: input.paths.threadManifestPath,
+            threadManifestImported: false,
+            communityThreadContextPath: input.paths.communityThreadContextPath,
+            communityThreadContextImported: false,
+            commentCollectionManifestPath: input.paths.commentCollectionManifestPath,
+            commentCollectionManifestImported: false,
+            communityCommentContextPath: input.paths.communityCommentContextPath,
+            communityCommentContextImported: false,
+            communitySignalsPath: input.paths.communitySignalsPath,
+            communitySignalsImported: false,
+            communitySourceTelemetryPath: input.paths.communitySourceTelemetryPath,
+            communitySourceTelemetryImported: false,
+            communityThreadsDirectory: input.paths.communityThreadsDirectory,
+            communityCommentsDirectory: input.paths.communityCommentsDirectory,
+            communityConfigurationFingerprint: this.communityConfigurationFingerprint,
+          }
+        : {
+            communitySourcePlanImported: false,
+            threadManifestImported: false,
+            communityThreadContextImported: false,
+            commentCollectionManifestImported: false,
+            communityCommentContextImported: false,
+            communitySignalsImported: false,
+            communitySourceTelemetryImported: false,
           }),
       success: false,
       errorCode: input.code,

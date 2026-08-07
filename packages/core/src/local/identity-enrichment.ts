@@ -28,6 +28,18 @@ export const BuyerHypothesisV1Schema = z
     rationale: z.string().min(1),
     sourceResultIds: z.array(z.string().min(1)).min(1),
     evidenceFindingIds: z.array(z.string().min(1)).min(1),
+    communityIdentityEvidence: z
+      .object({
+        observedThreadFindingIds: z.array(z.string().min(1)),
+        observedCommentFindingIds: z.array(z.string().min(1)),
+        inferredSignalFindingIds: z.array(z.string().min(1)),
+        confidence: z.enum(["low", "medium", "high"]),
+        conservativeMatch: z.literal(true),
+        userIdentityUsed: z.literal(false),
+        limitations: z.array(z.string().min(1)).min(1),
+      })
+      .strict()
+      .optional(),
     hiringIdentityEvidence: z
       .object({
         observedJobFindingIds: z.array(z.string().min(1)),

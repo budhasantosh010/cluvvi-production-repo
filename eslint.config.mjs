@@ -47,6 +47,7 @@ export default defineConfig([
     "**/.cluvvi/**",
     "**/.cluvvi-test/**",
     "**/test-results/**",
+    "tests/fixtures/.browser-community-fixture-*/**",
     "**/visual_qa/**",
     "supabase/.temp/**",
   ]),

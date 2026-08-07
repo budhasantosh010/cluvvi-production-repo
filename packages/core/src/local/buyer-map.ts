@@ -34,6 +34,9 @@ export const BuyerMapCitationV1Schema = z
         "structured_footnote",
         "public_job_posting",
         "hiring_signal",
+        "reddit_thread",
+        "reddit_comment",
+        "community_signal",
       ])
       .optional(),
     extractionItemId: z.string().min(1).optional(),
@@ -70,6 +73,24 @@ export const BuyerMapCitationV1Schema = z
     department: z.string().min(1).optional(),
     technologyMentions: z.array(z.string().min(1)).max(100).optional(),
     confidence: z.number().min(0).max(1).optional(),
+    threadArtifactId: z.string().min(1).optional(),
+    commentCollectionArtifactId: z.string().min(1).optional(),
+    commentId: z.string().min(1).optional(),
+    communitySignalId: z.string().min(1).optional(),
+    communitySignalType: z.string().min(1).optional(),
+    subreddit: z.string().min(2).max(21).optional(),
+    communityQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    communityQueryIntents: z.array(z.string().min(1)).max(20).optional(),
+    relevanceScore: z.number().min(0).max(1).optional(),
+    redditLocalScore: z.number().min(0).max(2).optional(),
+    engagementSource: z
+      .enum(["reddit_live_listing", "reddit_live_comments", "arctic_shift_archive"])
+      .optional(),
+    engagementObservationSource: z
+      .enum(["reddit_live_listing", "reddit_live_comments", "arctic_shift_archive"])
+      .optional(),
+    engagementStalePossible: z.boolean().optional(),
+    independentThreadCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type BuyerMapCitationV1 = z.infer<typeof BuyerMapCitationV1Schema>;
@@ -120,6 +141,9 @@ export const BuyerMapArtifactV1Schema = z
         structuredEvidenceCitationCount: z.number().int().nonnegative().default(0),
         publicJobCitationCount: z.number().int().nonnegative().default(0),
         hiringSignalCitationCount: z.number().int().nonnegative().default(0),
+        redditThreadCitationCount: z.number().int().nonnegative().default(0),
+        redditCommentCitationCount: z.number().int().nonnegative().default(0),
+        communitySignalCitationCount: z.number().int().nonnegative().default(0),
       })
       .strict(),
     evidenceSourceMode: z
@@ -130,6 +154,9 @@ export const BuyerMapArtifactV1Schema = z
         "snippet_plus_public_hiring_intelligence",
         "snippet_plus_extracted_and_hiring_intelligence",
         "snippet_plus_structured_and_hiring_intelligence",
+        "snippet_plus_public_community_intelligence",
+        "snippet_plus_hiring_and_community_intelligence",
+        "snippet_plus_structured_hiring_and_community_intelligence",
       ])
       .default("snippet_only"),
     opportunities: z.array(BuyerMapOpportunityV1Schema),

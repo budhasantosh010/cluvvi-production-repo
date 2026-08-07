@@ -7,6 +7,13 @@ import type {
   DiscoveryProviderPolicy,
   DiscoveryRuntimeMode,
   SearchResultsArtifactV2,
+  ValidatedCommunityAnalysisSet,
+  ValidatedCommunityArtifactSet,
+  ValidatedCommunityCommentManifestSet,
+  ValidatedCommunityCommentSet,
+  ValidatedCommunityPlanSet,
+  ValidatedCommunityThreadManifestSet,
+  ValidatedCommunityThreadSet,
   ValidatedExtractionArtifactSet,
   ValidatedStructuredContentArtifactSet,
 } from "@cluvvi/core";
@@ -36,6 +43,12 @@ export interface DiscoveryRuntime {
   readonly maximumHiringBoardsPerTarget?: number;
   readonly maximumHiringJobsPerBoard?: number;
   readonly maximumHiringJobsTotal?: number;
+  readonly redditDepth?: "quick" | "default" | "deep";
+  readonly maximumRedditQueries?: number;
+  readonly maximumRedditSubreddits?: number;
+  readonly maximumRedditThreads?: number;
+  readonly maximumRedditThreadDrill?: number;
+  readonly communitySignalRuleVersion?: string;
   readonly hiringSignalRuleVersion?: string;
   readonly hiringTaxonomyVersion?: string;
   readonly hiringTechnologyLexiconVersion?: string;
@@ -49,6 +62,7 @@ export interface DiscoveryRuntime {
   readonly extractionConfigurationFingerprint?: string;
   readonly structuredConfigurationFingerprint?: string;
   readonly sourceAdapterConfigurationFingerprint?: string;
+  readonly communityConfigurationFingerprint?: string;
   execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2>;
   readExtractionArtifactSet?(input: {
     runId: string;
@@ -65,6 +79,34 @@ export interface DiscoveryRuntime {
     extraction?: ValidatedExtractionArtifactSet;
     structured?: ValidatedStructuredContentArtifactSet;
   }): Promise<ValidatedHiringArtifactSet>;
+  readCommunityPlan?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityPlanSet>;
+  readCommunityThreadManifest?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityThreadManifestSet>;
+  readCommunityThreads?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityThreadSet>;
+  readCommunityCommentManifest?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityCommentManifestSet>;
+  readCommunityComments?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityCommentSet>;
+  readCommunityAnalysis?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityAnalysisSet>;
+  readCommunityArtifactSet?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedCommunityArtifactSet>;
 }
 
 export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
@@ -82,6 +124,12 @@ export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumHiringBoardsPerTarget = 4;
   readonly maximumHiringJobsPerBoard = 250;
   readonly maximumHiringJobsTotal = 2_000;
+  readonly redditDepth = "default" as const;
+  readonly maximumRedditQueries = 8;
+  readonly maximumRedditSubreddits = 20;
+  readonly maximumRedditThreads = 100;
+  readonly maximumRedditThreadDrill = 5;
+  readonly communitySignalRuleVersion = "community_signals@1.0.0";
   readonly hiringSignalRuleVersion = "hiring_signals@1.0.0";
   readonly hiringTaxonomyVersion = "hiring_taxonomy@1.0.0";
   readonly hiringTechnologyLexiconVersion = "hiring_technology_lexicon@1.0.0";
@@ -95,6 +143,7 @@ export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly extractionConfigurationFingerprint = "fixture-no-extraction";
   readonly structuredConfigurationFingerprint = "fixture-no-structured-content";
   readonly sourceAdapterConfigurationFingerprint = "fixture-no-source-adapters";
+  readonly communityConfigurationFingerprint = "fixture-no-community-sources";
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {
     void input;

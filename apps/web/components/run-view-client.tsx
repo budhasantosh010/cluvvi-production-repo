@@ -1,5 +1,6 @@
 "use client";
 
+import { CommunityIntelligenceView } from "@/components/community-intelligence-view";
 import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
 import { ExtractionEvidenceView } from "@/components/extraction-evidence-view";
 import { HiringIntelligenceView } from "@/components/hiring-intelligence-view";
@@ -34,6 +35,13 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   hiring_retrieval: "Public hiring retrieval",
   hiring_analysis: "Hiring signal analysis",
   source_adapter_telemetry: "Source-adapter telemetry",
+  community_planning: "Reddit community planning",
+  community_retrieval: "Reddit thread retrieval",
+  community_thread_context: "Reddit thread context",
+  community_comment_retrieval: "Reddit comment retrieval",
+  community_comment_context: "Reddit comment context",
+  community_analysis: "Community signal analysis",
+  community_source_telemetry: "Community source telemetry",
   normalization: "Normalization",
   investigation: "Evidence analysis",
   buyer_identification: "Buyer hypotheses",
@@ -172,6 +180,9 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   const hiringEnabled =
     view.run.config.discoverySourceAdapterMode === "selected_sources" &&
     view.run.config.discoverySourceFamilies.includes("hiring");
+  const communityEnabled =
+    view.run.config.discoverySourceAdapterMode === "selected_sources" &&
+    view.run.config.discoverySourceFamilies.includes("community");
   const telemetry = view.providerTelemetry;
   const policyTrace = view.providerPolicyTrace;
   const providerPolicy = view.run.config.discoveryProviderPolicy;
@@ -298,6 +309,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                 {hiringEnabled
                   ? `Hiring · ${view.run.config.discoveryMaximumHiringTargets} targets`
                   : "Hiring disabled"}
+              </span>
+              <span className="fixture-badge">
+                {communityEnabled
+                  ? `Reddit · ${view.run.config.discoveryRedditDepth} · ${view.run.config.discoveryMaximumRedditThreads} threads max`
+                  : "Community disabled"}
               </span>
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl">
@@ -616,6 +632,20 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         maximumBoardsPerTarget={view.run.config.discoveryMaximumHiringBoardsPerTarget}
         maximumJobsPerBoard={view.run.config.discoveryMaximumHiringJobsPerBoard}
         maximumJobsTotal={view.run.config.discoveryMaximumHiringJobsTotal}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
+
+      <CommunityIntelligenceView
+        artifacts={view.artifacts}
+        sourceAdapterMode={view.run.config.discoverySourceAdapterMode}
+        sourceFamilies={view.run.config.discoverySourceFamilies}
+        redditDepth={view.run.config.discoveryRedditDepth}
+        maximumQueries={view.run.config.discoveryMaximumRedditQueries}
+        maximumSubreddits={view.run.config.discoveryMaximumRedditSubreddits}
+        maximumThreads={view.run.config.discoveryMaximumRedditThreads}
+        maximumThreadDrill={view.run.config.discoveryMaximumRedditThreadDrill}
+        communitySignalRuleVersion={view.run.config.communitySignalRuleVersion}
         runStatus={view.run.status}
         {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
       />

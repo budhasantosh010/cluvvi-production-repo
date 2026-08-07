@@ -14,6 +14,13 @@ export const DISCOVERY_EXCHANGE_FILE_NAMES = [
   "job-collection.v1.json",
   "hiring-signals.v1.json",
   "source-adapter-run-telemetry.v1.json",
+  "community-source-plan.v1.json",
+  "thread-manifest.v1.json",
+  "community-thread-context.v1.json",
+  "comment-collection-manifest.v1.json",
+  "community-comment-context.v1.json",
+  "community-signals.v1.json",
+  "community-source-run-telemetry.v1.json",
   "discovery-stdout.log",
   "discovery-stderr.log",
   "discovery-execution.json",
@@ -34,6 +41,15 @@ export interface DiscoveryExchangePaths {
   jobCollectionPath: string;
   hiringSignalsPath: string;
   sourceAdapterTelemetryPath: string;
+  communitySourcePlanPath: string;
+  threadManifestPath: string;
+  communityThreadContextPath: string;
+  commentCollectionManifestPath: string;
+  communityCommentContextPath: string;
+  communitySignalsPath: string;
+  communitySourceTelemetryPath: string;
+  communityThreadsDirectory: string;
+  communityCommentsDirectory: string;
   stdoutPath: string;
   stderrPath: string;
   executionPath: string;
@@ -60,6 +76,15 @@ export function discoveryExchangePaths(
     jobCollectionPath: resolve(directory, "job-collection.v1.json"),
     hiringSignalsPath: resolve(directory, "hiring-signals.v1.json"),
     sourceAdapterTelemetryPath: resolve(directory, "source-adapter-run-telemetry.v1.json"),
+    communitySourcePlanPath: resolve(directory, "community-source-plan.v1.json"),
+    threadManifestPath: resolve(directory, "thread-manifest.v1.json"),
+    communityThreadContextPath: resolve(directory, "community-thread-context.v1.json"),
+    commentCollectionManifestPath: resolve(directory, "comment-collection-manifest.v1.json"),
+    communityCommentContextPath: resolve(directory, "community-comment-context.v1.json"),
+    communitySignalsPath: resolve(directory, "community-signals.v1.json"),
+    communitySourceTelemetryPath: resolve(directory, "community-source-run-telemetry.v1.json"),
+    communityThreadsDirectory: resolve(directory, "community", "threads"),
+    communityCommentsDirectory: resolve(directory, "community", "comments"),
     stdoutPath: resolve(directory, "discovery-stdout.log"),
     stderrPath: resolve(directory, "discovery-stderr.log"),
     executionPath: resolve(directory, "discovery-execution.json"),

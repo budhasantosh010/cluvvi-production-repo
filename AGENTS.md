@@ -51,7 +51,7 @@ C1-C through C1-F implement the deterministic downstream pipeline. C1-G implemen
 
 Fixture runs remain synthetic. Search-only live runs contain current public snippets and provider metadata. C1-I adds only an opt-in depth-zero frontier and bounded public HTML extraction path through Project A. Extracted content is untrusted source data, identities and contacts are not verified, and scores are not predictions of purchase behavior.
 
-C1-I bounded public HTML extraction, C1-I.5 structured public-document parsing, C1-J.0 universal source-adapter contracts, and C1-J.1 bounded public hiring/ATS intelligence are implemented. JavaScript rendering, comments/threads/transcripts, Reddit, GitHub, YouTube adapters, candidate/application ingestion, private ATS APIs, monitoring, recursive expansion, contact enrichment, outreach, remote APIs, Docker, and workflow automation remain unstarted and unauthorized.
+C1-I bounded public HTML extraction, C1-I.5 structured public-document parsing, C1-J.0 universal source-adapter contracts, C1-J.1 bounded public hiring/ATS intelligence, and C1-J.2 bounded keyless public Reddit community intelligence are implemented. JavaScript rendering, GitHub/YouTube adapters, authenticated/private community access, candidate/application ingestion, private ATS APIs, monitoring, recursive expansion, contact enrichment, outreach, remote APIs, Docker, and workflow automation remain unstarted and unauthorized.
 
 ## Discovery contract and boundary rules
 

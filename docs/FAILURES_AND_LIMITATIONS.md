@@ -3069,3 +3069,57 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved.
 
 **One-line solution:** Configure upstream tracking on first branch publication before comparing `HEAD`, `@{u}`, and `ls-remote`.
+
+## 172. C1-J.2 community stage boundaries initially blamed missing context on retrieval
+
+**What failed:** The first segmented community reader still loaded `community_thread_context.v1` while executing `community_retrieval`, so a missing or malformed context artifact was reported at the wrong durable stage.
+
+**Where:** Project B community artifact reader and downstream stage registry.
+
+**When:** Expanded exact-stage failure and resume testing.
+
+**Why:** The inherited partial implementation validated thread manifest and thread context together even though the implementation plan required separately resumable stages.
+
+**How it appeared:** Controlled missing/invalid thread-context cases failed under `community_retrieval` instead of `community_thread_context`.
+
+**What was tried:** Split plan, thread-manifest, thread-context, comment-manifest, comment-context, signal, and telemetry validation/read boundaries and added exact durable-stage regression cases.
+
+**Current status:** Resolved; the expanded community bridge suite passes exact-stage failures and same-run reuse.
+
+**One-line solution:** A resumable stage must read and validate only the artifact boundary it owns.
+
+## 173. Community browser operations controls had overlapping accessible names
+
+**What failed:** Playwright's `getByLabel("Source families")` matched both the public-source mode select and source-family select.
+
+**Where:** C1-J.2 discovery operations UI.
+
+**When:** First community browser/Visual QA gate.
+
+**Why:** Browser accessibility-name calculation made the adjacent select labels ambiguous to the test and assistive semantics.
+
+**How it appeared:** Playwright strict mode reported two matching controls before any community run assertion executed.
+
+**What was tried:** Added explicit `aria-label` values for `Public source adapters` and `Source families`, preserving the visible labels.
+
+**Current status:** Resolved; the affected browser assertion passes.
+
+**One-line solution:** Give adjacent configuration controls explicit unique accessible names.
+
+## 174. Fresh Project A → Project B Reddit proof was blocked by current public anti-abuse state
+
+**What failed:** The fresh release-time real bridge proof could not obtain surviving public Reddit thread evidence after its bounded retries.
+
+**Where:** Env-gated `community-real-bridge.integration.test.ts`, executing published Project A commit `db13a6cf568b307fa76782306179060b2df23d7c`.
+
+**When:** Final C1-J.2 Project B release verification on August 8, 2026.
+
+**Why:** Reddit's current unauthenticated challenge/rate state can temporarily block all bounded keyless discovery routes from this network.
+
+**How it appeared:** Project A truthfully returned `REDDIT_ALL_KEYLESS_ROUTES_FAILED`; Project B therefore had no fresh live artifact bundle to import.
+
+**What was tried:** The proof already performs bounded retries. No OAuth, login, cookies, paid API, browser challenge bypass, or unbounded retrying was added. Published Project A evidence remains the successful end-to-end live mission with 7 real threads, 3 signals, and zero paid/authenticated usage.
+
+**Current status:** External live-availability limitation. Controlled Project A-compatible Project B import/downstream/resume proofs pass; fresh network success must not be fabricated.
+
+**One-line solution:** Record current Reddit unavailability honestly and retry a fresh live proof only when the public keyless route is naturally available again.
