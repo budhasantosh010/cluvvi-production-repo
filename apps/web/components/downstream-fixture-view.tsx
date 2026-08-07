@@ -41,6 +41,8 @@ function citationLabel(materialKind: string | undefined): string {
   if (materialKind === "extracted_page_text") return "Extracted public page";
   if (materialKind === "extracted_metadata") return "Page metadata";
   if (materialKind === "extracted_json_ld") return "Public JSON-LD";
+  if (materialKind === "public_job_posting") return "Observed public job";
+  if (materialKind === "hiring_signal") return "Cautious hiring signal";
   return "Search snippet";
 }
 
@@ -74,9 +76,13 @@ export function DownstreamFixtureView({
   const ranked = rankedResult.data;
   const buyerMap = buyerMapResult.data;
   const structuredEvidence =
-    evidence.evidenceSourceMode === "snippet_plus_structured_public_content";
+    evidence.evidenceSourceMode === "snippet_plus_structured_public_content" ||
+    evidence.evidenceSourceMode === "snippet_plus_structured_and_hiring_intelligence";
   const extractedEvidence =
-    structuredEvidence || evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages";
+    structuredEvidence ||
+    evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages" ||
+    evidence.evidenceSourceMode === "snippet_plus_extracted_and_hiring_intelligence";
+  const hiringEvidence = evidence.evidenceSourceMode.includes("hiring_intelligence");
   const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = discoveryProviderMode === "live_search";
   const rankingByEntity = new Map(
@@ -120,6 +126,9 @@ export function DownstreamFixtureView({
                     : extractedEvidence
                       ? "Selected public-page metadata, visible text, and JSON-LD were included as untrusted evidence with complete provenance. "
                       : "Only provider snippets were used; result pages were not fetched. "}
+                  {hiringEvidence
+                    ? "Observed public job postings and deterministic hiring signals are also shown as bounded, untrusted evidence; they do not prove budget, expansion, replacement hiring, approved projects, or purchase intent. "
+                    : ""}
                   Buyer identity and contact routes remain hypotheses for manual verification.
                 </>
               ) : localDiscovery ? (
@@ -138,25 +147,29 @@ export function DownstreamFixtureView({
             </p>
           </div>
           <span className="fixture-badge inline-flex shrink-0 self-start">
-            {liveDiscovery
-              ? structuredEvidence
-                ? "Live search + structured evidence"
-                : extractedEvidence
-                  ? "Live search + page evidence"
-                  : "Live snippets · manual verification"
-              : localDiscovery
+            {hiringEvidence
+              ? liveDiscovery
+                ? "Live search + public hiring evidence"
+                : "Public hiring evidence · manual verification"
+              : liveDiscovery
                 ? structuredEvidence
-                  ? "Fixture search + structured evidence"
+                  ? "Live search + structured evidence"
                   : extractedEvidence
-                    ? "Fixture search + public pages"
-                    : "Local engine · fixture providers"
-                : "Synthetic · no live discovery"}
+                    ? "Live search + page evidence"
+                    : "Live snippets · manual verification"
+                : localDiscovery
+                  ? structuredEvidence
+                    ? "Fixture search + structured evidence"
+                    : extractedEvidence
+                      ? "Fixture search + public pages"
+                      : "Local engine · fixture providers"
+                  : "Synthetic · no live discovery"}
           </span>
         </div>
       </div>
 
       <div className="grid gap-8 p-6 sm:p-8">
-        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
           <div className="metric-card">
             <dt>Ranked opportunities</dt>
             <dd>{buyerMap.summary.rankedOpportunityCount}</dd>
@@ -176,6 +189,14 @@ export function DownstreamFixtureView({
           <div className="metric-card">
             <dt>Structured citations</dt>
             <dd>{buyerMap.summary.structuredEvidenceCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-public-job-count">
+            <dt>Public job citations</dt>
+            <dd>{buyerMap.summary.publicJobCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-hiring-signal-count">
+            <dt>Hiring signal citations</dt>
+            <dd>{buyerMap.summary.hiringSignalCitationCount}</dd>
           </div>
         </dl>
 
@@ -331,6 +352,45 @@ export function DownstreamFixtureView({
                               ? ""
                               : ` · parser ${citation.parserVersion}`}
                           </p>
+                        )}
+                        {(citation.materialKind === "public_job_posting" ||
+                          citation.materialKind === "hiring_signal") && (
+                          <div
+                            className="mt-3 grid gap-1 rounded-xl border border-neutral-200/80 bg-white/60 p-3 text-[11px] leading-5 text-neutral-700"
+                            data-testid="buyer-map-hiring-provenance"
+                          >
+                            <p className="break-words">
+                              Provider:{" "}
+                              <strong>{citation.hiringProviderId ?? "derived signal"}</strong>
+                              {citation.accessCategory === undefined
+                                ? ""
+                                : ` · ${citation.accessCategory.replaceAll("_", " ")}`}
+                            </p>
+                            {citation.companyName !== undefined && (
+                              <p className="break-words">Company: {citation.companyName}</p>
+                            )}
+                            {citation.roleFamily !== undefined && (
+                              <p className="break-words">
+                                Role: {citation.roleFamily.replaceAll("_", " ")}
+                                {citation.seniority === undefined
+                                  ? ""
+                                  : ` · ${citation.seniority.replaceAll("_", " ")}`}
+                              </p>
+                            )}
+                            {citation.technologyMentions !== undefined &&
+                              citation.technologyMentions.length > 0 && (
+                                <p className="break-words">
+                                  Explicit technologies: {citation.technologyMentions.join(", ")}
+                                </p>
+                              )}
+                            {citation.confidence !== undefined && (
+                              <p>Signal confidence: {citation.confidence.toFixed(2)}</p>
+                            )}
+                            <p className="text-neutral-500">
+                              Hiring evidence is current public evidence only; it is not proof of
+                              budget or purchase intent.
+                            </p>
+                          </div>
                         )}
                       </div>
                     ))}

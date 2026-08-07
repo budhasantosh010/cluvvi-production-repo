@@ -45,6 +45,15 @@ describe("discovery runtime configuration", () => {
       structuredContentMode: "none",
       maximumStructuredResources: 8,
       maximumDocumentResources: 4,
+      sourceAdapterMode: "none",
+      sourceFamilies: [],
+      maximumHiringTargets: 10,
+      maximumHiringBoardsPerTarget: 4,
+      maximumHiringJobsPerBoard: 250,
+      maximumHiringJobsTotal: 2_000,
+      hiringSignalRuleVersion: "hiring_signals@1.0.0",
+      hiringTaxonomyVersion: "hiring_taxonomy@1.0.0",
+      hiringTechnologyLexiconVersion: "hiring_technology_lexicon@1.0.0",
       extractorVersion: "basic_public_html_extractor@1.0.0",
       frontierPolicyVersion: "frontier_policy@1.0.0",
       structuredParserPolicyVersion: "structured_parser_policy@1.0.0",
@@ -270,6 +279,114 @@ describe("discovery runtime configuration", () => {
           CLUVVI_DISCOVERY_MAX_DOCUMENT_RESOURCES: "3",
         }),
       "LOCAL_DISCOVERY_STRUCTURED_BUDGET_INVALID",
+    );
+  });
+
+  it("parses opt-in public hiring intelligence and forwards only safe non-secret settings", async () => {
+    const projectPath = await fakeProject();
+    const config = parseDiscoveryRuntimeConfig({
+      CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+      CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+      CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+      CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
+      CLUVVI_DISCOVERY_SOURCE_FAMILIES: "hiring",
+      CLUVVI_DISCOVERY_MAX_HIRING_TARGETS: "6",
+      CLUVVI_DISCOVERY_MAX_HIRING_BOARDS_PER_TARGET: "3",
+      CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD: "120",
+      CLUVVI_DISCOVERY_MAX_HIRING_JOBS_TOTAL: "600",
+      DISCOVERY_HIRING_MAX_TARGETS: "6",
+      DISCOVERY_HIRING_MAX_BOARDS_PER_TARGET: "3",
+      DISCOVERY_HIRING_MAX_JOBS_PER_BOARD: "120",
+      DISCOVERY_HIRING_MAX_TOTAL_JOBS: "600",
+      DISCOVERY_HIRING_PROVIDER_TIMEOUT_MS: "12000",
+      DISCOVERY_HIRING_INCLUDE_PUBLIC_COMPENSATION: "true",
+      DISCOVERY_SMARTRECRUITERS_API_KEY: "must-not-forward",
+      PRIVATE_TOKEN: "must-not-forward",
+    });
+    expect(config).toMatchObject({
+      sourceAdapterMode: "selected_sources",
+      sourceFamilies: ["hiring"],
+      maximumHiringTargets: 6,
+      maximumHiringBoardsPerTarget: 3,
+      maximumHiringJobsPerBoard: 120,
+      maximumHiringJobsTotal: 600,
+      local: {
+        sourceAdapterMode: "selected_sources",
+        sourceFamilies: ["hiring"],
+        maximumHiringTargets: 6,
+        maximumHiringBoardsPerTarget: 3,
+        maximumHiringJobsPerBoard: 120,
+        maximumHiringJobsTotal: 600,
+        providerEnvironment: {
+          DISCOVERY_HIRING_MAX_TARGETS: "6",
+          DISCOVERY_HIRING_MAX_BOARDS_PER_TARGET: "3",
+          DISCOVERY_HIRING_MAX_JOBS_PER_BOARD: "120",
+          DISCOVERY_HIRING_MAX_TOTAL_JOBS: "600",
+          DISCOVERY_HIRING_PROVIDER_TIMEOUT_MS: "12000",
+          DISCOVERY_HIRING_INCLUDE_PUBLIC_COMPENSATION: "true",
+        },
+      },
+    });
+    if (config.mode !== "local_discovery_engine") throw new Error("Expected local config.");
+    expect(config.local.providerEnvironment).not.toHaveProperty(
+      "DISCOVERY_SMARTRECRUITERS_API_KEY",
+    );
+    expect(config.local.providerEnvironment).not.toHaveProperty("PRIVATE_TOKEN");
+    expect(
+      allowedDiscoveryProviderEnvironment({
+        DISCOVERY_SMARTRECRUITERS_API_KEY: "must-not-forward",
+      }),
+    ).toEqual({});
+  });
+
+  it("rejects invalid source-adapter mode, family, and hiring budgets", async () => {
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
+          CLUVVI_DISCOVERY_SOURCE_FAMILIES: "hiring",
+        }),
+      "DISCOVERY_ENGINE_NOT_CONFIGURED",
+    );
+    const projectPath = await fakeProject();
+    const base = {
+      CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+      CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+      CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+    };
+    expectCode(
+      () => parseDiscoveryRuntimeConfig({ ...base, CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "all" }),
+      "LOCAL_DISCOVERY_SOURCE_ADAPTER_MODE_INVALID",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          ...base,
+          CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
+          CLUVVI_DISCOVERY_SOURCE_FAMILIES: "community",
+        }),
+      "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          ...base,
+          CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
+          CLUVVI_DISCOVERY_SOURCE_FAMILIES: "hiring",
+          CLUVVI_DISCOVERY_MAX_HIRING_TARGETS: "101",
+        }),
+      "LOCAL_DISCOVERY_MAX_HIRING_TARGETS_INVALID",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          ...base,
+          CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
+          CLUVVI_DISCOVERY_SOURCE_FAMILIES: "hiring",
+          CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD: "500",
+          CLUVVI_DISCOVERY_MAX_HIRING_JOBS_TOTAL: "100",
+        }),
+      "LOCAL_DISCOVERY_HIRING_BUDGET_INVALID",
     );
   });
 

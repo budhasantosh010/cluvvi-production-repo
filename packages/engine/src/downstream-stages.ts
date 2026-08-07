@@ -10,11 +10,15 @@ import {
   ExtractedContentArtifactV1Schema,
   ExtractionRunTelemetryV1Schema,
   FixtureArtifactEnvelopeSchema,
+  HiringSignalsArtifactV1Schema,
   IdentityEnrichmentArtifactV1Schema,
+  JobCollectionArtifactV1Schema,
   MissionUnderstandingArtifactV1Schema,
   ProjectBFinalizationArtifactV1Schema,
   RankedOpportunitiesArtifactV1Schema,
   SearchResultsArtifactV2Schema,
+  SourceAdapterRunTelemetryV1Schema,
+  SourceTargetPlanArtifactV1Schema,
   StructuredContentArtifactV1Schema,
   type ArtifactType,
   type SearchResultsArtifactV2,
@@ -168,6 +172,8 @@ interface EvidenceStageInput {
   candidates: ReturnType<typeof DiscoveryCandidatesArtifactV1Schema.parse>;
   extractedContent?: ReturnType<typeof ExtractedContentArtifactV1Schema.parse>;
   structuredContent?: ReturnType<typeof StructuredContentArtifactV1Schema.parse>;
+  jobCollection?: ReturnType<typeof JobCollectionArtifactV1Schema.parse>;
+  hiringSignals?: ReturnType<typeof HiringSignalsArtifactV1Schema.parse>;
 }
 
 const EvidenceStageInputSchema: RuntimeSchema<EvidenceStageInput> = {
@@ -186,6 +192,12 @@ const EvidenceStageInputSchema: RuntimeSchema<EvidenceStageInput> = {
         : {
             structuredContent: StructuredContentArtifactV1Schema.parse(record["structuredContent"]),
           }),
+      ...(record["jobCollection"] === undefined
+        ? {}
+        : { jobCollection: JobCollectionArtifactV1Schema.parse(record["jobCollection"]) }),
+      ...(record["hiringSignals"] === undefined
+        ? {}
+        : { hiringSignals: HiringSignalsArtifactV1Schema.parse(record["hiringSignals"]) }),
     };
   },
 };
@@ -193,9 +205,11 @@ const EvidenceStageInputSchema: RuntimeSchema<EvidenceStageInput> = {
 async function loadEvidenceInput(context: StageContext): Promise<EvidenceStageInput> {
   const candidates = await context.getLatestArtifact("candidates");
   if (candidates === null) throw new Error("Evidence requires missing candidates artifact.");
-  const [extractedContent, structuredContent] = await Promise.all([
+  const [extractedContent, structuredContent, jobCollection, hiringSignals] = await Promise.all([
     context.getLatestArtifact("extracted_content"),
     context.getLatestArtifact("structured_content"),
+    context.getLatestArtifact("job_collection"),
+    context.getLatestArtifact("hiring_signals"),
   ]);
   return {
     candidates: DiscoveryCandidatesArtifactV1Schema.parse(candidates.data),
@@ -205,6 +219,12 @@ async function loadEvidenceInput(context: StageContext): Promise<EvidenceStageIn
     ...(structuredContent === null
       ? {}
       : { structuredContent: StructuredContentArtifactV1Schema.parse(structuredContent.data) }),
+    ...(jobCollection === null
+      ? {}
+      : { jobCollection: JobCollectionArtifactV1Schema.parse(jobCollection.data) }),
+    ...(hiringSignals === null
+      ? {}
+      : { hiringSignals: HiringSignalsArtifactV1Schema.parse(hiringSignals.data) }),
   };
 }
 
@@ -278,6 +298,59 @@ async function requireStructuredContentArtifactSet(
     runId: context.run.id,
     searchResults,
     extraction,
+  });
+}
+
+async function requireHiringArtifactSet(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  if (
+    runtime.sourceAdapterMode !== "selected_sources" ||
+    !runtime.sourceFamilies?.includes("hiring") ||
+    context.run.config.discoverySourceAdapterMode !== "selected_sources" ||
+    !context.run.config.discoverySourceFamilies.includes("hiring")
+  ) {
+    throw new CluvviError({
+      code: "DISCOVERY_HIRING_NOT_CONFIGURED",
+      category: "configuration",
+      message:
+        "The run requested public hiring intelligence, but the active Discovery runtime is not configured for the hiring source family.",
+      retryable: true,
+      stage: context.run.phase,
+      context: {
+        retrySafe: true,
+        resumeSupported: true,
+        discoveryReuseExpected: true,
+        frontierReuseExpected: true,
+        extractionReuseExpected: true,
+        structuredParsingReuseExpected: true,
+      },
+    });
+  }
+  if (runtime.readHiringArtifactSet === undefined) {
+    throw new CluvviError({
+      code: "DISCOVERY_HIRING_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import hiring companion artifacts.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  }
+  const extraction =
+    context.run.config.discoveryExtractionMode === "selected_public_pages"
+      ? await requireExtractionArtifactSet(runtime, context, searchResults)
+      : undefined;
+  const structured =
+    context.run.config.discoveryStructuredContentMode === "selected_resources"
+      ? await requireStructuredContentArtifactSet(runtime, context, searchResults)
+      : undefined;
+  return runtime.readHiringArtifactSet({
+    runId: context.run.id,
+    searchResults,
+    ...(extraction === undefined ? {} : { extraction }),
+    ...(structured === undefined ? {} : { structured }),
   });
 }
 
@@ -411,6 +484,74 @@ export function createDownstreamFixtureStages(
       },
     }),
     createDownstreamStage({
+      name: "source_targeting",
+      artifactType: "source_target_plan",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: SourceTargetPlanArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("hiring"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_source_target_plan",
+      async execute(searchResults, context) {
+        const set = await requireHiringArtifactSet(discoveryRuntime, context, searchResults);
+        return set.sourceTargetPlan;
+      },
+    }),
+    createDownstreamStage({
+      name: "hiring_retrieval",
+      artifactType: "job_collection",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: JobCollectionArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("hiring"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_job_collection",
+      async execute(searchResults, context) {
+        const set = await requireHiringArtifactSet(discoveryRuntime, context, searchResults);
+        return set.jobCollection;
+      },
+    }),
+    createDownstreamStage({
+      name: "hiring_analysis",
+      artifactType: "hiring_signals",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: HiringSignalsArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("hiring"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_hiring_signals",
+      async execute(searchResults, context) {
+        const set = await requireHiringArtifactSet(discoveryRuntime, context, searchResults);
+        return set.hiringSignals;
+      },
+    }),
+    createDownstreamStage({
+      name: "source_adapter_telemetry",
+      artifactType: "source_adapter_telemetry",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: SourceAdapterRunTelemetryV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("hiring"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_source_adapter_telemetry",
+      async execute(searchResults, context) {
+        const set = await requireHiringArtifactSet(discoveryRuntime, context, searchResults);
+        return set.telemetry;
+      },
+    }),
+    createDownstreamStage({
       name: "normalization",
       artifactType: "candidates",
       version: "2.0.0",
@@ -436,6 +577,8 @@ export function createDownstreamFixtureStages(
           context.now(),
           input.extractedContent,
           input.structuredContent,
+          input.jobCollection,
+          input.hiringSignals,
         );
       },
     }),

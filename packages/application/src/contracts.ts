@@ -2,6 +2,8 @@ import type {
   ArtifactRecord,
   ArtifactType,
   CluvviExtractionMode,
+  CluvviSourceAdapterMode,
+  CluvviSourceFamily,
   CluvviStructuredContentMode,
   DiscoveryProviderMode,
   DiscoveryProviderPolicy,
@@ -57,6 +59,12 @@ export interface CapabilityReport {
   discoveryStructuredContentMode: CluvviStructuredContentMode;
   discoveryMaximumStructuredResources: number;
   discoveryMaximumDocumentResources: number;
+  discoverySourceAdapterMode: CluvviSourceAdapterMode;
+  discoverySourceFamilies: CluvviSourceFamily[];
+  discoveryMaximumHiringTargets: number;
+  discoveryMaximumHiringBoardsPerTarget: number;
+  discoveryMaximumHiringJobsPerBoard: number;
+  discoveryMaximumHiringJobsTotal: number;
   capabilities: {
     localEngine: true;
     missionCompiler: false;
@@ -85,6 +93,12 @@ export interface LocalDiagnostics {
   discoveryStructuredContentMode: CluvviStructuredContentMode;
   discoveryMaximumStructuredResources: number;
   discoveryMaximumDocumentResources: number;
+  discoverySourceAdapterMode: CluvviSourceAdapterMode;
+  discoverySourceFamilies: CluvviSourceFamily[];
+  discoveryMaximumHiringTargets: number;
+  discoveryMaximumHiringBoardsPerTarget: number;
+  discoveryMaximumHiringJobsPerBoard: number;
+  discoveryMaximumHiringJobsTotal: number;
   runner: {
     available: boolean;
     heartbeat: RunnerHeartbeat | null;

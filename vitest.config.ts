@@ -8,6 +8,9 @@ export default defineConfig({
         new URL("./packages/application/src/index.ts", import.meta.url),
       ),
       "@cluvvi/config": fileURLToPath(new URL("./packages/config/src/index.ts", import.meta.url)),
+      "@cluvvi/core/hiring-validation": fileURLToPath(
+        new URL("./packages/core/src/local/hiring/validators.ts", import.meta.url),
+      ),
       "@cluvvi/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
       "@cluvvi/database": fileURLToPath(
         new URL("./packages/database/src/index.ts", import.meta.url),

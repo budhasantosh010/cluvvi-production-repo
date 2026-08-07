@@ -11,6 +11,10 @@
     "./mission": {
       "types": "./src/local/mission.ts",
       "default": "./src/local/mission.ts"
+    },
+    "./hiring-validation": {
+      "types": "./src/local/hiring/validators.ts",
+      "default": "./src/local/hiring/validators.ts"
     }
   },
   "scripts": {

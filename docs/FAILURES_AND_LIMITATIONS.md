@@ -2781,3 +2781,273 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved; the final aggregate gate passes.
 
 **One-line solution:** Verify final same-file content after batch edits that contain multiple replacements for the same path.
+
+## 156. C1-J core validation initially leaked a Node-only dependency into the browser bundle
+
+**What failed:** The production Next.js build rejected a `node:net` import reachable through the shared `@cluvvi/core` client barrel.
+
+**Where:** The independent C1-J hiring validator in `packages/core`.
+
+**When:** First production web build after the hiring contracts and UI were wired.
+
+**Why:** Private-IP validation reused a Node-specific helper inside a package that is also imported by client components.
+
+**How it appeared:** The web build failed even though server-side typecheck and hiring tests passed.
+
+**What was tried:** Removed the Node-only dependency from the universal validator and kept literal IPv4/IPv6 private-address checks browser-safe.
+
+**Current status:** Resolved; production web builds and private-URL mutation tests pass.
+
+**One-line solution:** Keep shared contract validators platform-neutral; isolate Node networking helpers behind server-only modules.
+
+## 157. Multiple same-file atomic edits overwrote earlier C1-J mutations
+
+**What failed:** Several UI/fixture edits appeared to succeed but later reads showed earlier replacements in the same file had disappeared.
+
+**Where:** Controlled fixture CLI, hiring operations UI, and one validator repair.
+
+**When:** During C1-J browser and bridge integration.
+
+**Why:** Multiple replacements in one atomic operation were evaluated against one original snapshot rather than chained state.
+
+**How it appeared:** Typecheck or browser tests repeatedly rediscovered fields that had already been changed.
+
+**What was tried:** Switched to one-file/one-edit sequencing and re-read every affected file after mutation.
+
+**Current status:** Resolved.
+
+**One-line solution:** Apply ordered same-file changes sequentially with fresh reads instead of batching dependent replacements.
+
+## 158. Expanded C1-J operations controls overflowed a desktop card
+
+**What failed:** Visual QA showed one hiring operations card exceeding its intended desktop grid width.
+
+**Where:** `apps/web/components/discovery-operations-panel.tsx`.
+
+**When:** Dedicated C1-J visual inspection after the first 18-scenario browser pass.
+
+**Why:** Long source-adapter labels and budget text did not have sufficient min-width and wrapping constraints inside the expanded four-card layout.
+
+**How it appeared:** Screenshot inspection showed horizontal card content pressure even though functional browser assertions passed.
+
+**What was tried:** Constrained the card/select layout, retained mobile width guards, updated stale page copy, and regenerated visual evidence.
+
+**Current status:** Resolved; hiring browser mobile overflow assertions pass.
+
+**One-line solution:** Treat long operational labels as wrapping content and constrain every grid child with `min-width: 0`/bounded width.
+
+## 159. Real C1-J integration could not depend on public general-web search availability
+
+**What failed:** The first end-to-end live-search bridge exited before hiring retrieval because all configured keyless web-search paths were unavailable for the query.
+
+**Where:** Real Project A to Project B release proof.
+
+**When:** Final C1-J cross-project verification.
+
+**Why:** Optional SearXNG was unconfigured and public HTML search providers did not provide an executable result path at that moment.
+
+**How it appeared:** Project A exited with code 4 before the four hiring sidecars existed.
+
+**What was tried:** Preserved the failure honestly and changed the release proof to isolate the milestone boundary: deterministic reviewed search seed plus a real Project A keyless Greenhouse request, while Project A also gained cautious mission-supplied ATS target hints for practical runs.
+
+**Current status:** Resolved; the pinned real source-adapter proof passes with real Greenhouse network I/O and zero paid requests.
+
+**One-line solution:** Prove the public ATS boundary independently of flaky general-web search while keeping live search failures explicit.
+
+## 160. Explicit ATS URLs were not strong enough to validate a company-board relationship by themselves
+
+**What failed:** An early real integration seed selected Discord but produced zero validated boards and therefore zero jobs.
+
+**Where:** Project A board-relationship validation exercised through Project B's pinned integration test.
+
+**When:** After mission ATS hints were added.
+
+**Why:** The validator correctly requires strong relationship evidence; an explicit board URL and slug similarity alone are intentionally insufficient.
+
+**How it appeared:** Target count was one while `boardsValidated`, jobs, signals, and provider requests remained zero.
+
+**What was tried:** Kept the strong-evidence policy unchanged and made the release proof provide observed company metadata through the bounded discovery-search dependency before executing the real Greenhouse adapter.
+
+**Current status:** Resolved without weakening relationship validation.
+
+**One-line solution:** Supply strong public company-board corroboration; never promote an exact-looking ATS slug to verified relationship evidence by itself.
+
+## 161. Four new durable hiring stages changed default regression counts and CLI arguments
+
+**What failed:** Existing default-mode tests initially expected the pre-C1-J number of skipped/reused stages and the shorter process argument list.
+
+**Where:** Engine E2E, browser-runtime, and local-process discovery tests.
+
+**When:** First aggregate Project B test run after adding source-adapter stages.
+
+**Why:** C1-J adds four explicit no-op stages when source adapters are disabled and always records `--source-adapter-mode none` at the process boundary.
+
+**How it appeared:** Expected stage counts were lower by four and one CLI argument assertion omitted the new explicit mode pair.
+
+**What was tried:** Updated only the stale regression expectations; production default behavior remained source-adapter-off.
+
+**Current status:** Resolved; the complete default test suite passes.
+
+**One-line solution:** Update compatibility assertions when new explicit no-op durable stages are added, without changing the default feature mode.
+
+## 162. Final C1-J aggregate gate found formatting drift in three release files
+
+**What failed:** `pnpm check` stopped at `format:check` before lint, typecheck, tests, or build.
+
+**Where:** `apps/web/app/operations/discovery/page.tsx`, `apps/web/components/discovery-operations-panel.tsx`, and `README.md`.
+
+**When:** Final Project B release gate after the last UI and documentation edits.
+
+**Why:** The files were edited after the previous targeted formatting pass.
+
+**How it appeared:** Prettier listed exactly three files and exited with code 1.
+
+**What was tried:** Formatted only those three files and reran the complete aggregate gate from the beginning.
+
+**Current status:** Resolved pending the rerun recorded immediately after this entry.
+
+**One-line solution:** Run one final targeted Prettier pass after the last UI/documentation mutation and before the aggregate gate.
+
+## 163. Final C1-J lint gate found one stale import and one tautological test comparison
+
+**What failed:** The aggregate release gate stopped at ESLint with one unused `isIP` import and one assertion comparing a schema-fixed literal to itself.
+
+**Where:** `packages/core/src/local/hiring/validators.ts` and `packages/engine/tests/hiring-bridge.integration.test.ts`.
+
+**When:** Final Project B release validation after formatting passed.
+
+**Why:** Browser-safe private-IP validation no longer used Node's `isIP`, and the ranking test retained a redundant literal comparison after the schema froze that field.
+
+**How it appeared:** ESLint reported one warning and one `no-unnecessary-condition` error.
+
+**What was tried:** Removed the stale import and retained the meaningful invariant that every hiring contribution is at most one point.
+
+**Current status:** Resolved; zero-warning lint passes.
+
+**One-line solution:** Delete obsolete platform imports and assert behavioral invariants rather than schema constants.
+
+## 164. One extraction regression failed once in the full parallel suite but passed immediately in isolation
+
+**What failed:** The first final full-suite run reported `extraction-missing-content` as failed.
+
+**Where:** `packages/engine/tests/extraction-bridge.integration.test.ts`.
+
+**When:** Final aggregate Project B gate after all C1-J functionality was in place.
+
+**Why:** The exact case passed unchanged in isolation and in the immediate complete rerun, indicating transient full-suite process/fixture interference rather than a deterministic product defect.
+
+**How it appeared:** The full suite showed one failure while the same exact test then passed with `EXTRACTED_CONTENT_MISSING` and the next full suite passed all tests.
+
+**What was tried:** Ran only the failing case with verbose output, made no production change, then reran the complete aggregate gate.
+
+**Current status:** Resolved as transient; the final full suite passes.
+
+**One-line solution:** Reproduce isolated deterministic failures before changing product code for a one-off parallel-suite failure.
+
+## 165. The maintained default Playwright E2E harness started Next.js on the wrong port and asserted an obsolete health contract
+
+**What failed:** `pnpm test:e2e` first timed out before tests because Playwright waited on port 3100 while `next start` used 3000; after the port fix, the old assertion still expected the Supabase-era health shape.
+
+**Where:** `playwright.config.ts` and `tests/e2e/health.spec.ts`.
+
+**When:** Final all-prior-browser regression pass.
+
+**Why:** The test harness predated the authoritative local SQLite runtime and had not been kept aligned with the current startup port or `/api/health` contract.
+
+**How it appeared:** First a 120-second webServer timeout, then a mismatch between expected `mode: local`/old fields and the truthful default `mode: fixture` local-health response.
+
+**What was tried:** Set the Playwright webServer `PORT` to 3100 and updated only the health assertions to current `status/web/database/mode/databaseInstanceId` semantics.
+
+**Current status:** Resolved; `pnpm test:e2e` passes.
+
+**One-line solution:** Keep the maintained E2E webServer port and health assertion synchronized with the current local runtime contract.
+
+## 166. The generic local browser config accidentally collected dedicated structured and hiring suites
+
+**What failed:** `pnpm test:browser-local` initially attempted C1-I.5 and C1-J specs without their isolated configured servers and produced connection-refused failures.
+
+**Where:** `playwright.local.config.ts`.
+
+**When:** Final all-prior-browser regression pass.
+
+**Why:** New dedicated structured/hiring spec filenames were added after the generic config's exclusion list was created.
+
+**How it appeared:** The generic suite collected 31 tests, including structured/hiring tests designed for separate runners; only the ordinary local specs should have been in that config.
+
+**What was tried:** Added the structured and hiring specs to the generic config's ignore list and reran them through their dedicated isolated scripts.
+
+**Current status:** Resolved; generic local passes 5 with 2 intentional skips, structured passes 6/6, and hiring passes 18/18.
+
+**One-line solution:** Keep feature-specific Playwright specs excluded from the generic local config and execute them only through their isolated runner configs.
+
+## 167. Final documentation formatting drift moved between roadmap files
+
+**What failed:** Repeated aggregate checks surfaced Prettier drift in README/AGENTS/roadmap markdown after late release-document updates.
+
+**Where:** `README.md`, `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, and `docs/C1_PARALLEL_BUILD_PLAN.md` across successive passes.
+
+**When:** Final Project B release validation.
+
+**Why:** Documentation was still being updated after targeted formatting passes.
+
+**How it appeared:** Each aggregate gate stopped at `format:check` before later gates.
+
+**What was tried:** After the final documentation mutation, ran the repository-owned `pnpm format` once across the tree and then reran `pnpm check`.
+
+**Current status:** Resolved; final formatting check passes.
+
+**One-line solution:** Run repository-wide formatting once after the last documentation mutation, not before it.
+
+## 168. First staged security audit command used Bash control syntax in Windows PowerShell
+
+**What failed:** The initial staged audit command did not execute because it used `||` in Windows PowerShell.
+
+**Where:** Final release audit shell command only; no repository file or runtime code was affected.
+
+**When:** Immediately before the staged security scan.
+
+**Why:** Bash-style fallback syntax was used in a PowerShell session.
+
+**How it appeared:** PowerShell raised a parser error before any audit subcommand ran.
+
+**What was tried:** Reissued the same checks with PowerShell-native `$LASTEXITCODE` conditionals.
+
+**Current status:** Resolved; the complete staged security audit ran successfully.
+
+**One-line solution:** Use shell-native control flow in cross-platform release scripts.
+
+## 169. Project B public env template initially omitted the new C1-J operator controls
+
+**What failed:** The implementation and docs exposed C1-J configuration, but `.env.example` still ended at the C1-I.5 parser settings during the first staged audit.
+
+**Where:** Project B `.env.example`.
+
+**When:** Final staged release review.
+
+**Why:** Runtime configuration was implemented before the operator template was revisited.
+
+**How it appeared:** A direct template search found extraction and structured settings but no source-adapter/hiring entries.
+
+**What was tried:** Added source-adapter mode/family/budgets plus the exact non-secret Project A hiring limits; deliberately kept the SmartRecruiters credential absent.
+
+**Current status:** Resolved before commit.
+
+**One-line solution:** Treat the public env template as a required release artifact whenever runtime configuration expands.
+
+## 170. First precommit unstaged-diff guard used PowerShell output truthiness instead of Git exit status
+
+**What failed:** The first commit command aborted before `git commit` even though the working tree had no unstaged changes.
+
+**Where:** Final Project B release shell command only.
+
+**When:** Immediately before the C1-J Project B commit.
+
+**Why:** `git diff --quiet` intentionally prints nothing; the PowerShell expression tested command output rather than `$LASTEXITCODE`, so empty output was misclassified as failure.
+
+**How it appeared:** The guard printed `UNSTAGED_CHANGES_PRESENT` even though `git status --short` showed every change in the index column and no working-tree column.
+
+**What was tried:** Replaced output truthiness with an explicit `$LASTEXITCODE` check before committing.
+
+**Current status:** Resolved; no repository content was lost or modified by the aborted command.
+
+**One-line solution:** For silent Git predicates in PowerShell, test `$LASTEXITCODE`, not command output.

@@ -77,9 +77,12 @@ Cluvvi now understands and plans, can invoke the standalone Project A CLI throug
 14. **C1-G** — Local file/process bridge from standalone Project A V2 output into Cluvvi — complete.
 15. **C1-H** — Approved HN/Tavily/Brave live search-provider integration — complete.
 16. **C1-HF** — Policy-controlled free-search backbone and strict cross-artifact validation — complete.
-17. **C1-I** ? Bounded frontier, public HTML extraction, and Discovery-versus-Drill ? complete.
-18. **C2** — First narrow real discovery slice with preserved provenance.
-19. **C3** — Human evaluation and improvement loop.
+17. **C1-I** — Bounded frontier, public HTML extraction, and Discovery-versus-Drill — complete.
+18. **C1-I.5** — Structured HTML and public-document evidence — complete.
+19. **C1-J.0** — Universal source-adapter contracts — complete.
+20. **C1-J.1** — Bounded public hiring and ATS intelligence — complete.
+21. **C2** — First narrow real discovery slice with preserved provenance.
+22. **C3** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -326,7 +329,7 @@ C1-G requires `providerPreference: "fixture_only"`, rejects non-fixture provider
 
 - V1 and V2 validate independently.
 - V1 remains unchanged and separately valid.
-- C1-C through C1-I consume independently validated V2, not V1; C1-HF additionally validates live provider telemetry and provider-policy trace sidecars, and C1-I independently validates its three extraction companion artifacts.
+- C1-C through C1-J consume independently validated V2, not V1; C1-HF additionally validates live provider telemetry and provider-policy trace sidecars, C1-I validates extraction companions, C1-I.5 validates structured companions, and C1-J validates the four source-adapter/hiring companions independently.
 - A V2 consumer must reject V1 rather than guess missing planning or coverage data.
 - No V1-to-V2 adapter exists in C1-0.1 or Project B.
 - A future adapter requires a separate reviewed mapping, provenance rules, and tests.
@@ -344,6 +347,9 @@ The final compatibility gate has passed locally:
 - **C1-H:** Complete. Preserve the approved search-only HN/Tavily/Brave path, telemetry, budgets, and fixture regressions.
 - **C1-HF:** Complete. Preserve free-only zero-paid enforcement, balanced free-first fallback, paid-deep compatibility, the free-provider ladder, and strict policy-trace validation.
 - **C1-I:** Complete. Preserve the opt-in depth-zero frontier, robots/network/size limits, three strict companion artifacts, untrusted-content containment, deterministic evidence materials, extraction-only resume, and search-only compatibility.
+- **C1-I.5:** Complete. Preserve opt-in structured parsing, independent structured/content-parse companions, bounded document workers, inert parsing, structured provenance, and reuse of earlier search/extraction work.
+- **C1-J.0:** Complete. Preserve independent universal source-adapter modes, access categories, deterministic companion identities, strict cross-artifact validation, and a separate source-adapter fingerprint/resume boundary.
+- **C1-J.1:** Complete. Preserve Greenhouse, Ashby, Lever, Workable, optional authenticated-free SmartRecruiters, JobPosting JSON-LD, and conservative generic careers fallback; candidate/private ATS data remains forbidden, all hiring evidence remains untrusted, target linking remains conservative, and mission-relevant hiring adds at most one ranking point. The real release proof pins Project A `19cf88710241b3337df4f7c401728741bffab384` and validates real keyless Greenhouse evidence through Buyer Map.
 - **C2:** Execute a narrow real discovery slice with preserved provenance and honest coverage.
 - **C3:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
 

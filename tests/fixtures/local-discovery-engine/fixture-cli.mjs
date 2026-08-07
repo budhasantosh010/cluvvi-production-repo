@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { writeControlledExtractionSidecars } from "./extraction-sidecars.mjs";
+import { writeControlledHiringSidecars } from "./hiring-sidecars.mjs";
 import { writeControlledStructuredSidecars } from "./structured-sidecars.mjs";
 
 const args = process.argv.slice(2);
@@ -12,6 +13,11 @@ const maximumExtractionsIndex = args.indexOf("--max-extractions");
 const structuredContentModeIndex = args.indexOf("--structured-content-mode");
 const maximumStructuredResourcesIndex = args.indexOf("--max-structured-resources");
 const maximumDocumentResourcesIndex = args.indexOf("--max-document-resources");
+const sourceAdapterModeIndex = args.indexOf("--source-adapter-mode");
+const sourceFamiliesIndex = args.indexOf("--source-families");
+const maximumHiringTargetsIndex = args.indexOf("--max-hiring-targets");
+const maximumHiringBoardsPerTargetIndex = args.indexOf("--max-hiring-boards-per-target");
+const maximumHiringJobsPerBoardIndex = args.indexOf("--max-hiring-jobs-per-board");
 const outputIndex = args.indexOf("--output");
 const providerMode = providerModeIndex >= 0 ? args[providerModeIndex + 1] : "fixture_only";
 const providerPolicy = providerPolicyIndex >= 0 ? args[providerPolicyIndex + 1] : "free_only";
@@ -24,6 +30,20 @@ const maximumStructuredResources =
   maximumStructuredResourcesIndex >= 0 ? Number(args[maximumStructuredResourcesIndex + 1]) : 8;
 const maximumDocumentResources =
   maximumDocumentResourcesIndex >= 0 ? Number(args[maximumDocumentResourcesIndex + 1]) : 4;
+const sourceAdapterMode = sourceAdapterModeIndex >= 0 ? args[sourceAdapterModeIndex + 1] : "none";
+const sourceFamilies =
+  sourceFamiliesIndex >= 0
+    ? args[sourceFamiliesIndex + 1]
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+const maximumHiringTargets =
+  maximumHiringTargetsIndex >= 0 ? Number(args[maximumHiringTargetsIndex + 1]) : 10;
+const maximumHiringBoardsPerTarget =
+  maximumHiringBoardsPerTargetIndex >= 0 ? Number(args[maximumHiringBoardsPerTargetIndex + 1]) : 4;
+const maximumHiringJobsPerBoard =
+  maximumHiringJobsPerBoardIndex >= 0 ? Number(args[maximumHiringJobsPerBoardIndex + 1]) : 250;
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
 if (
   !requestPath ||
@@ -41,6 +61,18 @@ if (
   !Number.isInteger(maximumDocumentResources) ||
   maximumDocumentResources < 1 ||
   maximumDocumentResources > maximumStructuredResources ||
+  !["none", "selected_sources"].includes(sourceAdapterMode) ||
+  sourceFamilies.some((family) => family !== "hiring") ||
+  (sourceAdapterMode === "selected_sources" && !sourceFamilies.includes("hiring")) ||
+  !Number.isInteger(maximumHiringTargets) ||
+  maximumHiringTargets < 1 ||
+  maximumHiringTargets > 100 ||
+  !Number.isInteger(maximumHiringBoardsPerTarget) ||
+  maximumHiringBoardsPerTarget < 1 ||
+  maximumHiringBoardsPerTarget > 20 ||
+  !Number.isInteger(maximumHiringJobsPerBoard) ||
+  maximumHiringJobsPerBoard < 1 ||
+  maximumHiringJobsPerBoard > 1000 ||
   (structuredContentMode === "selected_resources" && extractionMode !== "selected_public_pages")
 ) {
   console.error(
@@ -89,6 +121,16 @@ if (providerMode === "fixture_only") {
     structuredContentMode,
     maximumStructuredResources,
     maximumDocumentResources,
+  });
+  await writeControlledHiringSidecars({
+    outputPath,
+    searchResults: artifact,
+    behavior,
+    sourceAdapterMode,
+    sourceFamilies,
+    maximumHiringTargets,
+    maximumHiringBoardsPerTarget,
+    maximumHiringJobsPerBoard,
   });
   console.log(`Wrote fixture search_results.v2 for ${request.requestId}.`);
   process.exit(0);

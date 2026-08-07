@@ -15,6 +15,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      PORT: "3100",
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "a".repeat(40),
       SUPABASE_SERVICE_ROLE_KEY: "s".repeat(40),

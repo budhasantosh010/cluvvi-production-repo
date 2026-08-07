@@ -28,6 +28,18 @@ export const BuyerHypothesisV1Schema = z
     rationale: z.string().min(1),
     sourceResultIds: z.array(z.string().min(1)).min(1),
     evidenceFindingIds: z.array(z.string().min(1)).min(1),
+    hiringIdentityEvidence: z
+      .object({
+        observedJobFindingIds: z.array(z.string().min(1)),
+        inferredSignalFindingIds: z.array(z.string().min(1)),
+        companyName: z.string().min(1).optional(),
+        companyDomain: z.string().min(1).optional(),
+        confidence: z.enum(["low", "medium", "high"]),
+        conservativeMatch: z.literal(true),
+        limitations: z.array(z.string().min(1)).min(1),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type BuyerHypothesisV1 = z.infer<typeof BuyerHypothesisV1Schema>;

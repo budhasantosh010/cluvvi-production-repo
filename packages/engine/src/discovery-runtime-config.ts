@@ -1,5 +1,7 @@
 import type {
   CluvviExtractionMode,
+  CluvviSourceAdapterMode,
+  CluvviSourceFamily,
   CluvviStructuredContentMode,
   DiscoveryProviderMode,
   DiscoveryProviderPolicy,
@@ -68,6 +70,21 @@ export const DISCOVERY_PROVIDER_ENV_ALLOWLIST = [
   "DISCOVERY_HTML_MARKDOWN_ENABLED",
   "DISCOVERY_ANYDOC_ENABLED",
   "DISCOVERY_ANYDOC_WORKER_CONCURRENCY",
+  "DISCOVERY_HIRING_MAX_TARGETS",
+  "DISCOVERY_HIRING_MAX_BOARDS_PER_TARGET",
+  "DISCOVERY_HIRING_MAX_JOBS_PER_BOARD",
+  "DISCOVERY_HIRING_MAX_TOTAL_JOBS",
+  "DISCOVERY_HIRING_MAX_DISCOVERY_QUERIES_PER_TARGET",
+  "DISCOVERY_HIRING_MAX_CONVENTIONAL_PATH_PROBES",
+  "DISCOVERY_HIRING_MAX_CONCURRENCY",
+  "DISCOVERY_HIRING_MAX_DOMAIN_CONCURRENCY",
+  "DISCOVERY_HIRING_PROVIDER_TIMEOUT_MS",
+  "DISCOVERY_HIRING_DESCRIPTION_MAX_CHARACTERS",
+  "DISCOVERY_HIRING_TOTAL_DESCRIPTION_MAX_CHARACTERS",
+  "DISCOVERY_HIRING_INCLUDE_PUBLIC_COMPENSATION",
+  "DISCOVERY_HIRING_ALLOW_AUTHENTICATED_FREE",
+  "DISCOVERY_HIRING_MIN_TARGET_CONFIDENCE",
+  "DISCOVERY_HIRING_MIN_BOARD_RELATIONSHIP_CONFIDENCE",
 ] as const;
 
 export type DiscoveryProviderEnvironmentKey = (typeof DISCOVERY_PROVIDER_ENV_ALLOWLIST)[number];
@@ -78,6 +95,9 @@ export const CLUVVI_STRUCTURED_PARSER_POLICY_VERSION = "structured_parser_policy
 export const CLUVVI_ANYDOC_PARSER_VERSION = "@firecrawl/anydoc@0.1.6";
 export const CLUVVI_HTML_MARKDOWN_RENDERER_VERSION = "sanitized_html_to_gfm@1.0.0";
 export const CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION = "extraction_quality@1.0.0";
+export const CLUVVI_HIRING_SIGNAL_RULE_VERSION = "hiring_signals@1.0.0";
+export const CLUVVI_HIRING_TAXONOMY_VERSION = "hiring_taxonomy@1.0.0";
+export const CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION = "hiring_technology_lexicon@1.0.0";
 
 export interface LocalDiscoveryEngineConfig {
   projectPath: string;
@@ -91,6 +111,15 @@ export interface LocalDiscoveryEngineConfig {
   structuredContentMode?: CluvviStructuredContentMode;
   maximumStructuredResources?: number;
   maximumDocumentResources?: number;
+  sourceAdapterMode?: CluvviSourceAdapterMode;
+  sourceFamilies?: CluvviSourceFamily[];
+  maximumHiringTargets?: number;
+  maximumHiringBoardsPerTarget?: number;
+  maximumHiringJobsPerBoard?: number;
+  maximumHiringJobsTotal?: number;
+  hiringSignalRuleVersion?: string;
+  hiringTaxonomyVersion?: string;
+  hiringTechnologyLexiconVersion?: string;
   extractorVersion?: string;
   frontierPolicyVersion?: string;
   structuredParserPolicyVersion?: string;
@@ -110,6 +139,15 @@ export type DiscoveryRuntimeConfig =
       structuredContentMode: "none";
       maximumStructuredResources: number;
       maximumDocumentResources: number;
+      sourceAdapterMode: "none";
+      sourceFamilies: CluvviSourceFamily[];
+      maximumHiringTargets: number;
+      maximumHiringBoardsPerTarget: number;
+      maximumHiringJobsPerBoard: number;
+      maximumHiringJobsTotal: number;
+      hiringSignalRuleVersion: string;
+      hiringTaxonomyVersion: string;
+      hiringTechnologyLexiconVersion: string;
       extractorVersion: string;
       frontierPolicyVersion: string;
       structuredParserPolicyVersion: string;
@@ -126,6 +164,15 @@ export type DiscoveryRuntimeConfig =
       structuredContentMode: CluvviStructuredContentMode;
       maximumStructuredResources: number;
       maximumDocumentResources: number;
+      sourceAdapterMode: CluvviSourceAdapterMode;
+      sourceFamilies: CluvviSourceFamily[];
+      maximumHiringTargets: number;
+      maximumHiringBoardsPerTarget: number;
+      maximumHiringJobsPerBoard: number;
+      maximumHiringJobsTotal: number;
+      hiringSignalRuleVersion: string;
+      hiringTaxonomyVersion: string;
+      hiringTechnologyLexiconVersion: string;
       extractorVersion: string;
       frontierPolicyVersion: string;
       structuredParserPolicyVersion: string;
@@ -150,6 +197,10 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_EXTRACTIONS = 8;
 const DEFAULT_MAX_STRUCTURED_RESOURCES = 8;
 const DEFAULT_MAX_DOCUMENT_RESOURCES = 4;
+const DEFAULT_MAX_HIRING_TARGETS = 10;
+const DEFAULT_MAX_HIRING_BOARDS_PER_TARGET = 4;
+const DEFAULT_MAX_HIRING_JOBS_PER_BOARD = 250;
+const DEFAULT_MAX_HIRING_JOBS_TOTAL = 2_000;
 
 function configuredValue(
   environment: Readonly<Record<string, string | undefined>>,
@@ -212,6 +263,53 @@ function parseStructuredContentMode(value: string | undefined): CluvviStructured
     "LOCAL_DISCOVERY_STRUCTURED_CONTENT_MODE_INVALID",
     "CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE must be none or selected_resources.",
   );
+}
+
+function parseSourceAdapterMode(value: string | undefined): CluvviSourceAdapterMode {
+  const mode = value ?? "none";
+  if (mode === "none" || mode === "selected_sources") return mode;
+  throw new DiscoveryRuntimeConfigurationError(
+    "LOCAL_DISCOVERY_SOURCE_ADAPTER_MODE_INVALID",
+    "CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE must be none or selected_sources.",
+  );
+}
+
+function parseSourceFamilies(value: string | undefined): CluvviSourceFamily[] {
+  if (value === undefined || value.trim().length === 0) return [];
+  const families = [
+    ...new Set(
+      value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (families.some((family) => family !== "hiring")) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
+      "CLUVVI_DISCOVERY_SOURCE_FAMILIES currently supports only hiring.",
+    );
+  }
+  return families as CluvviSourceFamily[];
+}
+
+function parseBoundedInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+  key: string,
+  code: string,
+): number {
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new DiscoveryRuntimeConfigurationError(
+      code,
+      `${key} must be an integer from ${minimum} to ${maximum}.`,
+    );
+  }
+  return parsed;
 }
 
 function parseStructuredBudget(
@@ -295,16 +393,73 @@ export function parseDiscoveryRuntimeConfig(
       "CLUVVI_DISCOVERY_MAX_DOCUMENT_RESOURCES cannot exceed CLUVVI_DISCOVERY_MAX_STRUCTURED_RESOURCES.",
     );
   }
+  const sourceAdapterMode = parseSourceAdapterMode(
+    configuredValue(environment, "CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE"),
+  );
+  const sourceFamilies = parseSourceFamilies(
+    configuredValue(environment, "CLUVVI_DISCOVERY_SOURCE_FAMILIES"),
+  );
+  const maximumHiringTargets = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_HIRING_TARGETS"),
+    DEFAULT_MAX_HIRING_TARGETS,
+    1,
+    100,
+    "CLUVVI_DISCOVERY_MAX_HIRING_TARGETS",
+    "LOCAL_DISCOVERY_MAX_HIRING_TARGETS_INVALID",
+  );
+  const maximumHiringBoardsPerTarget = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_HIRING_BOARDS_PER_TARGET"),
+    DEFAULT_MAX_HIRING_BOARDS_PER_TARGET,
+    1,
+    20,
+    "CLUVVI_DISCOVERY_MAX_HIRING_BOARDS_PER_TARGET",
+    "LOCAL_DISCOVERY_MAX_HIRING_BOARDS_INVALID",
+  );
+  const maximumHiringJobsPerBoard = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD"),
+    DEFAULT_MAX_HIRING_JOBS_PER_BOARD,
+    1,
+    1_000,
+    "CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD",
+    "LOCAL_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD_INVALID",
+  );
+  const maximumHiringJobsTotal = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_HIRING_JOBS_TOTAL"),
+    DEFAULT_MAX_HIRING_JOBS_TOTAL,
+    1,
+    10_000,
+    "CLUVVI_DISCOVERY_MAX_HIRING_JOBS_TOTAL",
+    "LOCAL_DISCOVERY_MAX_HIRING_JOBS_TOTAL_INVALID",
+  );
+  if (maximumHiringJobsPerBoard > maximumHiringJobsTotal) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_HIRING_BUDGET_INVALID",
+      "CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD cannot exceed CLUVVI_DISCOVERY_MAX_HIRING_JOBS_TOTAL.",
+    );
+  }
+  if (sourceAdapterMode === "none" && sourceFamilies.length > 0) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
+      "Source families require CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE=selected_sources.",
+    );
+  }
+  if (sourceAdapterMode === "selected_sources" && !sourceFamilies.includes("hiring")) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
+      "selected_sources currently requires CLUVVI_DISCOVERY_SOURCE_FAMILIES=hiring.",
+    );
+  }
 
   if (rawMode === "fixture") {
     if (
       providerMode !== "fixture_only" ||
       extractionMode !== "none" ||
-      structuredContentMode !== "none"
+      structuredContentMode !== "none" ||
+      sourceAdapterMode !== "none"
     ) {
       throw new DiscoveryRuntimeConfigurationError(
         "DISCOVERY_ENGINE_NOT_CONFIGURED",
-        "Live search, public-page extraction, or structured parsing requires CLUVVI_DISCOVERY_MODE=local_discovery_engine.",
+        "Live search, public-page extraction, structured parsing, or source adapters require CLUVVI_DISCOVERY_MODE=local_discovery_engine.",
       );
     }
     return {
@@ -316,6 +471,15 @@ export function parseDiscoveryRuntimeConfig(
       structuredContentMode: "none",
       maximumStructuredResources,
       maximumDocumentResources,
+      sourceAdapterMode: "none",
+      sourceFamilies: [],
+      maximumHiringTargets,
+      maximumHiringBoardsPerTarget,
+      maximumHiringJobsPerBoard,
+      maximumHiringJobsTotal,
+      hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
+      hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
+      hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
       extractorVersion: CLUVVI_EXTRACTOR_VERSION,
       frontierPolicyVersion: CLUVVI_FRONTIER_POLICY_VERSION,
       structuredParserPolicyVersion: CLUVVI_STRUCTURED_PARSER_POLICY_VERSION,
@@ -395,6 +559,15 @@ export function parseDiscoveryRuntimeConfig(
     structuredContentMode,
     maximumStructuredResources,
     maximumDocumentResources,
+    sourceAdapterMode,
+    sourceFamilies,
+    maximumHiringTargets,
+    maximumHiringBoardsPerTarget,
+    maximumHiringJobsPerBoard,
+    maximumHiringJobsTotal,
+    hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
+    hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
+    hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
     extractorVersion: CLUVVI_EXTRACTOR_VERSION,
     frontierPolicyVersion: CLUVVI_FRONTIER_POLICY_VERSION,
     structuredParserPolicyVersion: CLUVVI_STRUCTURED_PARSER_POLICY_VERSION,
@@ -412,6 +585,15 @@ export function parseDiscoveryRuntimeConfig(
       structuredContentMode,
       maximumStructuredResources,
       maximumDocumentResources,
+      sourceAdapterMode,
+      sourceFamilies,
+      maximumHiringTargets,
+      maximumHiringBoardsPerTarget,
+      maximumHiringJobsPerBoard,
+      maximumHiringJobsTotal,
+      hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
+      hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
+      hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
       extractorVersion: CLUVVI_EXTRACTOR_VERSION,
       frontierPolicyVersion: CLUVVI_FRONTIER_POLICY_VERSION,
       structuredParserPolicyVersion: CLUVVI_STRUCTURED_PARSER_POLICY_VERSION,

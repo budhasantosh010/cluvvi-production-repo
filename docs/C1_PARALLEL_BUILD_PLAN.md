@@ -199,6 +199,18 @@ C1-G connects validated standalone Project A `search_results.v2` output to Cluvv
 
 C1-I preserves the search contract and adds three separate companion artifacts only when `selected_public_pages` is explicitly configured. Project A owns safe depth-zero public fetching and extraction. Project B owns independent schema snapshots, cross-artifact validation, durable persistence, evidence-material normalization, prompt-injection containment, downstream provenance, and truthful browser presentation. Search-only runs remain valid and unchanged.
 
+## C1-I.5 — Completed structured-content boundary
+
+C1-I.5 preserves C1-I and adds independent `structured_content.v1` and `content_parse_telemetry.v1` companions for already selected public resources. Project B validates inert sections, tables, metadata, links, footnotes, parser versions, hashes, quality/completeness, and telemetry before structured evidence reaches downstream stages. Search and extraction remain independently reusable.
+
+## C1-J.0/C1-J.1 — Completed universal source-adapter and public-hiring boundary
+
+C1-J keeps source adapters independently opt-in after search/extraction/structured parsing. `none` remains the default; `selected_sources` with explicit `hiring` is the only implemented family. Project A owns public provider execution. Project B owns independent snapshots and strict validation for `source_target_plan.v1`, `job_collection.v1`, `hiring_signals.v1`, and `source_adapter_run_telemetry.v1`, plus durable stages `source_targeting`, `hiring_retrieval`, `hiring_analysis`, and `source_adapter_telemetry`.
+
+Supported public sources are Greenhouse, Ashby, Lever, Workable, optional authenticated-free SmartRecruiters, existing JobPosting JSON-LD, and conservative generic careers pages. Candidate/application/private ATS data is rejected. Hiring evidence is `untrusted_public_content`; ambiguous company links do not affect ranking; mission-relevant hiring contributes at most one point; Buyer Map preserves public-job/hiring-signal/provider/access/confidence/limitation provenance. Partial failure is honest, all-unavailable fabricates nothing, and hiring repair/resume reuses valid discovery/frontier/extraction/structured stages.
+
+The real release proof pins Project A `19cf88710241b3337df4f7c401728741bffab384`, executes a real bounded keyless Greenhouse request in a separate Project A process, validates the canonical sidecars independently, and proves the evidence reaches Buyer Map with zero paid requests.
+
 ## Future V1-to-V2 adapter boundary
 
 A future package may translate validated V1 into V2 only after an explicit mapping is approved.

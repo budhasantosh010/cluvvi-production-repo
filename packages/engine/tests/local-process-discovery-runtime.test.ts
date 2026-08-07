@@ -345,6 +345,8 @@ describe("LocalProcessDiscoveryRuntime", () => {
       "none",
       "--structured-content-mode",
       "none",
+      "--source-adapter-mode",
+      "none",
       "--output",
       resolve(exchange, "search-results.v2.json"),
     ]);

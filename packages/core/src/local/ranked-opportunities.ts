@@ -33,6 +33,14 @@ export const RankedOpportunityV1Schema = z
     score: z.number().int().min(-8).max(20),
     confidence: IdentityConfidenceSchema,
     scoreComponents: z.array(RankingScoreComponentV1Schema).length(8),
+    hiringContribution: z
+      .object({
+        applied: z.boolean(),
+        points: z.number().int().min(0).max(1),
+        maximumShareOfPositiveScore: z.literal(0.08),
+        rationale: z.string().min(1),
+      })
+      .strict(),
     evidenceSummary: z.string().min(1),
     positiveEvidenceFindingIds: z.array(z.string().min(1)),
     negativeEvidenceFindingIds: z.array(z.string().min(1)),

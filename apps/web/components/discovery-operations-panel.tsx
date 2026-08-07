@@ -2,6 +2,8 @@
 
 import type {
   CluvviExtractionMode,
+  CluvviSourceAdapterMode,
+  CluvviSourceFamily,
   CluvviStructuredContentMode,
   DiscoveryProviderMode,
   DiscoveryProviderPolicy,
@@ -16,6 +18,12 @@ interface DiscoveryOperationsPanelProps {
   structuredContentMode: CluvviStructuredContentMode;
   maximumStructuredResources: number;
   maximumDocumentResources: number;
+  sourceAdapterMode: CluvviSourceAdapterMode;
+  sourceFamilies: CluvviSourceFamily[];
+  maximumHiringTargets: number;
+  maximumHiringBoardsPerTarget: number;
+  maximumHiringJobsPerBoard: number;
+  maximumHiringJobsTotal: number;
   runtimeMode: "fixture" | "local_discovery_engine";
   runnerAvailable: boolean;
 }
@@ -28,6 +36,12 @@ export function DiscoveryOperationsPanel({
   structuredContentMode,
   maximumStructuredResources,
   maximumDocumentResources,
+  sourceAdapterMode,
+  sourceFamilies,
+  maximumHiringTargets,
+  maximumHiringBoardsPerTarget,
+  maximumHiringJobsPerBoard,
+  maximumHiringJobsTotal,
   runtimeMode,
   runnerAvailable,
 }: DiscoveryOperationsPanelProps) {
@@ -35,10 +49,15 @@ export function DiscoveryOperationsPanel({
     useState<CluvviExtractionMode>(extractionMode);
   const [previewStructuredMode, setPreviewStructuredMode] =
     useState<CluvviStructuredContentMode>(structuredContentMode);
+  const [previewSourceAdapterMode, setPreviewSourceAdapterMode] =
+    useState<CluvviSourceAdapterMode>(sourceAdapterMode);
   const active =
-    previewExtractionMode === extractionMode && previewStructuredMode === structuredContentMode;
+    previewExtractionMode === extractionMode &&
+    previewStructuredMode === structuredContentMode &&
+    previewSourceAdapterMode === sourceAdapterMode;
   const selectedPages = previewExtractionMode === "selected_public_pages";
   const selectedStructured = previewStructuredMode === "selected_resources";
+  const selectedHiring = previewSourceAdapterMode === "selected_sources";
 
   return (
     <div className="grid gap-6">
@@ -65,7 +84,7 @@ export function DiscoveryOperationsPanel({
           </span>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <label className="block min-w-0" htmlFor="extraction-mode-preview">
             <span className="field-label">Public-page extraction</span>
             <select
@@ -101,11 +120,25 @@ export function DiscoveryOperationsPanel({
               </option>
             </select>
           </label>
+          <label className="block min-w-0" htmlFor="source-adapter-mode-preview">
+            <span className="field-label">Public source adapters</span>
+            <select
+              id="source-adapter-mode-preview"
+              className="field-input mt-2 w-full min-w-0 max-w-full"
+              value={previewSourceAdapterMode}
+              onChange={(event) =>
+                setPreviewSourceAdapterMode(event.target.value as CluvviSourceAdapterMode)
+              }
+            >
+              <option value="none">Disabled — no source-family sidecars</option>
+              <option value="selected_sources">Hiring — public ATS and careers evidence</option>
+            </select>
+          </label>
         </div>
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        <div className="mt-6 grid gap-4 xl:grid-cols-4">
           <article
-            className={`rounded-3xl border p-5 ${
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
               !selectedPages
                 ? "border-neutral-950 bg-neutral-950 text-white"
                 : "border-neutral-200 bg-neutral-50 text-neutral-900"
@@ -122,7 +155,7 @@ export function DiscoveryOperationsPanel({
             </ul>
           </article>
           <article
-            className={`rounded-3xl border p-5 ${
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
               selectedPages && !selectedStructured
                 ? "border-neutral-950 bg-neutral-950 text-white"
                 : "border-neutral-200 bg-neutral-50 text-neutral-900"
@@ -143,7 +176,7 @@ export function DiscoveryOperationsPanel({
             </ul>
           </article>
           <article
-            className={`rounded-3xl border p-5 ${
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
               selectedStructured
                 ? "border-neutral-950 bg-neutral-950 text-white"
                 : "border-neutral-200 bg-neutral-50 text-neutral-900"
@@ -160,16 +193,39 @@ export function DiscoveryOperationsPanel({
               <li>• At most {maximumStructuredResources} structured resources</li>
               <li>• At most {maximumDocumentResources} document-parser workers</li>
               <li>• Sections, tables, metadata, links, and footnotes</li>
-              <li>• PDF/Office/OpenDocument/RTF/EPUB/CSV support</li>
+              <li className="break-words">
+                • PDF / Office / OpenDocument / RTF / EPUB / CSV support
+              </li>
               <li>• Macros, formulas, links, and instructions never execute</li>
+            </ul>
+          </article>
+          <article
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
+              selectedHiring
+                ? "border-neutral-950 bg-neutral-950 text-white"
+                : "border-neutral-200 bg-neutral-50 text-neutral-900"
+            }`}
+            data-testid="hiring-mode-card"
+          >
+            <p className={`eyebrow ${selectedHiring ? "text-neutral-300" : ""}`}>C1-J hiring</p>
+            <h3 className="mt-2 text-lg font-semibold">Public ATS intelligence</h3>
+            <ul
+              className={`mt-3 grid gap-2 text-sm leading-6 ${selectedHiring ? "text-neutral-300" : "text-neutral-600"}`}
+            >
+              <li>• At most {maximumHiringTargets} target companies</li>
+              <li>• At most {maximumHiringBoardsPerTarget} boards per target</li>
+              <li>• At most {maximumHiringJobsPerBoard} jobs per board</li>
+              <li>• At most {maximumHiringJobsTotal} jobs total</li>
+              <li>• No candidate data, applications, or private ATS APIs</li>
             </ul>
           </article>
         </div>
 
         {!active && (
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-            Preview only. Set <code>CLUVVI_DISCOVERY_EXTRACTION_MODE</code> and
-            <code className="ml-1">CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE</code>, then restart the
+            Preview only. Set <code>CLUVVI_DISCOVERY_EXTRACTION_MODE</code>,
+            <code className="ml-1">CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE</code>, and
+            <code className="ml-1">CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE</code>, then restart the
             local application for new runs.
           </div>
         )}
@@ -190,6 +246,12 @@ export function DiscoveryOperationsPanel({
             ["Structured mode", structuredContentMode.replaceAll("_", " ")],
             ["Maximum structured resources", String(maximumStructuredResources)],
             ["Maximum document resources", String(maximumDocumentResources)],
+            ["Source-adapter mode", sourceAdapterMode.replaceAll("_", " ")],
+            ["Source families", sourceFamilies.join(", ") || "none"],
+            ["Maximum hiring targets", String(maximumHiringTargets)],
+            ["Maximum boards per target", String(maximumHiringBoardsPerTarget)],
+            ["Maximum jobs per board", String(maximumHiringJobsPerBoard)],
+            ["Maximum hiring jobs total", String(maximumHiringJobsTotal)],
             ["Structured parser policy", "structured_parser_policy@1.0.0"],
             ["AnyDoc parser", "@firecrawl/anydoc@0.1.6"],
             ["HTML renderer", "sanitized_html_to_gfm@1.0.0"],
@@ -205,9 +267,7 @@ export function DiscoveryOperationsPanel({
 
       <section className="rounded-3xl border border-violet-200 bg-violet-50 p-6 sm:p-8">
         <p className="eyebrow text-violet-700">Hard scope boundary</p>
-        <h2 className="mt-2 text-xl font-semibold text-violet-950">
-          What C1-I.5 still does not do
-        </h2>
+        <h2 className="mt-2 text-xl font-semibold text-violet-950">What C1-J still does not do</h2>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-violet-900">
           No recursive crawling, browser or JavaScript rendering, OCR execution, comments or
           transcripts, platform adapters, identity verification, contacts, enrichment, outreach,

@@ -5,9 +5,11 @@ test("web health endpoint is truthful and secret-free", async ({ request }) => {
   expect(response.ok()).toBe(true);
   const body = await response.json();
   expect(body).toMatchObject({
-    service: "cluvvi-web",
-    status: "ready",
-    capabilities: { supabaseConfigured: true },
+    status: "ok",
+    web: "ok",
+    database: "ok",
+    mode: "fixture",
   });
+  expect(body.databaseInstanceId).toEqual(expect.any(String));
   expect(JSON.stringify(body)).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
 });

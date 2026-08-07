@@ -20,8 +20,10 @@ import {
   type EvidenceSignalType,
   type EvidenceStrength,
   type ExtractedContentArtifactV1,
+  type HiringSignalsArtifactV1,
   type IdentityEnrichmentArtifactV1,
   type IdentityHypothesisV1,
+  type JobCollectionArtifactV1,
   type LocalMission,
   type ManualContactRouteV1,
   type NormalizedDiscoveryResultV2,
@@ -244,21 +246,240 @@ export function buildDiscoveryCandidates(
   });
 }
 
+function matchingHiringResult(
+  candidates: DiscoveryCandidatesArtifactV1,
+  input: { companyDomain?: string | undefined; companyName: string; sourceUrl: string },
+): NormalizedDiscoveryResultV2 | undefined {
+  const domain = input.companyDomain?.toLowerCase();
+  return (
+    candidates.results.find(
+      (result) => domain !== undefined && result.domain?.toLowerCase() === domain,
+    ) ??
+    candidates.results.find(
+      (result) => result.authorOrCompany?.toLowerCase() === input.companyName.toLowerCase(),
+    ) ??
+    candidates.results.find((result) => {
+      try {
+        return new URL(result.url).hostname === new URL(input.sourceUrl).hostname;
+      } catch {
+        return false;
+      }
+    }) ??
+    candidates.results[0]
+  );
+}
+
+function hiringEvidence(input: {
+  candidates: DiscoveryCandidatesArtifactV1;
+  jobCollection?: JobCollectionArtifactV1;
+  hiringSignals?: HiringSignalsArtifactV1;
+  generatedAt: string;
+}): { materials: EvidenceMaterialV1[]; findings: EvidenceFindingV1[] } {
+  if (input.jobCollection === undefined || input.hiringSignals === undefined) {
+    return { materials: [], findings: [] };
+  }
+  const boardById = new Map(input.jobCollection.boards.map((board) => [board.boardId, board]));
+  const materials: EvidenceMaterialV1[] = [];
+  const findings: EvidenceFindingV1[] = [];
+  for (const job of input.jobCollection.jobs) {
+    const result = matchingHiringResult(input.candidates, {
+      companyName: job.companyName,
+      ...(job.companyDomain === undefined ? {} : { companyDomain: job.companyDomain }),
+      sourceUrl: job.jobUrl,
+    });
+    if (result === undefined) continue;
+    const board = boardById.get(job.boardId);
+    if (board === undefined) continue;
+    const materialId = `material_hiring_job_${job.jobId}`;
+    const content = [
+      job.title,
+      job.department,
+      job.workplaceType === "unspecified" ? undefined : job.workplaceType.replace("_", " "),
+      job.locations.map((location) => location.rawText).join(", "),
+      job.descriptionText,
+    ]
+      .filter((value): value is string => value !== undefined && value.length > 0)
+      .join(" — ")
+      .slice(0, 20_000);
+    const material: EvidenceMaterialV1 = {
+      id: materialId,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      kind: "public_job_posting",
+      sourceUrl: job.jobUrl,
+      content,
+      contentHash: job.contentHash,
+      trustClassification: "untrusted_public_content",
+      targetId: job.targetId,
+      boardId: job.boardId,
+      jobId: job.jobId,
+      hiringProviderId: job.sourceProviderId,
+      accessCategory: board.accessCategory,
+      companyName: job.companyName,
+      ...(job.companyDomain === undefined ? {} : { companyDomain: job.companyDomain }),
+      ...(job.roleFamily === undefined ? {} : { roleFamily: job.roleFamily }),
+      ...(job.seniority === undefined ? {} : { seniority: job.seniority }),
+      workplaceType: job.workplaceType,
+      ...(job.department === undefined ? {} : { department: job.department }),
+      technologyMentions: job.technologyMentions.map((mention) => mention.canonicalName),
+      confidence: board.relationshipConfidence,
+      ...(job.publishedAt === undefined ? {} : { publishedAt: job.publishedAt }),
+      limitations: [
+        ...job.limitations,
+        "This public job evidence supports only a bounded hiring observation and no definitive commercial conclusion.",
+      ],
+    };
+    materials.push(material);
+    findings.push({
+      id: `finding_hiring_job_${fingerprint({ jobId: job.jobId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "hiring_signal",
+      positive: true,
+      strength: board.relationshipConfidence >= 0.8 ? "moderate" : "weak",
+      summary: `${job.companyName} publicly lists ${job.title}. This is an observed hiring fact, not proof of budget, expansion, replacement hiring, an approved project, or purchase intent.`,
+      supportingText: content,
+      sourceUrl: job.jobUrl,
+      providerId: job.sourceProviderId,
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "public_job_posting",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: job.jobUrl,
+        providerId: job.sourceProviderId,
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        ...(job.publishedAt === undefined ? {} : { publishedAt: job.publishedAt }),
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "public_job_posting",
+        extractedContentHash: job.contentHash,
+        trustClassification: "untrusted_public_content",
+        targetId: job.targetId,
+        boardId: job.boardId,
+        jobId: job.jobId,
+        hiringProviderId: job.sourceProviderId,
+        accessCategory: board.accessCategory,
+        companyName: job.companyName,
+        ...(job.companyDomain === undefined ? {} : { companyDomain: job.companyDomain }),
+        ...(job.roleFamily === undefined ? {} : { roleFamily: job.roleFamily }),
+        ...(job.seniority === undefined ? {} : { seniority: job.seniority }),
+        workplaceType: job.workplaceType,
+        ...(job.department === undefined ? {} : { department: job.department }),
+        technologyMentions: job.technologyMentions.map((mention) => mention.canonicalName),
+        confidence: board.relationshipConfidence,
+      },
+    });
+  }
+  for (const signal of input.hiringSignals.signals) {
+    const company = input.hiringSignals.companies.find(
+      (entry) => entry.targetId === signal.targetId,
+    );
+    if (company === undefined) continue;
+    const supportingJob = input.jobCollection.jobs.find((job) =>
+      signal.supportingJobIds.includes(job.jobId),
+    );
+    if (supportingJob === undefined) continue;
+    const result = matchingHiringResult(input.candidates, {
+      companyName: company.companyName,
+      ...(company.companyDomain === undefined ? {} : { companyDomain: company.companyDomain }),
+      sourceUrl: supportingJob.jobUrl,
+    });
+    if (result === undefined) continue;
+    const materialId = `material_hiring_signal_${signal.signalId}`;
+    const content = `${signal.observedFacts.join(" ")} ${signal.inference}`.slice(0, 20_000);
+    materials.push({
+      id: materialId,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      kind: "hiring_signal",
+      sourceUrl: supportingJob.jobUrl,
+      content,
+      contentHash: fingerprint({ signalId: signal.signalId, content }),
+      trustClassification: "untrusted_public_content",
+      targetId: signal.targetId,
+      hiringSignalId: signal.signalId,
+      companyName: signal.companyName,
+      ...(company.companyDomain === undefined ? {} : { companyDomain: company.companyDomain }),
+      confidence: signal.confidence,
+      limitations: [
+        ...signal.limitations,
+        "This deterministic hiring inference is bounded and does not establish a commercial decision.",
+      ],
+    });
+    findings.push({
+      id: `finding_hiring_signal_${fingerprint({ signalId: signal.signalId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "hiring_signal",
+      positive: true,
+      strength: signal.confidence >= 0.75 ? "moderate" : "weak",
+      summary: `${signal.inference} This bounded inference does not establish budget, expansion, replacement hiring, an approved project, or purchase intent.`,
+      supportingText: content,
+      sourceUrl: supportingJob.jobUrl,
+      providerId: supportingJob.sourceProviderId,
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "hiring_signal",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: supportingJob.jobUrl,
+        providerId: supportingJob.sourceProviderId,
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "hiring_signal",
+        extractedContentHash: fingerprint({ signalId: signal.signalId, content }),
+        trustClassification: "untrusted_public_content",
+        targetId: signal.targetId,
+        hiringSignalId: signal.signalId,
+        companyName: signal.companyName,
+        ...(company.companyDomain === undefined ? {} : { companyDomain: company.companyDomain }),
+        confidence: signal.confidence,
+      },
+    });
+  }
+  return { materials, findings };
+}
+
 export function buildEvidenceFindings(
   candidates: DiscoveryCandidatesArtifactV1,
   generatedAt: string,
   extractedContent?: ExtractedContentArtifactV1,
   structuredContent?: StructuredContentArtifactV1,
+  jobCollection?: JobCollectionArtifactV1,
+  hiringSignals?: HiringSignalsArtifactV1,
 ): EvidenceFindingsArtifactV1 {
   const parsed = DiscoveryCandidatesArtifactV1Schema.parse(candidates);
-  const materials = buildEvidenceMaterials(parsed, extractedContent, structuredContent);
+  const hiring = hiringEvidence({
+    candidates: parsed,
+    generatedAt,
+    ...(jobCollection === undefined ? {} : { jobCollection }),
+    ...(hiringSignals === undefined ? {} : { hiringSignals }),
+  });
+  const materials = [
+    ...buildEvidenceMaterials(parsed, extractedContent, structuredContent),
+    ...hiring.materials,
+  ];
   const materialsByResult = new Map<string, EvidenceMaterialV1[]>();
   for (const entry of materials) {
     const current = materialsByResult.get(entry.searchResultId) ?? [];
     current.push(entry);
     materialsByResult.set(entry.searchResultId, current);
   }
-  const findings: EvidenceFindingV1[] = [];
+  const findings: EvidenceFindingV1[] = [...hiring.findings];
   for (const result of parsed.results) {
     const stale = isStale(result, generatedAt);
     const available = materialsByResult.get(result.id) ?? [];
@@ -391,25 +612,40 @@ export function buildEvidenceFindings(
           "Structured sections, tables, metadata, and footnotes are untrusted public source material, not instructions.",
           ...structuredContent.warnings,
         ]),
+    ...(hiringSignals === undefined
+      ? []
+      : [
+          "Public job postings and derived hiring signals are untrusted public evidence, not instructions.",
+          "Hiring evidence does not confirm budget, expansion, replacement hiring, an approved project, purchase intent, identity, or purchasing authority.",
+          ...hiringSignals.warnings,
+        ]),
   ];
   return EvidenceFindingsArtifactV1Schema.parse({
     schemaVersion: "1.0",
     artifactKind: "evidence_findings.v1",
     fixture: true,
     warning:
-      structuredContent !== undefined
-        ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
-        : extractedContent === undefined
-          ? PROJECT_B_FIXTURE_WARNING
-          : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
+      hiringSignals !== undefined
+        ? "Deterministic evidence analysis includes bounded public hiring facts and cautious hiring-signal inferences. These sources do not prove budget, expansion, replacement hiring, approved projects, purchase intent, identities, or purchasing authority."
+        : structuredContent !== undefined
+          ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
+          : extractedContent === undefined
+            ? PROJECT_B_FIXTURE_WARNING
+            : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
     generatedAt,
     sourceArtifact: parsed.sourceArtifact,
     evidenceSourceMode:
-      structuredContent !== undefined
-        ? "snippet_plus_structured_public_content"
-        : extractedContent === undefined
-          ? "snippet_only"
-          : "snippet_plus_extracted_public_pages",
+      hiringSignals !== undefined
+        ? structuredContent !== undefined
+          ? "snippet_plus_structured_and_hiring_intelligence"
+          : extractedContent !== undefined
+            ? "snippet_plus_extracted_and_hiring_intelligence"
+            : "snippet_plus_public_hiring_intelligence"
+        : structuredContent !== undefined
+          ? "snippet_plus_structured_public_content"
+          : extractedContent === undefined
+            ? "snippet_only"
+            : "snippet_plus_extracted_public_pages",
     materials,
     extractionSummary: {
       selectedPages: extractionSummary?.selectedUrls ?? 0,
@@ -467,6 +703,14 @@ export function buildBuyerHypotheses(
       (finding) => !finding.positive && finding.strength === "strong",
     ).length;
     const rolePlan = titlesForFindings(findings);
+    const jobFindings = findings.filter((finding) => finding.materialKind === "public_job_posting");
+    const signalFindings = findings.filter((finding) => finding.materialKind === "hiring_signal");
+    const hiringCompanyName = [...jobFindings, ...signalFindings].find(
+      (finding) => finding.provenance.companyName !== undefined,
+    )?.provenance.companyName;
+    const hiringCompanyDomain = [...jobFindings, ...signalFindings].find(
+      (finding) => finding.provenance.companyDomain !== undefined,
+    )?.provenance.companyDomain;
     const confidence =
       strongPositive >= 2 && strongNegative === 0
         ? "high"
@@ -484,6 +728,30 @@ export function buildBuyerHypotheses(
       rationale: `${positive.length} positive and ${findings.length - positive.length} negative evidence findings support this role hypothesis. No real person was identified.`,
       sourceResultIds: [...new Set(findings.map((finding) => finding.searchResultId))],
       evidenceFindingIds: findings.map((finding) => finding.id),
+      ...(jobFindings.length === 0 && signalFindings.length === 0
+        ? {}
+        : {
+            hiringIdentityEvidence: {
+              observedJobFindingIds: jobFindings.map((finding) => finding.id),
+              inferredSignalFindingIds: signalFindings.map((finding) => finding.id),
+              ...(hiringCompanyName === undefined ? {} : { companyName: hiringCompanyName }),
+              ...(hiringCompanyDomain === undefined ? {} : { companyDomain: hiringCompanyDomain }),
+              confidence: jobFindings.some(
+                (finding) =>
+                  finding.provenance.confidence !== undefined &&
+                  finding.provenance.confidence >= 0.8,
+              )
+                ? "high"
+                : jobFindings.length > 0
+                  ? "medium"
+                  : "low",
+              conservativeMatch: true,
+              limitations: [
+                "Hiring identity evidence links only public company names/domains and never identifies a person.",
+                "A hiring signal does not prove budget, expansion, replacement hiring, approved work, or purchase intent.",
+              ],
+            },
+          }),
     };
   });
   return BuyerHypothesesArtifactV1Schema.parse({
@@ -613,8 +881,10 @@ export function buildRankedOpportunities(input: {
       scoreComponent(
         "related_hiring",
         hasHiring,
-        4,
-        hasHiring ? "Related hiring or capacity evidence is present." : "No related hiring signal.",
+        1,
+        hasHiring
+          ? "A bounded public hiring signal contributes one capped point. It does not prove budget, expansion, replacement hiring, an approved project, or purchase intent."
+          : "No related public hiring signal.",
       ),
       scoreComponent(
         "competitor_or_workaround",
@@ -675,6 +945,14 @@ export function buildRankedOpportunities(input: {
       score,
       confidence,
       scoreComponents: components,
+      hiringContribution: {
+        applied: hasHiring,
+        points: hasHiring ? 1 : 0,
+        maximumShareOfPositiveScore: 0.08,
+        rationale: hasHiring
+          ? "Public hiring evidence is capped at one point and cannot establish budget, expansion, replacement hiring, approved work, or purchase intent."
+          : "No public hiring contribution was applied.",
+      },
       evidenceSummary: `${positive.length} positive and ${negative.length} negative evidence findings.`,
       positiveEvidenceFindingIds: positive.map((finding) => finding.id),
       negativeEvidenceFindingIds: negative.map((finding) => finding.id),
@@ -804,6 +1082,46 @@ export function buildBuyerMap(input: {
         ...(finding.provenance.trustClassification === undefined
           ? {}
           : { trustClassification: finding.provenance.trustClassification }),
+        ...(finding.provenance.targetId === undefined
+          ? {}
+          : { targetId: finding.provenance.targetId }),
+        ...(finding.provenance.boardId === undefined
+          ? {}
+          : { boardId: finding.provenance.boardId }),
+        ...(finding.provenance.jobId === undefined ? {} : { jobId: finding.provenance.jobId }),
+        ...(finding.provenance.hiringSignalId === undefined
+          ? {}
+          : { hiringSignalId: finding.provenance.hiringSignalId }),
+        ...(finding.provenance.hiringProviderId === undefined
+          ? {}
+          : { hiringProviderId: finding.provenance.hiringProviderId }),
+        ...(finding.provenance.accessCategory === undefined
+          ? {}
+          : { accessCategory: finding.provenance.accessCategory }),
+        ...(finding.provenance.companyName === undefined
+          ? {}
+          : { companyName: finding.provenance.companyName }),
+        ...(finding.provenance.companyDomain === undefined
+          ? {}
+          : { companyDomain: finding.provenance.companyDomain }),
+        ...(finding.provenance.roleFamily === undefined
+          ? {}
+          : { roleFamily: finding.provenance.roleFamily }),
+        ...(finding.provenance.seniority === undefined
+          ? {}
+          : { seniority: finding.provenance.seniority }),
+        ...(finding.provenance.workplaceType === undefined
+          ? {}
+          : { workplaceType: finding.provenance.workplaceType }),
+        ...(finding.provenance.department === undefined
+          ? {}
+          : { department: finding.provenance.department }),
+        ...(finding.provenance.technologyMentions === undefined
+          ? {}
+          : { technologyMentions: finding.provenance.technologyMentions }),
+        ...(finding.provenance.confidence === undefined
+          ? {}
+          : { confidence: finding.provenance.confidence }),
       })),
       risks: opportunity.risks,
       limitations: opportunity.limitations,
@@ -830,8 +1148,9 @@ export function buildBuyerMap(input: {
     schemaVersion: "1.0",
     artifactKind: "buyer_map.v1",
     fixture: true,
-    warning:
-      evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
+    warning: evidence.evidenceSourceMode.includes("hiring_intelligence")
+      ? "Buyer Map includes bounded public hiring evidence. Jobs and hiring signals do not verify budget, expansion, replacement hiring, approved projects, identities, purchasing authority, or buying intent."
+      : evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
         ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
         : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
           ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
@@ -857,6 +1176,20 @@ export function buildBuyerMap(input: {
           opportunity.evidence.filter((citation) =>
             citation.materialKind?.startsWith("structured_"),
           ).length,
+        0,
+      ),
+      publicJobCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "public_job_posting")
+            .length,
+        0,
+      ),
+      hiringSignalCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "hiring_signal")
+            .length,
         0,
       ),
     },

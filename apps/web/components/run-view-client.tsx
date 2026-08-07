@@ -2,6 +2,7 @@
 
 import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
 import { ExtractionEvidenceView } from "@/components/extraction-evidence-view";
+import { HiringIntelligenceView } from "@/components/hiring-intelligence-view";
 import { MissionUnderstandingView } from "@/components/mission-understanding-view";
 import { StructuredContentView } from "@/components/structured-content-view";
 import type { RunView } from "@cluvvi/application/contracts";
@@ -29,6 +30,10 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   extraction_telemetry: "Extraction telemetry",
   structured_parsing: "Structured content parsing",
   content_parse_telemetry: "Content parse telemetry",
+  source_targeting: "Hiring source targeting",
+  hiring_retrieval: "Public hiring retrieval",
+  hiring_analysis: "Hiring signal analysis",
+  source_adapter_telemetry: "Source-adapter telemetry",
   normalization: "Normalization",
   investigation: "Evidence analysis",
   buyer_identification: "Buyer hypotheses",
@@ -164,6 +169,9 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
   const localDiscovery = view.run.config.discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = view.run.config.discoveryProviderMode === "live_search";
   const extractionEnabled = view.run.config.discoveryExtractionMode === "selected_public_pages";
+  const hiringEnabled =
+    view.run.config.discoverySourceAdapterMode === "selected_sources" &&
+    view.run.config.discoverySourceFamilies.includes("hiring");
   const telemetry = view.providerTelemetry;
   const policyTrace = view.providerPolicyTrace;
   const providerPolicy = view.run.config.discoveryProviderPolicy;
@@ -285,6 +293,11 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
                 {extractionEnabled
                   ? `Extraction · max ${view.run.config.discoveryMaximumExtractions}`
                   : "Search only"}
+              </span>
+              <span className="fixture-badge">
+                {hiringEnabled
+                  ? `Hiring · ${view.run.config.discoveryMaximumHiringTargets} targets`
+                  : "Hiring disabled"}
               </span>
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl">
@@ -591,6 +604,18 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         structuredContentMode={view.run.config.discoveryStructuredContentMode}
         maximumStructuredResources={view.run.config.discoveryMaximumStructuredResources}
         maximumDocumentResources={view.run.config.discoveryMaximumDocumentResources}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
+
+      <HiringIntelligenceView
+        artifacts={view.artifacts}
+        sourceAdapterMode={view.run.config.discoverySourceAdapterMode}
+        sourceFamilies={view.run.config.discoverySourceFamilies}
+        maximumTargets={view.run.config.discoveryMaximumHiringTargets}
+        maximumBoardsPerTarget={view.run.config.discoveryMaximumHiringBoardsPerTarget}
+        maximumJobsPerBoard={view.run.config.discoveryMaximumHiringJobsPerBoard}
+        maximumJobsTotal={view.run.config.discoveryMaximumHiringJobsTotal}
         runStatus={view.run.status}
         {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
       />

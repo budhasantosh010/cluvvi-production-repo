@@ -10,7 +10,9 @@ import {
   type ProviderPolicyTraceV1,
   type SearchResultsArtifactV2,
   type ValidatedExtractionArtifactSet,
+  type ValidatedStructuredContentArtifactSet,
 } from "@cluvvi/core";
+import type { ValidatedHiringArtifactSet } from "@cluvvi/core/hiring-validation";
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createWriteStream, existsSync } from "node:fs";
@@ -29,6 +31,7 @@ import {
 } from "./discovery-exchange";
 import type { DiscoveryRuntime, DiscoveryRuntimeExecutionInput } from "./discovery-runtime";
 import { readValidatedExtractionArtifactSet } from "./extraction-artifact-reader";
+import { readValidatedHiringArtifactSet } from "./hiring-artifact-reader";
 import { readValidatedStructuredContentArtifactSet } from "./structured-content-artifact-reader";
 
 interface ChildOutcome {
@@ -510,6 +513,15 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly structuredContentMode: "none" | "selected_resources";
   readonly maximumStructuredResources: number;
   readonly maximumDocumentResources: number;
+  readonly sourceAdapterMode: "none" | "selected_sources";
+  readonly sourceFamilies: readonly "hiring"[];
+  readonly maximumHiringTargets: number;
+  readonly maximumHiringBoardsPerTarget: number;
+  readonly maximumHiringJobsPerBoard: number;
+  readonly maximumHiringJobsTotal: number;
+  readonly hiringSignalRuleVersion: string;
+  readonly hiringTaxonomyVersion: string;
+  readonly hiringTechnologyLexiconVersion: string;
   readonly extractorVersion: string;
   readonly frontierPolicyVersion: string;
   readonly structuredParserPolicyVersion: string;
@@ -519,6 +531,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly providerConfigurationFingerprint: string;
   readonly extractionConfigurationFingerprint: string;
   readonly structuredConfigurationFingerprint: string;
+  readonly sourceAdapterConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
   readonly #now: () => string;
@@ -541,6 +554,16 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.structuredContentMode = this.#config.structuredContentMode ?? "none";
     this.maximumStructuredResources = this.#config.maximumStructuredResources ?? 8;
     this.maximumDocumentResources = this.#config.maximumDocumentResources ?? 4;
+    this.sourceAdapterMode = this.#config.sourceAdapterMode ?? "none";
+    this.sourceFamilies = this.#config.sourceFamilies ?? [];
+    this.maximumHiringTargets = this.#config.maximumHiringTargets ?? 10;
+    this.maximumHiringBoardsPerTarget = this.#config.maximumHiringBoardsPerTarget ?? 4;
+    this.maximumHiringJobsPerBoard = this.#config.maximumHiringJobsPerBoard ?? 250;
+    this.maximumHiringJobsTotal = this.#config.maximumHiringJobsTotal ?? 2_000;
+    this.hiringSignalRuleVersion = this.#config.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
+    this.hiringTaxonomyVersion = this.#config.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
+    this.hiringTechnologyLexiconVersion =
+      this.#config.hiringTechnologyLexiconVersion ?? "hiring_technology_lexicon@1.0.0";
     this.extractorVersion = this.#config.extractorVersion ?? "basic_public_html_extractor@1.0.0";
     this.frontierPolicyVersion = this.#config.frontierPolicyVersion ?? "frontier_policy@1.0.0";
     this.structuredParserPolicyVersion =
@@ -563,9 +586,13 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       key.startsWith("DISCOVERY_ASSETS_") ||
       key.startsWith("DISCOVERY_HTML_MARKDOWN_") ||
       key.startsWith("DISCOVERY_ANYDOC_");
+    const hiringEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_HIRING_");
     const providerEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(
-        ([key]) => !key.startsWith("DISCOVERY_EXTRACTION_") && !structuredEnvironmentKey(key),
+        ([key]) =>
+          !key.startsWith("DISCOVERY_EXTRACTION_") &&
+          !structuredEnvironmentKey(key) &&
+          !hiringEnvironmentKey(key),
       ),
     );
     const extractionEnvironment = Object.fromEntries(
@@ -573,6 +600,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     );
     const structuredEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(([key]) => structuredEnvironmentKey(key)),
+    );
+    const hiringEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => hiringEnvironmentKey(key)),
     );
     this.providerConfigurationFingerprint = createHash("sha256")
       .update(
@@ -615,6 +645,23 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         }),
       )
       .digest("hex");
+    this.sourceAdapterConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          sourceAdapterMode: this.sourceAdapterMode,
+          sourceFamilies: this.sourceFamilies,
+          maximumHiringTargets: this.maximumHiringTargets,
+          maximumHiringBoardsPerTarget: this.maximumHiringBoardsPerTarget,
+          maximumHiringJobsPerBoard: this.maximumHiringJobsPerBoard,
+          maximumHiringJobsTotal: this.maximumHiringJobsTotal,
+          hiringSignalRuleVersion: this.hiringSignalRuleVersion,
+          hiringTaxonomyVersion: this.hiringTaxonomyVersion,
+          hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
+          hiringEnvironment,
+        }),
+      )
+      .digest("hex");
   }
 
   async readExtractionArtifactSet(input: {
@@ -647,6 +694,39 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     });
   }
 
+  async readHiringArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+    extraction?: ValidatedExtractionArtifactSet;
+    structured?: ValidatedStructuredContentArtifactSet;
+  }): Promise<ValidatedHiringArtifactSet> {
+    const extraction =
+      input.extraction ??
+      (this.extractionMode === "selected_public_pages"
+        ? await this.readExtractionArtifactSet({
+            runId: input.runId,
+            searchResults: input.searchResults,
+          })
+        : undefined);
+    const structured =
+      input.structured ??
+      (this.structuredContentMode === "selected_resources"
+        ? await this.readStructuredContentArtifactSet({
+            runId: input.runId,
+            searchResults: input.searchResults,
+            ...(extraction === undefined ? {} : { extraction }),
+          })
+        : undefined);
+    return readValidatedHiringArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+      ...(extraction === undefined ? {} : { extractedContent: extraction.extractedContent }),
+      ...(structured === undefined ? {} : { structuredContent: structured.structuredContent }),
+      providerPolicy: this.providerPolicy,
+    });
+  }
+
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {
     const paths = discoveryExchangePaths(this.#runsDirectory, input.runId);
     const arguments_ = [
@@ -668,6 +748,20 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             String(this.maximumStructuredResources),
             "--max-document-resources",
             String(this.maximumDocumentResources),
+          ]
+        : []),
+      "--source-adapter-mode",
+      this.sourceAdapterMode,
+      ...(this.sourceAdapterMode === "selected_sources"
+        ? [
+            "--source-families",
+            this.sourceFamilies.join(","),
+            "--max-hiring-targets",
+            String(this.maximumHiringTargets),
+            "--max-hiring-boards-per-target",
+            String(this.maximumHiringBoardsPerTarget),
+            "--max-hiring-jobs-per-board",
+            String(this.maximumHiringJobsPerBoard),
           ]
         : []),
       "--output",
@@ -1144,6 +1238,15 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       structuredContentMode: this.structuredContentMode,
       maximumStructuredResources: this.maximumStructuredResources,
       maximumDocumentResources: this.maximumDocumentResources,
+      sourceAdapterMode: this.sourceAdapterMode,
+      sourceFamilies: [...this.sourceFamilies],
+      maximumHiringTargets: this.maximumHiringTargets,
+      maximumHiringBoardsPerTarget: this.maximumHiringBoardsPerTarget,
+      maximumHiringJobsPerBoard: this.maximumHiringJobsPerBoard,
+      maximumHiringJobsTotal: this.maximumHiringJobsTotal,
+      hiringSignalRuleVersion: this.hiringSignalRuleVersion,
+      hiringTaxonomyVersion: this.hiringTaxonomyVersion,
+      hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
       structuredParserPolicyVersion: this.structuredParserPolicyVersion,
       anydocParserVersion: this.anydocParserVersion,
       htmlMarkdownRendererVersion: this.htmlMarkdownRendererVersion,
@@ -1193,6 +1296,24 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         : {
             structuredContentImported: false,
             contentParseTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources"
+        ? {
+            sourceTargetPlanPath: paths.sourceTargetPlanPath,
+            sourceTargetPlanImported: false,
+            jobCollectionPath: paths.jobCollectionPath,
+            jobCollectionImported: false,
+            hiringSignalsPath: paths.hiringSignalsPath,
+            hiringSignalsImported: false,
+            sourceAdapterTelemetryPath: paths.sourceAdapterTelemetryPath,
+            sourceAdapterTelemetryImported: false,
+            sourceAdapterConfigurationFingerprint: this.sourceAdapterConfigurationFingerprint,
+          }
+        : {
+            sourceTargetPlanImported: false,
+            jobCollectionImported: false,
+            hiringSignalsImported: false,
+            sourceAdapterTelemetryImported: false,
           }),
       providerIds,
       success: true,
@@ -1257,6 +1378,15 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       structuredContentMode: this.structuredContentMode,
       maximumStructuredResources: this.maximumStructuredResources,
       maximumDocumentResources: this.maximumDocumentResources,
+      sourceAdapterMode: this.sourceAdapterMode,
+      sourceFamilies: [...this.sourceFamilies],
+      maximumHiringTargets: this.maximumHiringTargets,
+      maximumHiringBoardsPerTarget: this.maximumHiringBoardsPerTarget,
+      maximumHiringJobsPerBoard: this.maximumHiringJobsPerBoard,
+      maximumHiringJobsTotal: this.maximumHiringJobsTotal,
+      hiringSignalRuleVersion: this.hiringSignalRuleVersion,
+      hiringTaxonomyVersion: this.hiringTaxonomyVersion,
+      hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
       structuredParserPolicyVersion: this.structuredParserPolicyVersion,
       anydocParserVersion: this.anydocParserVersion,
       htmlMarkdownRendererVersion: this.htmlMarkdownRendererVersion,
@@ -1303,6 +1433,24 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
         : {
             structuredContentImported: false,
             contentParseTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources"
+        ? {
+            sourceTargetPlanPath: input.paths.sourceTargetPlanPath,
+            sourceTargetPlanImported: false,
+            jobCollectionPath: input.paths.jobCollectionPath,
+            jobCollectionImported: false,
+            hiringSignalsPath: input.paths.hiringSignalsPath,
+            hiringSignalsImported: false,
+            sourceAdapterTelemetryPath: input.paths.sourceAdapterTelemetryPath,
+            sourceAdapterTelemetryImported: false,
+            sourceAdapterConfigurationFingerprint: this.sourceAdapterConfigurationFingerprint,
+          }
+        : {
+            sourceTargetPlanImported: false,
+            jobCollectionImported: false,
+            hiringSignalsImported: false,
+            sourceAdapterTelemetryImported: false,
           }),
       success: false,
       errorCode: input.code,

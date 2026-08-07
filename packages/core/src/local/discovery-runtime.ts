@@ -17,6 +17,12 @@ export type CluvviExtractionMode = z.infer<typeof CluvviExtractionModeSchema>;
 export const CluvviStructuredContentModeSchema = z.enum(["none", "selected_resources"]);
 export type CluvviStructuredContentMode = z.infer<typeof CluvviStructuredContentModeSchema>;
 
+export const CluvviSourceAdapterModeSchema = z.enum(["none", "selected_sources"]);
+export type CluvviSourceAdapterMode = z.infer<typeof CluvviSourceAdapterModeSchema>;
+
+export const CluvviSourceFamilySchema = z.enum(["hiring"]);
+export type CluvviSourceFamily = z.infer<typeof CluvviSourceFamilySchema>;
+
 export const LIVE_DISCOVERY_PROVIDER_IDS = [
   "hacker_news_algolia",
   "hacker_news_firebase",
@@ -179,6 +185,15 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     structuredContentMode: CluvviStructuredContentModeSchema.default("none"),
     maximumStructuredResources: z.number().int().min(1).max(100).default(8),
     maximumDocumentResources: z.number().int().min(1).max(100).default(4),
+    sourceAdapterMode: CluvviSourceAdapterModeSchema.default("none"),
+    sourceFamilies: z.array(CluvviSourceFamilySchema).max(1).default([]),
+    maximumHiringTargets: z.number().int().min(1).max(100).default(10),
+    maximumHiringBoardsPerTarget: z.number().int().min(1).max(20).default(4),
+    maximumHiringJobsPerBoard: z.number().int().min(1).max(1000).default(250),
+    maximumHiringJobsTotal: z.number().int().min(1).max(10000).default(2000),
+    hiringSignalRuleVersion: z.string().min(1).default("hiring_signals@1.0.0"),
+    hiringTaxonomyVersion: z.string().min(1).default("hiring_taxonomy@1.0.0"),
+    hiringTechnologyLexiconVersion: z.string().min(1).default("hiring_technology_lexicon@1.0.0"),
     structuredParserPolicyVersion: z.string().min(1).default("structured_parser_policy@1.0.0"),
     anydocParserVersion: z.string().min(1).default("@firecrawl/anydoc@0.1.6"),
     htmlMarkdownRendererVersion: z.string().min(1).default("sanitized_html_to_gfm@1.0.0"),
@@ -207,6 +222,18 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     structuredContentImported: z.boolean().default(false),
     contentParseTelemetryPath: z.string().min(1).optional(),
     contentParseTelemetryImported: z.boolean().default(false),
+    sourceTargetPlanPath: z.string().min(1).optional(),
+    sourceTargetPlanImported: z.boolean().default(false),
+    jobCollectionPath: z.string().min(1).optional(),
+    jobCollectionImported: z.boolean().default(false),
+    hiringSignalsPath: z.string().min(1).optional(),
+    hiringSignalsImported: z.boolean().default(false),
+    sourceAdapterTelemetryPath: z.string().min(1).optional(),
+    sourceAdapterTelemetryImported: z.boolean().default(false),
+    sourceAdapterConfigurationFingerprint: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
     providerConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)

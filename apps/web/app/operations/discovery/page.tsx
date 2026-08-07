@@ -13,11 +13,12 @@ export default async function DiscoveryOperationsPage() {
         <div>
           <p className="eyebrow">Operations</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight text-neutral-950">
-            Discovery and public-page evidence
+            Discovery and public-source evidence
           </h1>
           <p className="mt-3 max-w-3xl text-base leading-7 text-neutral-600">
-            Review the active search policy, extraction boundary, page cap, runner state, and the
-            limitations that remain true for every new run.
+            Review the active search policy, extraction and structured-content boundaries, public
+            hiring source adapters, bounded budgets, runner state, and the limitations that remain
+            true for every new run.
           </p>
         </div>
         <Link className="button-secondary shrink-0" href="/">
@@ -34,6 +35,12 @@ export default async function DiscoveryOperationsPage() {
           structuredContentMode={diagnostics.discoveryStructuredContentMode}
           maximumStructuredResources={diagnostics.discoveryMaximumStructuredResources}
           maximumDocumentResources={diagnostics.discoveryMaximumDocumentResources}
+          sourceAdapterMode={diagnostics.discoverySourceAdapterMode}
+          sourceFamilies={diagnostics.discoverySourceFamilies}
+          maximumHiringTargets={diagnostics.discoveryMaximumHiringTargets}
+          maximumHiringBoardsPerTarget={diagnostics.discoveryMaximumHiringBoardsPerTarget}
+          maximumHiringJobsPerBoard={diagnostics.discoveryMaximumHiringJobsPerBoard}
+          maximumHiringJobsTotal={diagnostics.discoveryMaximumHiringJobsTotal}
           runtimeMode={diagnostics.discoveryRuntimeMode}
           runnerAvailable={diagnostics.runner.available}
         />

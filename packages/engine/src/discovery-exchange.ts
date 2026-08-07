@@ -10,6 +10,10 @@ export const DISCOVERY_EXCHANGE_FILE_NAMES = [
   "extraction-run-telemetry.v1.json",
   "structured-content.v1.json",
   "content-parse-telemetry.v1.json",
+  "source-target-plan.v1.json",
+  "job-collection.v1.json",
+  "hiring-signals.v1.json",
+  "source-adapter-run-telemetry.v1.json",
   "discovery-stdout.log",
   "discovery-stderr.log",
   "discovery-execution.json",
@@ -26,6 +30,10 @@ export interface DiscoveryExchangePaths {
   extractionTelemetryPath: string;
   structuredContentPath: string;
   contentParseTelemetryPath: string;
+  sourceTargetPlanPath: string;
+  jobCollectionPath: string;
+  hiringSignalsPath: string;
+  sourceAdapterTelemetryPath: string;
   stdoutPath: string;
   stderrPath: string;
   executionPath: string;
@@ -48,6 +56,10 @@ export function discoveryExchangePaths(
     extractionTelemetryPath: resolve(directory, "extraction-run-telemetry.v1.json"),
     structuredContentPath: resolve(directory, "structured-content.v1.json"),
     contentParseTelemetryPath: resolve(directory, "content-parse-telemetry.v1.json"),
+    sourceTargetPlanPath: resolve(directory, "source-target-plan.v1.json"),
+    jobCollectionPath: resolve(directory, "job-collection.v1.json"),
+    hiringSignalsPath: resolve(directory, "hiring-signals.v1.json"),
+    sourceAdapterTelemetryPath: resolve(directory, "source-adapter-run-telemetry.v1.json"),
     stdoutPath: resolve(directory, "discovery-stdout.log"),
     stderrPath: resolve(directory, "discovery-stderr.log"),
     executionPath: resolve(directory, "discovery-execution.json"),

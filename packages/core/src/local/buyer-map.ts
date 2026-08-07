@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { EvidenceSignalTypeSchema, EvidenceStrengthSchema } from "./evidence-findings";
+import {
+  HiringProviderIdV1Schema,
+  RoleFamilyV1Schema,
+  SeniorityLevelV1Schema,
+  SourceAccessCategoryV1Schema,
+} from "./hiring/hiring-artifacts";
 import { IdentityConfidenceSchema, ManualContactRouteV1Schema } from "./identity-enrichment";
 import { SourceZoneSchema } from "./search-results";
 
@@ -26,6 +32,8 @@ export const BuyerMapCitationV1Schema = z
         "structured_table",
         "structured_metadata",
         "structured_footnote",
+        "public_job_posting",
+        "hiring_signal",
       ])
       .optional(),
     extractionItemId: z.string().min(1).optional(),
@@ -48,6 +56,20 @@ export const BuyerMapCitationV1Schema = z
       .regex(/^[a-f0-9]{64}$/)
       .optional(),
     trustClassification: z.enum(["provider_snippet", "untrusted_public_content"]).optional(),
+    targetId: z.string().min(1).optional(),
+    boardId: z.string().min(1).optional(),
+    jobId: z.string().min(1).optional(),
+    hiringSignalId: z.string().min(1).optional(),
+    hiringProviderId: HiringProviderIdV1Schema.optional(),
+    accessCategory: SourceAccessCategoryV1Schema.optional(),
+    companyName: z.string().min(1).optional(),
+    companyDomain: z.string().min(1).optional(),
+    roleFamily: RoleFamilyV1Schema.optional(),
+    seniority: SeniorityLevelV1Schema.optional(),
+    workplaceType: z.enum(["remote", "hybrid", "on_site", "unspecified"]).optional(),
+    department: z.string().min(1).optional(),
+    technologyMentions: z.array(z.string().min(1)).max(100).optional(),
+    confidence: z.number().min(0).max(1).optional(),
   })
   .strict();
 export type BuyerMapCitationV1 = z.infer<typeof BuyerMapCitationV1Schema>;
@@ -96,6 +118,8 @@ export const BuyerMapArtifactV1Schema = z
         coverageGapCount: z.number().int().nonnegative(),
         extractedEvidenceCitationCount: z.number().int().nonnegative().default(0),
         structuredEvidenceCitationCount: z.number().int().nonnegative().default(0),
+        publicJobCitationCount: z.number().int().nonnegative().default(0),
+        hiringSignalCitationCount: z.number().int().nonnegative().default(0),
       })
       .strict(),
     evidenceSourceMode: z
@@ -103,6 +127,9 @@ export const BuyerMapArtifactV1Schema = z
         "snippet_only",
         "snippet_plus_extracted_public_pages",
         "snippet_plus_structured_public_content",
+        "snippet_plus_public_hiring_intelligence",
+        "snippet_plus_extracted_and_hiring_intelligence",
+        "snippet_plus_structured_and_hiring_intelligence",
       ])
       .default("snippet_only"),
     opportunities: z.array(BuyerMapOpportunityV1Schema),

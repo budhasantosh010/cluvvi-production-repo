@@ -1,4 +1,4 @@
-# Cluvvi C1-H Local Architecture
+# Cluvvi C1-J Local Architecture
 
 ```text
 Browser
@@ -22,7 +22,7 @@ CLI ───────────────────→ the same Cluvvi
 
 ## One workflow rule
 
-`CluvviEngine` is the only implementation of the eleven-stage business process. The CLI, browser API, and runner are interfaces around it. Next.js does not implement stages, and the worker does not own a second state machine.
+`CluvviEngine` is the only implementation of the durable business process. The CLI, browser API, and runner are interfaces around it. Next.js does not implement stages, and the worker does not own a second state machine.
 
 ## Boundaries
 
@@ -125,3 +125,11 @@ Search remains independently usable without page fetching. C1-I adds an explicit
 ## Parked Phase 0
 
 Supabase migrations, auth, workspace pages, database adapter, and the original queue worker remain preserved for later hosted work. They are not part of the active C0.5 local browser execution path.
+
+## C1-J source-adapter boundary
+
+C1-J keeps source adapters in Project A and keeps Project B as an independent consumer. Project B never imports Project A source modules. The process bridge may emit four additional hiring companions only when `selected_sources` and the `hiring` family are enabled: `source_target_plan.v1`, `job_collection.v1`, `hiring_signals.v1`, and `source_adapter_run_telemetry.v1`.
+
+The Cluvvi engine validates those artifacts independently, persists them in four dedicated durable stages, and gives the source-adapter configuration its own fingerprint. Hiring-only repair therefore reuses valid discovery/frontier/extraction/structured work. Public jobs and derived hiring signals enter Evidence as untrusted public data, identity remains company/role-only, hiring contributes at most one ranking point, and Buyer Map preserves target/board/job/provider/access-category provenance plus explicit limitations.
+
+Secrets remain owned by Project A. In particular, optional SmartRecruiters authentication is never forwarded, serialized, fingerprinted, logged, or rendered by Cluvvi. Candidate/application data and private ATS endpoints are outside this architecture.

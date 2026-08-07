@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   CluvviExtractionModeSchema,
+  CluvviSourceAdapterModeSchema,
+  CluvviSourceFamilySchema,
   CluvviStructuredContentModeSchema,
   DiscoveryProviderModeSchema,
   DiscoveryProviderPolicySchema,
@@ -29,6 +31,10 @@ export const RunPhaseSchema = z.enum([
   "extraction_telemetry",
   "structured_parsing",
   "content_parse_telemetry",
+  "source_targeting",
+  "hiring_retrieval",
+  "hiring_analysis",
+  "source_adapter_telemetry",
   "normalization",
   "investigation",
   "buyer_identification",
@@ -144,6 +150,18 @@ export const LocalRunSchema = z
         discoveryStructuredContentMode: CluvviStructuredContentModeSchema.default("none"),
         discoveryMaximumStructuredResources: z.number().int().min(1).max(100).default(8),
         discoveryMaximumDocumentResources: z.number().int().min(1).max(100).default(4),
+        discoverySourceAdapterMode: CluvviSourceAdapterModeSchema.default("none"),
+        discoverySourceFamilies: z.array(CluvviSourceFamilySchema).max(1).default([]),
+        discoveryMaximumHiringTargets: z.number().int().min(1).max(100).default(10),
+        discoveryMaximumHiringBoardsPerTarget: z.number().int().min(1).max(20).default(4),
+        discoveryMaximumHiringJobsPerBoard: z.number().int().min(1).max(1000).default(250),
+        discoveryMaximumHiringJobsTotal: z.number().int().min(1).max(10000).default(2000),
+        hiringSignalRuleVersion: z.string().min(1).default("hiring_signals@1.0.0"),
+        hiringTaxonomyVersion: z.string().min(1).default("hiring_taxonomy@1.0.0"),
+        hiringTechnologyLexiconVersion: z
+          .string()
+          .min(1)
+          .default("hiring_technology_lexicon@1.0.0"),
         extractorVersion: z.string().min(1).default("basic_public_html_extractor@1.0.0"),
         frontierPolicyVersion: z.string().min(1).default("frontier_policy@1.0.0"),
         structuredParserPolicyVersion: z.string().min(1).default("structured_parser_policy@1.0.0"),

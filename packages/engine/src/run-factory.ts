@@ -6,6 +6,8 @@ import {
   LocalRunSchema,
   createOpaqueId,
   type CluvviExtractionMode,
+  type CluvviSourceAdapterMode,
+  type CluvviSourceFamily,
   type CluvviStructuredContentMode,
   type DiscoveryProviderMode,
   type DiscoveryProviderPolicy,
@@ -37,6 +39,15 @@ export function createRunCreationRecords(input: {
   discoveryStructuredContentMode?: CluvviStructuredContentMode;
   discoveryMaximumStructuredResources?: number;
   discoveryMaximumDocumentResources?: number;
+  discoverySourceAdapterMode?: CluvviSourceAdapterMode;
+  discoverySourceFamilies?: readonly CluvviSourceFamily[];
+  discoveryMaximumHiringTargets?: number;
+  discoveryMaximumHiringBoardsPerTarget?: number;
+  discoveryMaximumHiringJobsPerBoard?: number;
+  discoveryMaximumHiringJobsTotal?: number;
+  hiringSignalRuleVersion?: string;
+  hiringTaxonomyVersion?: string;
+  hiringTechnologyLexiconVersion?: string;
   extractorVersion?: string;
   frontierPolicyVersion?: string;
   structuredParserPolicyVersion?: string;
@@ -68,6 +79,16 @@ export function createRunCreationRecords(input: {
       discoveryStructuredContentMode: input.discoveryStructuredContentMode ?? "none",
       discoveryMaximumStructuredResources: input.discoveryMaximumStructuredResources ?? 8,
       discoveryMaximumDocumentResources: input.discoveryMaximumDocumentResources ?? 4,
+      discoverySourceAdapterMode: input.discoverySourceAdapterMode ?? "none",
+      discoverySourceFamilies: [...(input.discoverySourceFamilies ?? [])],
+      discoveryMaximumHiringTargets: input.discoveryMaximumHiringTargets ?? 10,
+      discoveryMaximumHiringBoardsPerTarget: input.discoveryMaximumHiringBoardsPerTarget ?? 4,
+      discoveryMaximumHiringJobsPerBoard: input.discoveryMaximumHiringJobsPerBoard ?? 250,
+      discoveryMaximumHiringJobsTotal: input.discoveryMaximumHiringJobsTotal ?? 2_000,
+      hiringSignalRuleVersion: input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0",
+      hiringTaxonomyVersion: input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0",
+      hiringTechnologyLexiconVersion:
+        input.hiringTechnologyLexiconVersion ?? "hiring_technology_lexicon@1.0.0",
       extractorVersion: input.extractorVersion ?? "basic_public_html_extractor@1.0.0",
       frontierPolicyVersion: input.frontierPolicyVersion ?? "frontier_policy@1.0.0",
       structuredParserPolicyVersion:
@@ -98,6 +119,12 @@ export function createRunCreationRecords(input: {
       discoveryStructuredContentMode: run.config.discoveryStructuredContentMode,
       discoveryMaximumStructuredResources: run.config.discoveryMaximumStructuredResources,
       discoveryMaximumDocumentResources: run.config.discoveryMaximumDocumentResources,
+      discoverySourceAdapterMode: run.config.discoverySourceAdapterMode,
+      discoverySourceFamilies: run.config.discoverySourceFamilies,
+      discoveryMaximumHiringTargets: run.config.discoveryMaximumHiringTargets,
+      discoveryMaximumHiringBoardsPerTarget: run.config.discoveryMaximumHiringBoardsPerTarget,
+      discoveryMaximumHiringJobsPerBoard: run.config.discoveryMaximumHiringJobsPerBoard,
+      discoveryMaximumHiringJobsTotal: run.config.discoveryMaximumHiringJobsTotal,
     },
     createdAt: now,
   });

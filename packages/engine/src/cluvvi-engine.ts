@@ -12,6 +12,8 @@ import {
   type ArtifactRecord,
   type ArtifactType,
   type CluvviExtractionMode,
+  type CluvviSourceAdapterMode,
+  type CluvviSourceFamily,
   type CluvviStructuredContentMode,
   type DiscoveryProviderMode,
   type DiscoveryProviderPolicy,
@@ -75,6 +77,15 @@ export class CluvviEngine {
   readonly #discoveryStructuredContentMode: CluvviStructuredContentMode;
   readonly #discoveryMaximumStructuredResources: number;
   readonly #discoveryMaximumDocumentResources: number;
+  readonly #discoverySourceAdapterMode: CluvviSourceAdapterMode;
+  readonly #discoverySourceFamilies: readonly CluvviSourceFamily[];
+  readonly #discoveryMaximumHiringTargets: number;
+  readonly #discoveryMaximumHiringBoardsPerTarget: number;
+  readonly #discoveryMaximumHiringJobsPerBoard: number;
+  readonly #discoveryMaximumHiringJobsTotal: number;
+  readonly #hiringSignalRuleVersion: string;
+  readonly #hiringTaxonomyVersion: string;
+  readonly #hiringTechnologyLexiconVersion: string;
   readonly #extractorVersion: string;
   readonly #frontierPolicyVersion: string;
   readonly #structuredParserPolicyVersion: string;
@@ -84,6 +95,7 @@ export class CluvviEngine {
   readonly #providerConfigurationFingerprint: string;
   readonly #extractionConfigurationFingerprint: string;
   readonly #structuredConfigurationFingerprint: string;
+  readonly #sourceAdapterConfigurationFingerprint: string;
 
   constructor(input: {
     store: CluvviStore;
@@ -101,6 +113,15 @@ export class CluvviEngine {
     discoveryStructuredContentMode?: CluvviStructuredContentMode;
     discoveryMaximumStructuredResources?: number;
     discoveryMaximumDocumentResources?: number;
+    discoverySourceAdapterMode?: CluvviSourceAdapterMode;
+    discoverySourceFamilies?: readonly CluvviSourceFamily[];
+    discoveryMaximumHiringTargets?: number;
+    discoveryMaximumHiringBoardsPerTarget?: number;
+    discoveryMaximumHiringJobsPerBoard?: number;
+    discoveryMaximumHiringJobsTotal?: number;
+    hiringSignalRuleVersion?: string;
+    hiringTaxonomyVersion?: string;
+    hiringTechnologyLexiconVersion?: string;
     extractorVersion?: string;
     frontierPolicyVersion?: string;
     structuredParserPolicyVersion?: string;
@@ -110,6 +131,7 @@ export class CluvviEngine {
     providerConfigurationFingerprint?: string;
     extractionConfigurationFingerprint?: string;
     structuredConfigurationFingerprint?: string;
+    sourceAdapterConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -126,6 +148,16 @@ export class CluvviEngine {
     this.#discoveryStructuredContentMode = input.discoveryStructuredContentMode ?? "none";
     this.#discoveryMaximumStructuredResources = input.discoveryMaximumStructuredResources ?? 8;
     this.#discoveryMaximumDocumentResources = input.discoveryMaximumDocumentResources ?? 4;
+    this.#discoverySourceAdapterMode = input.discoverySourceAdapterMode ?? "none";
+    this.#discoverySourceFamilies = input.discoverySourceFamilies ?? [];
+    this.#discoveryMaximumHiringTargets = input.discoveryMaximumHiringTargets ?? 10;
+    this.#discoveryMaximumHiringBoardsPerTarget = input.discoveryMaximumHiringBoardsPerTarget ?? 4;
+    this.#discoveryMaximumHiringJobsPerBoard = input.discoveryMaximumHiringJobsPerBoard ?? 250;
+    this.#discoveryMaximumHiringJobsTotal = input.discoveryMaximumHiringJobsTotal ?? 2_000;
+    this.#hiringSignalRuleVersion = input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
+    this.#hiringTaxonomyVersion = input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
+    this.#hiringTechnologyLexiconVersion =
+      input.hiringTechnologyLexiconVersion ?? "hiring_technology_lexicon@1.0.0";
     this.#extractorVersion = input.extractorVersion ?? "basic_public_html_extractor@1.0.0";
     this.#frontierPolicyVersion = input.frontierPolicyVersion ?? "frontier_policy@1.0.0";
     this.#structuredParserPolicyVersion =
@@ -141,6 +173,8 @@ export class CluvviEngine {
       input.extractionConfigurationFingerprint ?? "fixture-no-extraction";
     this.#structuredConfigurationFingerprint =
       input.structuredConfigurationFingerprint ?? "fixture-no-structured-content";
+    this.#sourceAdapterConfigurationFingerprint =
+      input.sourceAdapterConfigurationFingerprint ?? "fixture-no-source-adapters";
   }
 
   async start(input: {
@@ -162,6 +196,15 @@ export class CluvviEngine {
       discoveryStructuredContentMode: this.#discoveryStructuredContentMode,
       discoveryMaximumStructuredResources: this.#discoveryMaximumStructuredResources,
       discoveryMaximumDocumentResources: this.#discoveryMaximumDocumentResources,
+      discoverySourceAdapterMode: this.#discoverySourceAdapterMode,
+      discoverySourceFamilies: this.#discoverySourceFamilies,
+      discoveryMaximumHiringTargets: this.#discoveryMaximumHiringTargets,
+      discoveryMaximumHiringBoardsPerTarget: this.#discoveryMaximumHiringBoardsPerTarget,
+      discoveryMaximumHiringJobsPerBoard: this.#discoveryMaximumHiringJobsPerBoard,
+      discoveryMaximumHiringJobsTotal: this.#discoveryMaximumHiringJobsTotal,
+      hiringSignalRuleVersion: this.#hiringSignalRuleVersion,
+      hiringTaxonomyVersion: this.#hiringTaxonomyVersion,
+      hiringTechnologyLexiconVersion: this.#hiringTechnologyLexiconVersion,
       extractorVersion: this.#extractorVersion,
       frontierPolicyVersion: this.#frontierPolicyVersion,
       structuredParserPolicyVersion: this.#structuredParserPolicyVersion,
@@ -248,6 +291,14 @@ export class CluvviEngine {
           ...(stage.name === "structured_parsing" || stage.name === "content_parse_telemetry"
             ? { structuredConfiguration: this.#structuredConfigurationFingerprint }
             : {}),
+          ...([
+            "source_targeting",
+            "hiring_retrieval",
+            "hiring_analysis",
+            "source_adapter_telemetry",
+          ].includes(stage.name)
+            ? { sourceAdapterConfiguration: this.#sourceAdapterConfigurationFingerprint }
+            : {}),
         });
         const previousSkipped = (await this.#store.listStageExecutions(run.id)).find(
           (execution) =>
@@ -301,6 +352,14 @@ export class CluvviEngine {
           : { extractionConfiguration: this.#extractionConfigurationFingerprint }),
         ...(stage.name === "structured_parsing" || stage.name === "content_parse_telemetry"
           ? { structuredConfiguration: this.#structuredConfigurationFingerprint }
+          : {}),
+        ...([
+          "source_targeting",
+          "hiring_retrieval",
+          "hiring_analysis",
+          "source_adapter_telemetry",
+        ].includes(stage.name)
+          ? { sourceAdapterConfiguration: this.#sourceAdapterConfigurationFingerprint }
           : {}),
       });
       const previous = await this.#store.findCompletedStageExecution(
