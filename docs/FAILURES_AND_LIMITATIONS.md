@@ -3051,3 +3051,21 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved; no repository content was lost or modified by the aborted command.
 
 **One-line solution:** For silent Git predicates in PowerShell, test `$LASTEXITCODE`, not command output.
+
+## 171. First Project B remote-SHA verification ran before the new branch had an upstream configured
+
+**What failed:** The feature commit and remote push succeeded, but the verification command could not resolve `@{u}`.
+
+**Where:** Final Project B Git release verification.
+
+**When:** Immediately after the first push of `feature/c1-j1-public-hiring-intelligence`.
+
+**Why:** A plain push to a brand-new branch created the remote ref but did not configure the local branch's upstream tracking reference.
+
+**How it appeared:** Local and remote SHAs both printed `3112979412da78b96d731bf87072810a46685d5c`, while `git rev-parse '@{u}'` failed with `no upstream configured`.
+
+**What was tried:** Set the upstream explicitly to `origin/feature/c1-j1-public-hiring-intelligence`, then reran local/upstream/remote verification after this ledger update.
+
+**Current status:** Resolved.
+
+**One-line solution:** Configure upstream tracking on first branch publication before comparing `HEAD`, `@{u}`, and `ls-remote`.
