@@ -3120,6 +3120,6 @@ The parked Supabase implementation still contains migrations and database-backed
 
 **What was tried:** The proof already performs bounded retries. No OAuth, login, cookies, paid API, browser challenge bypass, or unbounded retrying was added. Published Project A evidence remains the successful end-to-end live mission with 7 real threads, 3 signals, and zero paid/authenticated usage.
 
-**Current status:** External live-availability limitation. Controlled Project A-compatible Project B import/downstream/resume proofs pass; fresh network success must not be fabricated.
+**Current status:** Resolved as a transient external-availability event. A subsequent fresh Project A → Project B verification on August 8, 2026, against the same published Project A commit succeeded naturally with 8 real Reddit threads, 3 deterministic signals, 2 RSS requests, 3 public listing requests, 1 public comment request, 1 Arctic Shift request, zero paid requests/credits, and zero Reddit OAuth/login/cookies. The controlled Project B import/downstream/resume proofs continue to pass.
 
-**One-line solution:** Record current Reddit unavailability honestly and retry a fresh live proof only when the public keyless route is naturally available again.
+**One-line solution:** Do not add a bypass or authenticated workaround; keep the bounded keyless behavior, record transient public-route failures honestly, and retry only when the public route is naturally available.
