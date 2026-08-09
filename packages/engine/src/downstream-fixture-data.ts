@@ -13,6 +13,7 @@ import {
   type BuyerMapArtifactV1,
   type BuyerMapCoverageGapV1,
   type ValidatedCommunityAnalysisSet,
+  type ValidatedDeveloperAnalysisSet,
   type DiscoveryCandidateEntityV1,
   type DiscoveryCandidatesArtifactV1,
   type EvidenceFindingV1,
@@ -768,6 +769,482 @@ function communityEvidence(input: {
   return { materials, findings };
 }
 
+function developerEvidence(input: {
+  candidates: DiscoveryCandidatesArtifactV1;
+  developer?: ValidatedDeveloperAnalysisSet;
+}): { materials: EvidenceMaterialV1[]; findings: EvidenceFindingV1[] } {
+  if (input.developer === undefined || input.candidates.results.length === 0)
+    return { materials: [], findings: [] };
+  const materials: EvidenceMaterialV1[] = [];
+  const findings: EvidenceFindingV1[] = [];
+  const metadataByThread = new Map(
+    input.developer.threadMetadata.threads.map((entry) => [entry.threadArtifactId, entry]),
+  );
+  const repositoryById = new Map(
+    input.developer.repositoryCollection.repositories.map((repository) => [
+      repository.repositoryId,
+      repository,
+    ]),
+  );
+  const threadById = new Map(input.developer.threads.map((thread) => [thread.artifactId, thread]));
+  const commentsByThread = new Map(
+    input.developer.commentCollections.map((collection) => [
+      collection.threadArtifactId,
+      collection,
+    ]),
+  );
+  const commentMetadataById = new Map(
+    input.developer.commentMetadata.comments.map((comment) => [comment.commentId, comment]),
+  );
+  const resultForConcepts = (concepts: string[]): NormalizedDiscoveryResultV2 | undefined => {
+    const normalized = [
+      ...new Set(
+        concepts.map((value) => value.trim().toLowerCase()).filter((value) => value.length > 1),
+      ),
+    ];
+    if (normalized.length !== 1) return undefined;
+    const concept = normalized[0];
+    if (concept === undefined) return undefined;
+    const matchingEntities = input.candidates.entities.filter((entity) =>
+      [entity.displayName, entity.domain]
+        .filter((value): value is string => value !== undefined)
+        .map((value) => value.trim().toLowerCase())
+        .includes(concept),
+    );
+    if (matchingEntities.length !== 1) return undefined;
+    const entity = matchingEntities[0];
+    if (entity === undefined) return undefined;
+    return entity.resultIds
+      .map((resultId) => input.candidates.results.find((result) => result.id === resultId))
+      .find((result) => result !== undefined);
+  };
+  const queryContext = (threadArtifactId: string) => {
+    const metadata = metadataByThread.get(threadArtifactId);
+    const queryIds = [
+      ...new Set(
+        (metadata?.provenance ?? [])
+          .map((entry) => entry.queryId)
+          .filter((value): value is string => value !== undefined),
+      ),
+    ];
+    const queries =
+      input.developer?.plan.queries.filter(
+        (query) => query.selected && queryIds.includes(query.queryId),
+      ) ?? [];
+    const concepts = queries
+      .map((query) => query.primaryEntity)
+      .filter((value): value is string => value !== undefined);
+    return {
+      metadata,
+      queries,
+      queryIds,
+      concepts,
+      result: resultForConcepts(concepts),
+    };
+  };
+
+  for (const thread of input.developer.threads) {
+    const context = queryContext(thread.artifactId);
+    const metadata = context.metadata;
+    const result = context.result;
+    if (metadata === undefined || result === undefined) continue;
+    const repository = repositoryById.get(metadata.repositoryId);
+    if (repository === undefined) continue;
+    const content = `${thread.title ?? ""}\n${thread.body ?? ""}`.trim().slice(0, 20_000);
+    if (content.length === 0) continue;
+    const materialId = `material_github_thread_${thread.artifactId}`;
+    materials.push({
+      id: materialId,
+      kind: "github_thread",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: thread.url,
+      content,
+      contentHash: fingerprint({ threadArtifactId: thread.artifactId, content }),
+      trustClassification: "untrusted_public_content",
+      threadArtifactId: thread.artifactId,
+      repositoryId: repository.repositoryId,
+      repositoryFullName: repository.fullName,
+      developerThreadKind: metadata.threadKind,
+      developerThreadNumber: metadata.nativeNumber,
+      developerQueryIds: context.queryIds,
+      developerQueryIntents: context.queries.map((query) => query.intent),
+      relevanceScore: metadata.relevanceScore,
+      developerLocalScore: metadata.developerLocalScore,
+      ...(metadata.authorAssociation === undefined
+        ? {}
+        : { authorAssociation: metadata.authorAssociation }),
+      ...(thread.createdAt === undefined ? {} : { publishedAt: thread.createdAt }),
+      limitations: [
+        ...thread.limitations,
+        ...metadata.limitations,
+        "Public GitHub authors and associations are attribution only and are never used as buyer or contact identity evidence.",
+      ],
+    });
+    findings.push({
+      id: `finding_github_thread_${fingerprint({ threadArtifactId: thread.artifactId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "developer_signal",
+      positive: true,
+      strength: metadata.relevanceScore >= 0.75 ? "moderate" : "weak",
+      summary: `A public GitHub ${metadata.threadKind.replace("_", " ")} in ${repository.fullName} contains mission-relevant developer discussion. It does not identify or qualify a buyer.`,
+      supportingText: content,
+      sourceUrl: thread.url,
+      providerId: "github_public",
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "github_thread",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: thread.url,
+        providerId: "github_public",
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        ...(thread.createdAt === undefined ? {} : { publishedAt: thread.createdAt }),
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "github_thread",
+        trustClassification: "untrusted_public_content",
+        threadArtifactId: thread.artifactId,
+        repositoryId: repository.repositoryId,
+        repositoryFullName: repository.fullName,
+        developerThreadKind: metadata.threadKind,
+        developerThreadNumber: metadata.nativeNumber,
+        developerQueryIds: context.queryIds,
+        developerQueryIntents: context.queries.map((query) => query.intent),
+        relevanceScore: metadata.relevanceScore,
+        developerLocalScore: metadata.developerLocalScore,
+        ...(metadata.authorAssociation === undefined
+          ? {}
+          : { authorAssociation: metadata.authorAssociation }),
+      },
+    });
+
+    const repositoryContent =
+      `${repository.fullName}\n${repository.description ?? ""}\n${repository.primaryLanguage ?? ""}\n${repository.topics.join(" ")}`
+        .trim()
+        .slice(0, 20_000);
+    const repositoryMaterialId = `material_github_repository_${repository.repositoryId}_${thread.artifactId}`;
+    if (
+      repositoryContent.length > 0 &&
+      !materials.some(
+        (material) =>
+          material.kind === "github_repository" &&
+          material.repositoryId === repository.repositoryId,
+      )
+    ) {
+      materials.push({
+        id: repositoryMaterialId,
+        kind: "github_repository",
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        sourceUrl: repository.url,
+        content: repositoryContent,
+        contentHash: fingerprint({ repositoryId: repository.repositoryId, repositoryContent }),
+        trustClassification: "untrusted_public_content",
+        repositoryId: repository.repositoryId,
+        repositoryFullName: repository.fullName,
+        developerQueryIds: context.queryIds,
+        developerQueryIntents: context.queries.map((query) => query.intent),
+        relevanceScore: metadata.relevanceScore,
+        limitations: [
+          ...repository.limitations,
+          "Public repository metadata is project context only and does not identify a buyer, budget, authority, or purchase intent.",
+        ],
+      });
+      findings.push({
+        id: `finding_github_repository_${fingerprint({ repositoryId: repository.repositoryId }).slice(0, 16)}`,
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        signalType: "developer_signal",
+        positive: true,
+        strength: "weak",
+        summary: `Public repository metadata for ${repository.fullName} is relevant developer context for an already-known discovery entity.`,
+        supportingText: repositoryContent,
+        sourceUrl: repository.url,
+        providerId: "github_public",
+        sourceZone: result.sourceZone,
+        stale: false,
+        materialId: repositoryMaterialId,
+        materialKind: "github_repository",
+        provenance: {
+          searchResultId: result.id,
+          queryId: result.queryId,
+          query: result.query,
+          sourceUrl: repository.url,
+          providerId: "github_public",
+          providerCategory: result.providerCategory,
+          sourceZone: result.sourceZone,
+          searchMethod: result.searchMethod,
+          signalIntent: result.signalIntent,
+          discoveredAt: result.discoveredAt,
+          materialId: repositoryMaterialId,
+          materialKind: "github_repository",
+          trustClassification: "untrusted_public_content",
+          repositoryId: repository.repositoryId,
+          repositoryFullName: repository.fullName,
+          developerQueryIds: context.queryIds,
+          developerQueryIntents: context.queries.map((query) => query.intent),
+          relevanceScore: metadata.relevanceScore,
+        },
+      });
+      for (const release of repository.releases) {
+        const releaseContent = `${release.name ?? release.tagName}\n${release.bodyExcerpt ?? ""}`
+          .trim()
+          .slice(0, 20_000);
+        if (releaseContent.length === 0) continue;
+        const releaseMaterialId = `material_github_release_${release.releaseId}`;
+        materials.push({
+          id: releaseMaterialId,
+          kind: "github_release",
+          searchResultId: result.id,
+          entityKey: entityKeyForResult(result),
+          sourceUrl: release.url,
+          content: releaseContent,
+          contentHash: fingerprint({ releaseId: release.releaseId, releaseContent }),
+          trustClassification: "untrusted_public_content",
+          repositoryId: repository.repositoryId,
+          repositoryFullName: repository.fullName,
+          releaseId: release.releaseId,
+          releaseTagName: release.tagName,
+          releasePrerelease: release.prerelease,
+          developerQueryIds: context.queryIds,
+          developerQueryIntents: context.queries.map((query) => query.intent),
+          ...(release.publishedAt === undefined ? {} : { publishedAt: release.publishedAt }),
+          limitations: [
+            ...release.limitations,
+            "Release activity is implementation context only; asset URLs are never followed and release activity alone is not a buyer signal.",
+          ],
+        });
+        findings.push({
+          id: `finding_github_release_${fingerprint({ releaseId: release.releaseId }).slice(0, 16)}`,
+          searchResultId: result.id,
+          entityKey: entityKeyForResult(result),
+          signalType: "developer_signal",
+          positive: true,
+          strength: "weak",
+          summary: `Published release ${release.tagName} is public developer context for ${repository.fullName}; release activity alone does not imply commercial intent.`,
+          supportingText: releaseContent,
+          sourceUrl: release.url,
+          providerId: "github_public",
+          sourceZone: result.sourceZone,
+          stale: false,
+          materialId: releaseMaterialId,
+          materialKind: "github_release",
+          provenance: {
+            searchResultId: result.id,
+            queryId: result.queryId,
+            query: result.query,
+            sourceUrl: release.url,
+            providerId: "github_public",
+            providerCategory: result.providerCategory,
+            sourceZone: result.sourceZone,
+            searchMethod: result.searchMethod,
+            signalIntent: result.signalIntent,
+            ...(release.publishedAt === undefined ? {} : { publishedAt: release.publishedAt }),
+            discoveredAt: result.discoveredAt,
+            materialId: releaseMaterialId,
+            materialKind: "github_release",
+            trustClassification: "untrusted_public_content",
+            repositoryId: repository.repositoryId,
+            repositoryFullName: repository.fullName,
+            releaseId: release.releaseId,
+            releaseTagName: release.tagName,
+            releasePrerelease: release.prerelease,
+          },
+        });
+      }
+    }
+
+    const collection = commentsByThread.get(thread.artifactId);
+    for (const comment of collection?.comments ?? []) {
+      const commentMetadata = commentMetadataById.get(comment.commentId);
+      const body = comment.body.slice(0, 20_000);
+      if (body.length === 0) continue;
+      const commentMaterialId = `material_github_comment_${comment.commentId}`;
+      materials.push({
+        id: commentMaterialId,
+        kind: "github_comment",
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        sourceUrl: commentMetadata?.permalink ?? thread.url,
+        content: body,
+        contentHash: fingerprint({ commentId: comment.commentId, body }),
+        trustClassification: "untrusted_public_content",
+        threadArtifactId: thread.artifactId,
+        commentCollectionArtifactId: collection?.artifactId,
+        commentId: comment.commentId,
+        repositoryId: repository.repositoryId,
+        repositoryFullName: repository.fullName,
+        developerThreadKind: metadata.threadKind,
+        developerThreadNumber: metadata.nativeNumber,
+        ...(commentMetadata === undefined
+          ? {}
+          : {
+              developerCommentKind: commentMetadata.commentKind,
+              ...(commentMetadata.authorAssociation === undefined
+                ? {}
+                : { authorAssociation: commentMetadata.authorAssociation }),
+            }),
+        developerQueryIds: context.queryIds,
+        developerQueryIntents: context.queries.map((query) => query.intent),
+        relevanceScore: metadata.relevanceScore,
+        ...(comment.createdAt === undefined ? {} : { publishedAt: comment.createdAt }),
+        limitations: [
+          ...comment.limitations,
+          ...(commentMetadata?.limitations ?? []),
+          "GitHub comment authors and associations are attribution only and are never used as company, buyer, or contact identity evidence.",
+        ],
+      });
+      findings.push({
+        id: `finding_github_comment_${fingerprint({ commentId: comment.commentId }).slice(0, 16)}`,
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        signalType: "developer_signal",
+        positive: true,
+        strength: "weak",
+        summary: `A selected public GitHub comment adds developer context to an already-known entity; it does not identify a buyer or contact.`,
+        supportingText: body,
+        sourceUrl: commentMetadata?.permalink ?? thread.url,
+        providerId: "github_public",
+        sourceZone: result.sourceZone,
+        stale: false,
+        materialId: commentMaterialId,
+        materialKind: "github_comment",
+        provenance: {
+          searchResultId: result.id,
+          queryId: result.queryId,
+          query: result.query,
+          sourceUrl: commentMetadata?.permalink ?? thread.url,
+          providerId: "github_public",
+          providerCategory: result.providerCategory,
+          sourceZone: result.sourceZone,
+          searchMethod: result.searchMethod,
+          signalIntent: result.signalIntent,
+          ...(comment.createdAt === undefined ? {} : { publishedAt: comment.createdAt }),
+          discoveredAt: result.discoveredAt,
+          materialId: commentMaterialId,
+          materialKind: "github_comment",
+          trustClassification: "untrusted_public_content",
+          threadArtifactId: thread.artifactId,
+          commentId: comment.commentId,
+          repositoryId: repository.repositoryId,
+          repositoryFullName: repository.fullName,
+          developerThreadKind: metadata.threadKind,
+          developerThreadNumber: metadata.nativeNumber,
+          ...(commentMetadata === undefined
+            ? {}
+            : {
+                developerCommentKind: commentMetadata.commentKind,
+                ...(commentMetadata.authorAssociation === undefined
+                  ? {}
+                  : { authorAssociation: commentMetadata.authorAssociation }),
+              }),
+          developerQueryIds: context.queryIds,
+          developerQueryIntents: context.queries.map((query) => query.intent),
+          relevanceScore: metadata.relevanceScore,
+        },
+      });
+    }
+  }
+
+  for (const signal of input.developer.signals.signals) {
+    const supportingThread = signal.supportingThreadArtifactIds
+      .map((threadId) => threadById.get(threadId))
+      .find((thread) => thread !== undefined);
+    if (supportingThread === undefined) continue;
+    const context = queryContext(supportingThread.artifactId);
+    const result = context.result;
+    if (result === undefined) continue;
+    const supportingRepository = signal.repositoryIds
+      .map((repositoryId) => repositoryById.get(repositoryId))
+      .find((repository) => repository !== undefined);
+    if (supportingRepository === undefined) continue;
+    const content = `${signal.observedFacts.join(" ")} ${signal.inference}`.slice(0, 20_000);
+    const materialId = `material_developer_signal_${signal.signalId}`;
+    materials.push({
+      id: materialId,
+      kind: "developer_signal",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: supportingThread.url,
+      content,
+      contentHash: fingerprint({ signalId: signal.signalId, content }),
+      trustClassification: "untrusted_public_content",
+      threadArtifactId: supportingThread.artifactId,
+      repositoryId: supportingRepository.repositoryId,
+      repositoryFullName: supportingRepository.fullName,
+      developerSignalId: signal.signalId,
+      developerSignalType: signal.type,
+      developerQueryIds: context.queryIds,
+      developerQueryIntents: context.queries.map((query) => query.intent),
+      relevanceScore: signal.missionRelevance.score,
+      confidence: signal.confidence,
+      independentThreadCount: signal.independentThreadCount,
+      independentRepositoryCount: signal.independentRepositoryCount,
+      limitations: [
+        ...signal.limitations,
+        "Deterministic developer signals summarize bounded public GitHub evidence only; they do not prove budget, buying authority, purchase intent, representative market demand, or developer identity.",
+      ],
+    });
+    findings.push({
+      id: `finding_developer_signal_${fingerprint({ signalId: signal.signalId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "developer_signal",
+      positive: true,
+      strength:
+        signal.missionRelevance.relevant &&
+        signal.missionRelevance.score >= 0.7 &&
+        signal.confidence >= 0.7 &&
+        signal.independentRepositoryCount >= 2
+          ? "moderate"
+          : "weak",
+      summary: `${signal.inference} This remains bounded public developer evidence and does not establish a commercial decision or buyer identity.`,
+      supportingText: content,
+      sourceUrl: supportingThread.url,
+      providerId: "github_public",
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "developer_signal",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: supportingThread.url,
+        providerId: "github_public",
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "developer_signal",
+        trustClassification: "untrusted_public_content",
+        threadArtifactId: supportingThread.artifactId,
+        repositoryId: supportingRepository.repositoryId,
+        repositoryFullName: supportingRepository.fullName,
+        developerSignalId: signal.signalId,
+        developerSignalType: signal.type,
+        developerQueryIds: context.queryIds,
+        developerQueryIntents: context.queries.map((query) => query.intent),
+        relevanceScore: signal.missionRelevance.score,
+        confidence: signal.confidence,
+        independentThreadCount: signal.independentThreadCount,
+        independentRepositoryCount: signal.independentRepositoryCount,
+      },
+    });
+  }
+  return { materials, findings };
+}
+
 export function buildEvidenceFindings(
   candidates: DiscoveryCandidatesArtifactV1,
   generatedAt: string,
@@ -776,6 +1253,7 @@ export function buildEvidenceFindings(
   jobCollection?: JobCollectionArtifactV1,
   hiringSignals?: HiringSignalsArtifactV1,
   communityArtifacts?: ValidatedCommunityAnalysisSet,
+  developerArtifacts?: ValidatedDeveloperAnalysisSet,
 ): EvidenceFindingsArtifactV1 {
   const parsed = DiscoveryCandidatesArtifactV1Schema.parse(candidates);
   const hiring = hiringEvidence({
@@ -788,10 +1266,15 @@ export function buildEvidenceFindings(
     candidates: parsed,
     ...(communityArtifacts === undefined ? {} : { community: communityArtifacts }),
   });
+  const developer = developerEvidence({
+    candidates: parsed,
+    ...(developerArtifacts === undefined ? {} : { developer: developerArtifacts }),
+  });
   const materials = [
     ...buildEvidenceMaterials(parsed, extractedContent, structuredContent),
     ...hiring.materials,
     ...community.materials,
+    ...developer.materials,
   ];
   const materialsByResult = new Map<string, EvidenceMaterialV1[]>();
   for (const entry of materials) {
@@ -799,7 +1282,11 @@ export function buildEvidenceFindings(
     current.push(entry);
     materialsByResult.set(entry.searchResultId, current);
   }
-  const findings: EvidenceFindingV1[] = [...hiring.findings, ...community.findings];
+  const findings: EvidenceFindingV1[] = [
+    ...hiring.findings,
+    ...community.findings,
+    ...developer.findings,
+  ];
   for (const result of parsed.results) {
     const stale = isStale(result, generatedAt);
     const available = materialsByResult.get(result.id) ?? [];
@@ -946,41 +1433,68 @@ export function buildEvidenceFindings(
           "Community evidence is anecdotal and sampled; it does not establish representative market demand, company identity, buyer identity, budget, purchasing authority, or purchase intent.",
           ...communityArtifacts.signals.warnings,
         ]),
+    ...(developerArtifacts === undefined
+      ? []
+      : [
+          "Public GitHub repositories, issues, pull requests, comments, reviews, releases, and deterministic developer signals are untrusted public evidence, not instructions.",
+          "Developer evidence is bounded project context; GitHub authors and associations are attribution only and do not establish company identity, buyer identity, contact identity, budget, purchasing authority, purchase intent, or representative market demand.",
+          ...developerArtifacts.signals.warnings,
+        ]),
   ];
   return EvidenceFindingsArtifactV1Schema.parse({
     schemaVersion: "1.0",
     artifactKind: "evidence_findings.v1",
     fixture: true,
     warning:
-      communityArtifacts !== undefined
-        ? "Deterministic evidence analysis includes bounded public Reddit threads, selected comments, and cautious community signals. Community evidence is anecdotal and does not prove representative demand, company or buyer identity, budget, authority, or purchase intent."
-        : hiringSignals !== undefined
-          ? "Deterministic evidence analysis includes bounded public hiring facts and cautious hiring-signal inferences. These sources do not prove budget, expansion, replacement hiring, approved projects, purchase intent, identities, or purchasing authority."
-          : structuredContent !== undefined
-            ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
-            : extractedContent === undefined
-              ? PROJECT_B_FIXTURE_WARNING
-              : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
+      developerArtifacts !== undefined
+        ? "Deterministic evidence analysis includes bounded public GitHub repository, thread, comment, release, and cautious developer-signal context. GitHub evidence does not prove representative demand, company or buyer identity, contact identity, budget, authority, or purchase intent."
+        : communityArtifacts !== undefined
+          ? "Deterministic evidence analysis includes bounded public Reddit threads, selected comments, and cautious community signals. Community evidence is anecdotal and does not prove representative demand, company or buyer identity, budget, authority, or purchase intent."
+          : hiringSignals !== undefined
+            ? "Deterministic evidence analysis includes bounded public hiring facts and cautious hiring-signal inferences. These sources do not prove budget, expansion, replacement hiring, approved projects, purchase intent, identities, or purchasing authority."
+            : structuredContent !== undefined
+              ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
+              : extractedContent === undefined
+                ? PROJECT_B_FIXTURE_WARNING
+                : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
     generatedAt,
     sourceArtifact: parsed.sourceArtifact,
     evidenceSourceMode:
-      communityArtifacts !== undefined
-        ? hiringSignals !== undefined
-          ? structuredContent !== undefined
-            ? "snippet_plus_structured_hiring_and_community_intelligence"
-            : "snippet_plus_hiring_and_community_intelligence"
-          : "snippet_plus_public_community_intelligence"
-        : hiringSignals !== undefined
-          ? structuredContent !== undefined
-            ? "snippet_plus_structured_and_hiring_intelligence"
-            : extractedContent !== undefined
-              ? "snippet_plus_extracted_and_hiring_intelligence"
-              : "snippet_plus_public_hiring_intelligence"
-          : structuredContent !== undefined
-            ? "snippet_plus_structured_public_content"
-            : extractedContent === undefined
-              ? "snippet_only"
-              : "snippet_plus_extracted_public_pages",
+      developerArtifacts !== undefined
+        ? structuredContent !== undefined
+          ? hiringSignals !== undefined && communityArtifacts !== undefined
+            ? "snippet_plus_structured_hiring_community_and_developer_intelligence"
+            : hiringSignals !== undefined
+              ? "snippet_plus_structured_hiring_and_developer_intelligence"
+              : communityArtifacts !== undefined
+                ? "snippet_plus_structured_community_and_developer_intelligence"
+                : "snippet_plus_structured_and_developer_intelligence"
+          : hiringSignals !== undefined && communityArtifacts !== undefined
+            ? "snippet_plus_hiring_community_and_developer_intelligence"
+            : hiringSignals !== undefined
+              ? "snippet_plus_hiring_and_developer_intelligence"
+              : communityArtifacts !== undefined
+                ? "snippet_plus_community_and_developer_intelligence"
+                : extractedContent !== undefined
+                  ? "snippet_plus_extracted_and_developer_intelligence"
+                  : "snippet_plus_public_developer_intelligence"
+        : communityArtifacts !== undefined
+          ? hiringSignals !== undefined
+            ? structuredContent !== undefined
+              ? "snippet_plus_structured_hiring_and_community_intelligence"
+              : "snippet_plus_hiring_and_community_intelligence"
+            : "snippet_plus_public_community_intelligence"
+          : hiringSignals !== undefined
+            ? structuredContent !== undefined
+              ? "snippet_plus_structured_and_hiring_intelligence"
+              : extractedContent !== undefined
+                ? "snippet_plus_extracted_and_hiring_intelligence"
+                : "snippet_plus_public_hiring_intelligence"
+            : structuredContent !== undefined
+              ? "snippet_plus_structured_public_content"
+              : extractedContent === undefined
+                ? "snippet_only"
+                : "snippet_plus_extracted_public_pages",
     materials,
     extractionSummary: {
       selectedPages: extractionSummary?.selectedUrls ?? 0,
@@ -1034,7 +1548,8 @@ export function buildBuyerHypotheses(
     const findings = parsed.findings.filter((finding) => finding.entityKey === entity.entityKey);
     const positive = findings.filter((finding) => finding.positive);
     const identityPositive = positive.filter(
-      (finding) => finding.signalType !== "community_signal",
+      (finding) =>
+        finding.signalType !== "community_signal" && finding.signalType !== "developer_signal",
     );
     const strongPositive = identityPositive.filter(
       (finding) => finding.strength === "strong",
@@ -1059,6 +1574,21 @@ export function buildBuyerHypotheses(
     );
     const communitySignalFindings = findings.filter(
       (finding) => finding.materialKind === "community_signal",
+    );
+    const developerRepositoryFindings = findings.filter(
+      (finding) => finding.materialKind === "github_repository",
+    );
+    const developerThreadFindings = findings.filter(
+      (finding) => finding.materialKind === "github_thread",
+    );
+    const developerCommentFindings = findings.filter(
+      (finding) => finding.materialKind === "github_comment",
+    );
+    const developerReleaseFindings = findings.filter(
+      (finding) => finding.materialKind === "github_release",
+    );
+    const developerSignalFindings = findings.filter(
+      (finding) => finding.materialKind === "developer_signal",
     );
     const confidence =
       strongPositive >= 2 && strongNegative === 0
@@ -1093,6 +1623,31 @@ export function buildBuyerHypotheses(
                 "Community evidence was attached only to an already-existing discovery entity and did not create or identify a buyer.",
                 "Reddit usernames and handles are never used as company, buyer, or contact identities.",
                 "Community discussion does not establish budget, authority, representative demand, or purchase intent.",
+              ],
+            },
+          }),
+      ...(developerRepositoryFindings.length === 0 &&
+      developerThreadFindings.length === 0 &&
+      developerCommentFindings.length === 0 &&
+      developerReleaseFindings.length === 0 &&
+      developerSignalFindings.length === 0
+        ? {}
+        : {
+            developerIdentityEvidence: {
+              observedRepositoryFindingIds: developerRepositoryFindings.map(
+                (finding) => finding.id,
+              ),
+              observedThreadFindingIds: developerThreadFindings.map((finding) => finding.id),
+              observedCommentFindingIds: developerCommentFindings.map((finding) => finding.id),
+              observedReleaseFindingIds: developerReleaseFindings.map((finding) => finding.id),
+              inferredSignalFindingIds: developerSignalFindings.map((finding) => finding.id),
+              confidence: "low" as const,
+              conservativeMatch: true as const,
+              developerIdentityUsed: false as const,
+              limitations: [
+                "Developer evidence was attached only to an already-existing discovery entity and did not create or identify a buyer.",
+                "GitHub usernames, handles, author associations, commit identities, and contributors are never used as company, buyer, or contact identities.",
+                "Developer discussion and release activity do not establish budget, purchasing authority, representative market demand, or purchase intent.",
               ],
             },
           }),
@@ -1209,20 +1764,19 @@ export function buildRankedOpportunities(input: {
     );
     const positive = findings.filter((finding) => finding.positive);
     const negative = findings.filter((finding) => !finding.positive);
-    const nonCommunityFindings = findings.filter(
-      (finding) => finding.signalType !== "community_signal",
+    const baselineFindings = findings.filter(
+      (finding) =>
+        finding.signalType !== "community_signal" && finding.signalType !== "developer_signal",
     );
-    const nonCommunityPositive = nonCommunityFindings.filter((finding) => finding.positive);
-    const hasPain = nonCommunityPositive.some(
+    const baselinePositive = baselineFindings.filter((finding) => finding.positive);
+    const hasPain = baselinePositive.some(
       (finding) =>
         (finding.signalType === "problem_signal" ||
           finding.signalType === "manual_process_signal") &&
         finding.strength !== "weak",
     );
-    const hasRecent = nonCommunityPositive.some((finding) => isRecent(finding, input.generatedAt));
-    const hasHiring = nonCommunityPositive.some(
-      (finding) => finding.signalType === "hiring_signal",
-    );
+    const hasRecent = baselinePositive.some((finding) => isRecent(finding, input.generatedAt));
+    const hasHiring = baselinePositive.some((finding) => finding.signalType === "hiring_signal");
     const communityFindings = positive.filter(
       (finding) => finding.signalType === "community_signal",
     );
@@ -1250,24 +1804,61 @@ export function buildRankedOpportunities(input: {
         (finding) => finding.provenance.independentThreadCount ?? 0,
       ),
     );
-    const hasWorkaround = nonCommunityPositive.some((finding) =>
+    const qualifyingDeveloperSignalTypes = new Set([
+      "bug_pain",
+      "integration_problem",
+      "implementation_difficulty",
+      "migration_signal",
+      "alternative_search",
+      "performance_problem",
+      "dependency_problem",
+      "breaking_change",
+    ]);
+    const qualifyingDeveloperFindings = positive.filter(
+      (finding) =>
+        finding.signalType === "developer_signal" &&
+        finding.materialKind === "developer_signal" &&
+        finding.strength !== "weak" &&
+        finding.provenance.developerSignalType !== undefined &&
+        qualifyingDeveloperSignalTypes.has(finding.provenance.developerSignalType) &&
+        (finding.provenance.independentRepositoryCount ?? 0) >= 2 &&
+        (finding.provenance.independentThreadCount ?? 0) >= 2 &&
+        (finding.provenance.confidence ?? 0) >= 0.7 &&
+        (finding.provenance.relevanceScore ?? 0) >= 0.7,
+    );
+    const hasDeveloper = qualifyingDeveloperFindings.length > 0;
+    const developerIndependentRepositoryCount = Math.max(
+      0,
+      ...qualifyingDeveloperFindings.map(
+        (finding) => finding.provenance.independentRepositoryCount ?? 0,
+      ),
+    );
+    const developerIndependentThreadCount = Math.max(
+      0,
+      ...qualifyingDeveloperFindings.map(
+        (finding) => finding.provenance.independentThreadCount ?? 0,
+      ),
+    );
+    const hasWorkaround = baselinePositive.some((finding) =>
       ["competitor_signal", "workaround_signal", "manual_process_signal"].includes(
         finding.signalType,
       ),
     );
     const hasClearCompany = hypothesis.companyDomain !== undefined;
     const hasRoute = hypothesis.manualContactRoute.instructions.length > 0;
-    const exclusionText = `${hypothesis.companyName} ${hypothesis.companyDomain ?? ""} ${nonCommunityFindings
+    const exclusionText = `${hypothesis.companyName} ${hypothesis.companyDomain ?? ""} ${baselineFindings
       .map((finding) => finding.summary)
       .join(" ")}`;
     const hasExclusionConflict =
       negative.some(
         (finding) =>
-          finding.signalType !== "community_signal" && finding.signalType === "negative_signal",
+          finding.signalType !== "community_signal" &&
+          finding.signalType !== "developer_signal" &&
+          finding.signalType === "negative_signal",
       ) || textMatchesExclusion(exclusionText, input.mission.input.exclusions);
     const weakOrStale =
-      nonCommunityPositive.length === 0 ||
-      nonCommunityPositive.every((finding) => finding.strength === "weak" || finding.stale);
+      baselinePositive.length === 0 ||
+      baselinePositive.every((finding) => finding.strength === "weak" || finding.stale);
     const components: RankingScoreComponentV1[] = [
       scoreComponent(
         "clear_pain",
@@ -1327,8 +1918,11 @@ export function buildRankedOpportunities(input: {
       ),
     ];
     const communityPoints = hasCommunity ? 1 : 0;
+    const developerPoints = hasDeveloper ? 1 : 0;
     const score =
-      components.reduce((sum, component) => sum + component.points, 0) + communityPoints;
+      components.reduce((sum, component) => sum + component.points, 0) +
+      communityPoints +
+      developerPoints;
     const confidence =
       score >= 14 && !hasExclusionConflict ? "high" : score >= 7 ? "medium" : "low";
     const risks = [
@@ -1358,6 +1952,16 @@ export function buildRankedOpportunities(input: {
           ? "A repeated, mission-relevant pain, switching, or competitor-dissatisfaction signal across at least two independent Reddit threads contributes exactly one capped point. Community evidence cannot establish representative demand, buyer identity, budget, authority, or purchase intent."
           : "No qualifying repeated community signal was applied. Single threads, single weak comments, ambiguous links, low-confidence signals, and duplicate-route evidence contribute zero points.",
         independentThreadCount: communityIndependentThreadCount,
+      },
+      developerContribution: {
+        applied: hasDeveloper,
+        points: developerPoints,
+        maximumShareOfPositiveScore: 0.08,
+        rationale: hasDeveloper
+          ? "A mission-relevant developer pain, migration, alternative-search, performance, dependency, or breaking-change signal supported across at least two independent public repositories and two threads contributes exactly one capped point. GitHub evidence cannot establish buyer identity, contact identity, budget, authority, purchase intent, or representative market demand."
+          : "No qualifying independent developer signal was applied. Single-repository activity, release activity alone, maintenance/adoption hints, weak discussion, low-confidence signals, and ambiguous entity links contribute zero points.",
+        independentRepositoryCount: developerIndependentRepositoryCount,
+        independentThreadCount: developerIndependentThreadCount,
       },
       hiringContribution: {
         applied: hasHiring,
@@ -1566,6 +2170,54 @@ export function buildBuyerMap(input: {
         ...(finding.provenance.engagementStalePossible === undefined
           ? {}
           : { engagementStalePossible: finding.provenance.engagementStalePossible }),
+        ...(finding.provenance.independentThreadCount === undefined
+          ? {}
+          : { independentThreadCount: finding.provenance.independentThreadCount }),
+        ...(finding.provenance.repositoryId === undefined
+          ? {}
+          : { repositoryId: finding.provenance.repositoryId }),
+        ...(finding.provenance.repositoryFullName === undefined
+          ? {}
+          : { repositoryFullName: finding.provenance.repositoryFullName }),
+        ...(finding.provenance.developerThreadKind === undefined
+          ? {}
+          : { developerThreadKind: finding.provenance.developerThreadKind }),
+        ...(finding.provenance.developerThreadNumber === undefined
+          ? {}
+          : { developerThreadNumber: finding.provenance.developerThreadNumber }),
+        ...(finding.provenance.developerCommentKind === undefined
+          ? {}
+          : { developerCommentKind: finding.provenance.developerCommentKind }),
+        ...(finding.provenance.developerSignalId === undefined
+          ? {}
+          : { developerSignalId: finding.provenance.developerSignalId }),
+        ...(finding.provenance.developerSignalType === undefined
+          ? {}
+          : { developerSignalType: finding.provenance.developerSignalType }),
+        ...(finding.provenance.developerQueryIds === undefined
+          ? {}
+          : { developerQueryIds: finding.provenance.developerQueryIds }),
+        ...(finding.provenance.developerQueryIntents === undefined
+          ? {}
+          : { developerQueryIntents: finding.provenance.developerQueryIntents }),
+        ...(finding.provenance.developerLocalScore === undefined
+          ? {}
+          : { developerLocalScore: finding.provenance.developerLocalScore }),
+        ...(finding.provenance.independentRepositoryCount === undefined
+          ? {}
+          : { independentRepositoryCount: finding.provenance.independentRepositoryCount }),
+        ...(finding.provenance.authorAssociation === undefined
+          ? {}
+          : { authorAssociation: finding.provenance.authorAssociation }),
+        ...(finding.provenance.releaseId === undefined
+          ? {}
+          : { releaseId: finding.provenance.releaseId }),
+        ...(finding.provenance.releaseTagName === undefined
+          ? {}
+          : { releaseTagName: finding.provenance.releaseTagName }),
+        ...(finding.provenance.releasePrerelease === undefined
+          ? {}
+          : { releasePrerelease: finding.provenance.releasePrerelease }),
       })),
       risks: opportunity.risks,
       limitations: opportunity.limitations,
@@ -1592,15 +2244,17 @@ export function buildBuyerMap(input: {
     schemaVersion: "1.0",
     artifactKind: "buyer_map.v1",
     fixture: true,
-    warning: evidence.evidenceSourceMode.includes("community_intelligence")
-      ? "Buyer Map includes sampled public Reddit evidence. Community threads, comments, and deterministic signals are anecdotal and do not verify representative demand, company or buyer identity, budget, purchasing authority, or buying intent."
-      : evidence.evidenceSourceMode.includes("hiring_intelligence")
-        ? "Buyer Map includes bounded public hiring evidence. Jobs and hiring signals do not verify budget, expansion, replacement hiring, approved projects, identities, purchasing authority, or buying intent."
-        : evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
-          ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
-          : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
-            ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
-            : PROJECT_B_FIXTURE_WARNING,
+    warning: evidence.evidenceSourceMode.includes("developer_intelligence")
+      ? "Buyer Map includes bounded public GitHub evidence. Repositories, issues, pull requests, comments, reviews, releases, and deterministic developer signals do not verify representative demand, company or buyer identity, contact identity, budget, purchasing authority, or buying intent. GitHub usernames and author associations remain source attribution only."
+      : evidence.evidenceSourceMode.includes("community_intelligence")
+        ? "Buyer Map includes sampled public Reddit evidence. Community threads, comments, and deterministic signals are anecdotal and do not verify representative demand, company or buyer identity, budget, purchasing authority, or buying intent."
+        : evidence.evidenceSourceMode.includes("hiring_intelligence")
+          ? "Buyer Map includes bounded public hiring evidence. Jobs and hiring signals do not verify budget, expansion, replacement hiring, approved projects, identities, purchasing authority, or buying intent."
+          : evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
+            ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
+            : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
+              ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
+              : PROJECT_B_FIXTURE_WARNING,
     generatedAt: input.generatedAt,
     evidenceSourceMode: evidence.evidenceSourceMode,
     summary: {
@@ -1656,6 +2310,41 @@ export function buildBuyerMap(input: {
         (count, opportunity) =>
           count +
           opportunity.evidence.filter((citation) => citation.materialKind === "community_signal")
+            .length,
+        0,
+      ),
+      githubRepositoryCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "github_repository")
+            .length,
+        0,
+      ),
+      githubThreadCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "github_thread")
+            .length,
+        0,
+      ),
+      githubCommentCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "github_comment")
+            .length,
+        0,
+      ),
+      githubReleaseCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "github_release")
+            .length,
+        0,
+      ),
+      developerSignalCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "developer_signal")
             .length,
         0,
       ),

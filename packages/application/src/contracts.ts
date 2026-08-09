@@ -70,7 +70,12 @@ export interface CapabilityReport {
   discoveryMaximumRedditSubreddits: number;
   discoveryMaximumRedditThreads: number;
   discoveryMaximumRedditThreadDrill: number;
+  discoveryGitHubDepth: "quick" | "default" | "deep";
+  discoveryMaximumGitHubQueries: number;
+  discoveryMaximumGitHubRepositories: number;
+  discoveryMaximumGitHubThreadDrill: number;
   communitySignalRuleVersion: string;
+  developerSignalRuleVersion: string;
   capabilities: {
     localEngine: true;
     missionCompiler: false;
@@ -110,7 +115,12 @@ export interface LocalDiagnostics {
   discoveryMaximumRedditSubreddits: number;
   discoveryMaximumRedditThreads: number;
   discoveryMaximumRedditThreadDrill: number;
+  discoveryGitHubDepth: "quick" | "default" | "deep";
+  discoveryMaximumGitHubQueries: number;
+  discoveryMaximumGitHubRepositories: number;
+  discoveryMaximumGitHubThreadDrill: number;
   communitySignalRuleVersion: string;
+  developerSignalRuleVersion: string;
   runner: {
     available: boolean;
     heartbeat: RunnerHeartbeat | null;

@@ -29,7 +29,12 @@ interface DiscoveryOperationsPanelProps {
   maximumRedditSubreddits: number;
   maximumRedditThreads: number;
   maximumRedditThreadDrill: number;
+  githubDepth: "quick" | "default" | "deep";
+  maximumGitHubQueries: number;
+  maximumGitHubRepositories: number;
+  maximumGitHubThreadDrill: number;
   communitySignalRuleVersion: string;
+  developerSignalRuleVersion: string;
   runtimeMode: "fixture" | "local_discovery_engine";
   runnerAvailable: boolean;
 }
@@ -53,7 +58,12 @@ export function DiscoveryOperationsPanel({
   maximumRedditSubreddits,
   maximumRedditThreads,
   maximumRedditThreadDrill,
+  githubDepth,
+  maximumGitHubQueries,
+  maximumGitHubRepositories,
+  maximumGitHubThreadDrill,
   communitySignalRuleVersion,
+  developerSignalRuleVersion,
   runtimeMode,
   runnerAvailable,
 }: DiscoveryOperationsPanelProps) {
@@ -63,15 +73,32 @@ export function DiscoveryOperationsPanel({
     useState<CluvviStructuredContentMode>(structuredContentMode);
   const [previewSourceAdapterMode, setPreviewSourceAdapterMode] =
     useState<CluvviSourceAdapterMode>(sourceAdapterMode);
-  const activeFamilyMode =
-    sourceFamilies.includes("hiring") && sourceFamilies.includes("community")
-      ? "both"
-      : sourceFamilies.includes("community")
-        ? "community"
-        : "hiring";
-  const [previewSourceFamilyMode, setPreviewSourceFamilyMode] = useState<
-    "hiring" | "community" | "both"
-  >(activeFamilyMode);
+  type SourceFamilyPreviewMode =
+    | "hiring"
+    | "community"
+    | "developer"
+    | "hiring_community"
+    | "hiring_developer"
+    | "community_developer"
+    | "all";
+  const activeFamilyMode: SourceFamilyPreviewMode =
+    sourceFamilies.includes("hiring") &&
+    sourceFamilies.includes("community") &&
+    sourceFamilies.includes("developer")
+      ? "all"
+      : sourceFamilies.includes("hiring") && sourceFamilies.includes("community")
+        ? "hiring_community"
+        : sourceFamilies.includes("hiring") && sourceFamilies.includes("developer")
+          ? "hiring_developer"
+          : sourceFamilies.includes("community") && sourceFamilies.includes("developer")
+            ? "community_developer"
+            : sourceFamilies.includes("community")
+              ? "community"
+              : sourceFamilies.includes("developer")
+                ? "developer"
+                : "hiring";
+  const [previewSourceFamilyMode, setPreviewSourceFamilyMode] =
+    useState<SourceFamilyPreviewMode>(activeFamilyMode);
   const active =
     previewExtractionMode === extractionMode &&
     previewStructuredMode === structuredContentMode &&
@@ -81,10 +108,17 @@ export function DiscoveryOperationsPanel({
   const selectedStructured = previewStructuredMode === "selected_resources";
   const selectedHiring =
     previewSourceAdapterMode === "selected_sources" &&
-    (previewSourceFamilyMode === "hiring" || previewSourceFamilyMode === "both");
+    ["hiring", "hiring_community", "hiring_developer", "all"].includes(previewSourceFamilyMode);
   const selectedCommunity =
     previewSourceAdapterMode === "selected_sources" &&
-    (previewSourceFamilyMode === "community" || previewSourceFamilyMode === "both");
+    ["community", "hiring_community", "community_developer", "all"].includes(
+      previewSourceFamilyMode,
+    );
+  const selectedDeveloper =
+    previewSourceAdapterMode === "selected_sources" &&
+    ["developer", "hiring_developer", "community_developer", "all"].includes(
+      previewSourceFamilyMode,
+    );
 
   return (
     <div className="grid gap-6">
@@ -171,17 +205,21 @@ export function DiscoveryOperationsPanel({
               value={previewSourceFamilyMode}
               disabled={previewSourceAdapterMode === "none"}
               onChange={(event) =>
-                setPreviewSourceFamilyMode(event.target.value as "hiring" | "community" | "both")
+                setPreviewSourceFamilyMode(event.target.value as SourceFamilyPreviewMode)
               }
             >
               <option value="hiring">Hiring — public ATS/jobs</option>
               <option value="community">Community — keyless public Reddit</option>
-              <option value="both">Hiring + community</option>
+              <option value="developer">Developer — public GitHub</option>
+              <option value="hiring_community">Hiring + community</option>
+              <option value="hiring_developer">Hiring + developer</option>
+              <option value="community_developer">Community + developer</option>
+              <option value="all">Hiring + community + developer</option>
             </select>
           </label>
         </div>
 
-        <div className="mt-6 grid gap-4 xl:grid-cols-5">
+        <div className="mt-6 grid gap-4 xl:grid-cols-3 2xl:grid-cols-6">
           <article
             className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
               !selectedPages
@@ -292,6 +330,35 @@ export function DiscoveryOperationsPanel({
               <li>• Sampled discussion is anecdotal; engagement may be unknown or stale</li>
             </ul>
           </article>
+          <article
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
+              selectedDeveloper
+                ? "border-neutral-950 bg-neutral-950 text-white"
+                : "border-neutral-200 bg-neutral-50 text-neutral-900"
+            }`}
+            data-testid="developer-mode-card"
+          >
+            <p className={`eyebrow ${selectedDeveloper ? "text-neutral-300" : ""}`}>
+              C1-J.3 developer
+            </p>
+            <h3 className="mt-2 text-lg font-semibold">Public GitHub intelligence</h3>
+            <ul
+              className={`mt-3 grid gap-2 text-sm leading-6 ${selectedDeveloper ? "text-neutral-300" : "text-neutral-600"}`}
+            >
+              <li>
+                • Depth {githubDepth}; up to {maximumGitHubQueries} semantic queries
+              </li>
+              <li>• Up to {maximumGitHubRepositories} public repositories</li>
+              <li>
+                • Relevance-first drill into at most {maximumGitHubThreadDrill} issue/PR threads
+              </li>
+              <li>• Bounded comments, PR reviews, and release metadata; no asset downloads</li>
+              <li>• Anonymous by default; optional token stays inside Project A only</li>
+              <li>
+                • No private repositories, cloning, mutations, or developer/contact enrichment
+              </li>
+            </ul>
+          </article>
         </div>
 
         {!active && (
@@ -331,6 +398,11 @@ export function DiscoveryOperationsPanel({
             ["Maximum Reddit threads", String(maximumRedditThreads)],
             ["Maximum Reddit thread drill", String(maximumRedditThreadDrill)],
             ["Community signal rules", communitySignalRuleVersion],
+            ["GitHub depth", githubDepth],
+            ["Maximum GitHub queries", String(maximumGitHubQueries)],
+            ["Maximum GitHub repositories", String(maximumGitHubRepositories)],
+            ["Maximum GitHub thread drill", String(maximumGitHubThreadDrill)],
+            ["Developer signal rules", developerSignalRuleVersion],
             ["Structured parser policy", "structured_parser_policy@1.0.0"],
             ["AnyDoc parser", "@firecrawl/anydoc@0.1.6"],
             ["HTML renderer", "sanitized_html_to_gfm@1.0.0"],
@@ -347,13 +419,14 @@ export function DiscoveryOperationsPanel({
       <section className="rounded-3xl border border-violet-200 bg-violet-50 p-6 sm:p-8">
         <p className="eyebrow text-violet-700">Hard scope boundary</p>
         <h2 className="mt-2 text-xl font-semibold text-violet-950">
-          What C1-J.2 still does not do
+          What C1-J.3 still does not do
         </h2>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-violet-900">
           No recursive crawling, browser or JavaScript challenge bypass, OCR execution, private
-          communities, direct messages, authenticated Reddit access, contact enrichment, outreach,
-          monitoring, or workflow automation. Public Reddit discussion is sampled anecdotal
-          evidence; it does not prove representative demand, company or buyer identity, budget,
+          communities or repositories, authenticated Reddit access, GitHub mutations, repository
+          cloning, source/diff/patch download, developer or contact enrichment, outreach,
+          monitoring, or workflow automation. Public Reddit and GitHub evidence is bounded and
+          untrusted; it does not prove representative demand, company or buyer identity, budget,
           purchasing authority, or purchase intent.
         </p>
       </section>

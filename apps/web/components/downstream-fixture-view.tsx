@@ -46,6 +46,11 @@ function citationLabel(materialKind: string | undefined): string {
   if (materialKind === "reddit_thread") return "Public Reddit thread";
   if (materialKind === "reddit_comment") return "Selected Reddit comment";
   if (materialKind === "community_signal") return "Cautious community signal";
+  if (materialKind === "github_repository") return "Public GitHub repository";
+  if (materialKind === "github_thread") return "Public GitHub thread";
+  if (materialKind === "github_comment") return "Selected GitHub comment";
+  if (materialKind === "github_release") return "Published GitHub release";
+  if (materialKind === "developer_signal") return "Cautious developer signal";
   return "Search snippet";
 }
 
@@ -78,15 +83,11 @@ export function DownstreamFixtureView({
   const identity = identityResult.data;
   const ranked = rankedResult.data;
   const buyerMap = buyerMapResult.data;
-  const structuredEvidence =
-    evidence.evidenceSourceMode === "snippet_plus_structured_public_content" ||
-    evidence.evidenceSourceMode === "snippet_plus_structured_and_hiring_intelligence";
-  const extractedEvidence =
-    structuredEvidence ||
-    evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages" ||
-    evidence.evidenceSourceMode === "snippet_plus_extracted_and_hiring_intelligence";
+  const structuredEvidence = evidence.evidenceSourceMode.includes("structured");
+  const extractedEvidence = structuredEvidence || evidence.evidenceSourceMode.includes("extracted");
   const hiringEvidence = evidence.evidenceSourceMode.includes("hiring_intelligence");
   const communityEvidence = evidence.evidenceSourceMode.includes("community_intelligence");
+  const developerEvidence = evidence.evidenceSourceMode.includes("developer_intelligence");
   const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = discoveryProviderMode === "live_search";
   const rankingByEntity = new Map(
@@ -221,6 +222,26 @@ export function DownstreamFixtureView({
             <dt>Community signal citations</dt>
             <dd>{buyerMap.summary.communitySignalCitationCount}</dd>
           </div>
+          <div className="metric-card" data-testid="buyer-map-github-repository-count">
+            <dt>GitHub repository citations</dt>
+            <dd>{buyerMap.summary.githubRepositoryCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-github-thread-count">
+            <dt>GitHub thread citations</dt>
+            <dd>{buyerMap.summary.githubThreadCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-github-comment-count">
+            <dt>GitHub comment citations</dt>
+            <dd>{buyerMap.summary.githubCommentCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-github-release-count">
+            <dt>GitHub release citations</dt>
+            <dd>{buyerMap.summary.githubReleaseCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-developer-signal-count">
+            <dt>Developer signal citations</dt>
+            <dd>{buyerMap.summary.developerSignalCitationCount}</dd>
+          </div>
         </dl>
 
         <section aria-labelledby="ranked-fixture-opportunities-heading">
@@ -329,7 +350,7 @@ export function DownstreamFixtureView({
                             </strong>
                           </div>
                         ))}
-                        {ranking !== undefined && (
+                        {ranking !== undefined && communityEvidence && (
                           <div
                             className="mt-2 rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs leading-5 text-violet-950"
                             data-testid="buyer-map-community-ranking"
@@ -342,6 +363,23 @@ export function DownstreamFixtureView({
                             <p className="mt-1 text-violet-700">
                               {ranking.communityContribution.independentThreadCount} independent
                               thread(s) · maximum 8% of positive score
+                            </p>
+                          </div>
+                        )}
+                        {ranking !== undefined && developerEvidence && (
+                          <div
+                            className="mt-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-950"
+                            data-testid="buyer-map-developer-ranking"
+                          >
+                            <strong>
+                              Developer contribution: +{ranking.developerContribution.points} / 1
+                              max
+                            </strong>
+                            <p className="mt-1">{ranking.developerContribution.rationale}</p>
+                            <p className="mt-1 text-sky-700">
+                              {ranking.developerContribution.independentRepositoryCount} independent
+                              repo(s) · {ranking.developerContribution.independentThreadCount}{" "}
+                              independent thread(s) · maximum 8% of positive score
                             </p>
                           </div>
                         )}
@@ -424,6 +462,48 @@ export function DownstreamFixtureView({
                               Sampled public discussion is anecdotal. It does not prove
                               representative demand, buyer identity, budget, authority, or purchase
                               intent.
+                            </p>
+                          </div>
+                        )}
+                        {(citation.materialKind === "github_repository" ||
+                          citation.materialKind === "github_thread" ||
+                          citation.materialKind === "github_comment" ||
+                          citation.materialKind === "github_release" ||
+                          citation.materialKind === "developer_signal") && (
+                          <div
+                            className="mt-3 grid gap-1 rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-[11px] leading-5 text-sky-950"
+                            data-testid="buyer-map-developer-provenance"
+                          >
+                            <p className="break-words">
+                              {citation.repositoryFullName ?? "Public GitHub"}
+                              {citation.developerThreadKind === undefined
+                                ? ""
+                                : ` · ${citation.developerThreadKind.replaceAll("_", " ")}`}
+                              {citation.developerThreadNumber === undefined
+                                ? ""
+                                : ` #${citation.developerThreadNumber}`}
+                            </p>
+                            {citation.developerSignalType !== undefined && (
+                              <p>Signal: {citation.developerSignalType.replaceAll("_", " ")}</p>
+                            )}
+                            {citation.releaseTagName !== undefined && (
+                              <p>
+                                Release: {citation.releaseTagName}
+                                {citation.releasePrerelease ? " · prerelease" : ""}
+                              </p>
+                            )}
+                            {(citation.independentRepositoryCount !== undefined ||
+                              citation.independentThreadCount !== undefined) && (
+                              <p>
+                                Support: {citation.independentRepositoryCount ?? 0} repo(s) ·{" "}
+                                {citation.independentThreadCount ?? 0} thread(s)
+                              </p>
+                            )}
+                            <p className="text-sky-700">
+                              Public GitHub context is bounded and untrusted. Usernames and author
+                              associations are attribution only; this evidence does not prove buyer
+                              identity, contact identity, representative demand, budget, authority,
+                              or purchase intent.
                             </p>
                           </div>
                         )}

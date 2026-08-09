@@ -30,7 +30,7 @@ export const RankedOpportunityV1Schema = z
     entityKey: z.string().min(1),
     companyName: z.string().min(1),
     companyDomain: z.string().min(1).optional(),
-    score: z.number().int().min(-8).max(20),
+    score: z.number().int().min(-8).max(21),
     confidence: IdentityConfidenceSchema,
     scoreComponents: z.array(RankingScoreComponentV1Schema).length(8),
     communityContribution: z
@@ -39,6 +39,16 @@ export const RankedOpportunityV1Schema = z
         points: z.number().int().min(0).max(1),
         maximumShareOfPositiveScore: z.literal(0.08),
         rationale: z.string().min(1),
+        independentThreadCount: z.number().int().nonnegative(),
+      })
+      .strict(),
+    developerContribution: z
+      .object({
+        applied: z.boolean(),
+        points: z.number().int().min(0).max(1),
+        maximumShareOfPositiveScore: z.literal(0.08),
+        rationale: z.string().min(1),
+        independentRepositoryCount: z.number().int().nonnegative(),
         independentThreadCount: z.number().int().nonnegative(),
       })
       .strict(),

@@ -24,6 +24,8 @@ export default defineConfig({
     "**/cluvvi-extraction.spec.ts",
     "**/cluvvi-structured-content.spec.ts",
     "**/cluvvi-hiring-intelligence.spec.ts",
+    "**/cluvvi-community-intelligence.spec.ts",
+    "**/cluvvi-developer-intelligence.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,

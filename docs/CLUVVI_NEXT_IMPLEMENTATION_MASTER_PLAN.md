@@ -40,7 +40,7 @@ Future API ┘
 - Facts and inferences are stored and displayed separately.
 - Fixture and live modes are explicit; live mission understanding must never flow into fixture discovery.
 
-## Current status after C1-G
+## Current status after C1-J.3
 
 - C0 application foundation: complete for the current local fixture-mode scope.
 - C0.7 + C1-A deterministic Mission Understanding: complete.
@@ -81,8 +81,10 @@ Cluvvi now understands and plans, can invoke the standalone Project A CLI throug
 18. **C1-I.5** — Structured HTML and public-document evidence — complete.
 19. **C1-J.0** — Universal source-adapter contracts — complete.
 20. **C1-J.1** — Bounded public hiring and ATS intelligence — complete.
-21. **C2** — First narrow real discovery slice with preserved provenance.
-22. **C3** — Human evaluation and improvement loop.
+21. **C1-J.2** — Bounded keyless public Reddit community intelligence — complete.
+22. **C1-J.3** — Bounded public GitHub developer intelligence — complete.
+23. **C2** — First narrow real discovery slice with preserved provenance.
+24. **C3** — Human evaluation and improvement loop.
 
 Each phase uses its own branch, outcome, gate, commit, push, and review. Do not combine phases.
 
@@ -329,7 +331,7 @@ C1-G requires `providerPreference: "fixture_only"`, rejects non-fixture provider
 
 - V1 and V2 validate independently.
 - V1 remains unchanged and separately valid.
-- C1-C through C1-J consume independently validated V2, not V1; C1-HF additionally validates live provider telemetry and provider-policy trace sidecars, C1-I validates extraction companions, C1-I.5 validates structured companions, and C1-J validates the four source-adapter/hiring companions independently.
+- C1-C through C1-J.3 consume independently validated V2, not V1; C1-HF additionally validates live provider telemetry and provider-policy trace sidecars, C1-I validates extraction companions, C1-I.5 validates structured companions, C1-J.1 validates the hiring companions, C1-J.2 validates the Reddit community companion family, and C1-J.3 validates the GitHub developer companion family independently.
 - A V2 consumer must reject V1 rather than guess missing planning or coverage data.
 - No V1-to-V2 adapter exists in C1-0.1 or Project B.
 - A future adapter requires a separate reviewed mapping, provenance rules, and tests.
@@ -350,6 +352,8 @@ The final compatibility gate has passed locally:
 - **C1-I.5:** Complete. Preserve opt-in structured parsing, independent structured/content-parse companions, bounded document workers, inert parsing, structured provenance, and reuse of earlier search/extraction work.
 - **C1-J.0:** Complete. Preserve independent universal source-adapter modes, access categories, deterministic companion identities, strict cross-artifact validation, and a separate source-adapter fingerprint/resume boundary.
 - **C1-J.1:** Complete. Preserve Greenhouse, Ashby, Lever, Workable, optional authenticated-free SmartRecruiters, JobPosting JSON-LD, and conservative generic careers fallback; candidate/private ATS data remains forbidden, all hiring evidence remains untrusted, target linking remains conservative, and mission-relevant hiring adds at most one ranking point. The real release proof pins Project A `19cf88710241b3337df4f7c401728741bffab384` and validates real keyless Greenhouse evidence through Buyer Map.
+- **C1-J.2:** Complete. Preserve the bounded keyless Reddit plan/thread/comment/context/signal/telemetry family, conservative entity linking, username isolation, honest unknown/stale engagement, no challenge bypass, same-run repair/reuse, and a separate maximum +1 community contribution. The current real bridge pins Project A `db13a6cf568b307fa76782306179060b2df23d7c`.
+- **C1-J.3:** Complete. Preserve the public-only GitHub developer plan/repository/thread/comment/signal/telemetry family, eight independently resumable developer stages, strict secret/private-field rejection, Project A-only optional authentication, username/author isolation, rate-limit degradation, same-run repair/reuse, and a separate maximum +1 developer contribution requiring at least two independent repositories. The current real bridge pins Project A `b9002bff2f56ac20c8db696b3137bda336437b8b`.
 - **C2:** Execute a narrow real discovery slice with preserved provenance and honest coverage.
 - **C3:** Human evaluation and improvement loop; no outreach before quality thresholds are proven.
 

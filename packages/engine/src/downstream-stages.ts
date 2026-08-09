@@ -10,6 +10,14 @@ import {
   CommunityThreadContextArtifactV1Schema,
   ContentParseTelemetryV1Schema,
   CrawlFrontierArtifactV1Schema,
+  DeveloperCommentCollectionManifestArtifactV1Schema,
+  DeveloperCommentMetadataArtifactV1Schema,
+  DeveloperRepositoryCollectionArtifactV1Schema,
+  DeveloperSignalsArtifactV1Schema,
+  DeveloperSourcePlanArtifactV1Schema,
+  DeveloperSourceRunTelemetryArtifactV1Schema,
+  DeveloperThreadManifestArtifactV1Schema,
+  DeveloperThreadMetadataArtifactV1Schema,
   DiscoveryCandidatesArtifactV1Schema,
   DiscoveryRequestV1Schema,
   EvidenceFindingsArtifactV1Schema,
@@ -540,6 +548,167 @@ async function requireCommunityTelemetry(
   return runtime.readCommunityArtifactSet({ runId: context.run.id, searchResults });
 }
 
+function assertDeveloperConfigured(runtime: DiscoveryRuntime, context: StageContext): void {
+  if (
+    runtime.sourceAdapterMode !== "selected_sources" ||
+    !runtime.sourceFamilies?.includes("developer") ||
+    context.run.config.discoverySourceAdapterMode !== "selected_sources" ||
+    !context.run.config.discoverySourceFamilies.includes("developer")
+  ) {
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_CONFIGURED",
+      category: "configuration",
+      message:
+        "The run requested public GitHub developer intelligence, but the active Discovery runtime is not configured for the developer source family.",
+      retryable: true,
+      stage: context.run.phase,
+      context: {
+        retrySafe: true,
+        resumeSupported: true,
+        discoveryReuseExpected: true,
+        hiringReuseExpected: true,
+        communityReuseExpected: true,
+      },
+    });
+  }
+}
+
+async function requireDeveloperPlan(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperPlan === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the developer source plan.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperPlan({ runId: context.run.id, searchResults });
+}
+
+async function requireDeveloperRepositories(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperRepositories === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import public GitHub repository artifacts.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperRepositories({ runId: context.run.id, searchResults });
+}
+
+async function requireDeveloperThreadManifest(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperThreadManifest === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the GitHub thread manifest.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperThreadManifest({ runId: context.run.id, searchResults });
+}
+
+async function requireDeveloperThreads(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperThreads === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated GitHub thread metadata.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperThreads({ runId: context.run.id, searchResults });
+}
+
+async function requireDeveloperCommentManifest(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperCommentManifest === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the GitHub comment manifest.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperCommentManifest({ runId: context.run.id, searchResults });
+}
+
+async function requireDeveloperComments(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperComments === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated GitHub comment metadata.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperComments({ runId: context.run.id, searchResults });
+}
+
+async function requireDeveloperAnalysis(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperAnalysis === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated developer signals.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperAnalysis({ runId: context.run.id, searchResults });
+}
+
+async function requireDeveloperTelemetry(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertDeveloperConfigured(runtime, context);
+  if (runtime.readDeveloperArtifactSet === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_DEVELOPER_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import developer source telemetry.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readDeveloperArtifactSet({ runId: context.run.id, searchResults });
+}
+
 export function createDownstreamFixtureStages(
   input: { discoveryRuntime?: DiscoveryRuntime } = {},
 ): readonly EngineStage<unknown, unknown>[] {
@@ -858,6 +1027,143 @@ export function createDownstreamFixtureStages(
       },
     }),
     createDownstreamStage({
+      name: "developer_planning",
+      artifactType: "developer_source_plan",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: DeveloperSourcePlanArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_developer_source_plan",
+      async execute(searchResults, context) {
+        return (await requireDeveloperPlan(discoveryRuntime, context, searchResults)).plan;
+      },
+    }),
+    createDownstreamStage({
+      name: "developer_repository_retrieval",
+      artifactType: "developer_repository_collection",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(DeveloperSourcePlanArtifactV1Schema),
+      outputSchema: DeveloperRepositoryCollectionArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: loadCommunityStageInput("developer_source_plan"),
+      toolName: "local_discovery_engine_import_developer_repository_collection",
+      async execute(input, context) {
+        return (await requireDeveloperRepositories(discoveryRuntime, context, input.searchResults))
+          .repositoryCollection;
+      },
+    }),
+    createDownstreamStage({
+      name: "developer_thread_retrieval",
+      artifactType: "developer_thread_manifest",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(DeveloperRepositoryCollectionArtifactV1Schema),
+      outputSchema: DeveloperThreadManifestArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: loadCommunityStageInput("developer_repository_collection"),
+      toolName: "local_discovery_engine_import_developer_thread_manifest",
+      async execute(input, context) {
+        return (
+          await requireDeveloperThreadManifest(discoveryRuntime, context, input.searchResults)
+        ).threadManifest;
+      },
+    }),
+    createDownstreamStage({
+      name: "developer_thread_context",
+      artifactType: "developer_thread_metadata",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(DeveloperThreadManifestArtifactV1Schema),
+      outputSchema: DeveloperThreadMetadataArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: loadCommunityStageInput("developer_thread_manifest"),
+      toolName: "local_discovery_engine_import_developer_thread_metadata",
+      async execute(input, context) {
+        return (await requireDeveloperThreads(discoveryRuntime, context, input.searchResults))
+          .threadMetadata;
+      },
+    }),
+    createDownstreamStage({
+      name: "developer_comment_retrieval",
+      artifactType: "developer_comment_collection_manifest",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(DeveloperThreadMetadataArtifactV1Schema),
+      outputSchema: DeveloperCommentCollectionManifestArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: loadCommunityStageInput("developer_thread_metadata"),
+      toolName: "local_discovery_engine_import_developer_comment_manifest",
+      async execute(input, context) {
+        return (
+          await requireDeveloperCommentManifest(discoveryRuntime, context, input.searchResults)
+        ).commentManifest;
+      },
+    }),
+    createDownstreamStage({
+      name: "developer_comment_context",
+      artifactType: "developer_comment_metadata",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(DeveloperCommentCollectionManifestArtifactV1Schema),
+      outputSchema: DeveloperCommentMetadataArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: loadCommunityStageInput("developer_comment_collection_manifest"),
+      toolName: "local_discovery_engine_import_developer_comment_metadata",
+      async execute(input, context) {
+        return (await requireDeveloperComments(discoveryRuntime, context, input.searchResults))
+          .commentMetadata;
+      },
+    }),
+    createDownstreamStage({
+      name: "developer_analysis",
+      artifactType: "developer_signals",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(DeveloperCommentMetadataArtifactV1Schema),
+      outputSchema: DeveloperSignalsArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: loadCommunityStageInput("developer_comment_metadata"),
+      toolName: "local_discovery_engine_import_developer_signals",
+      async execute(input, context) {
+        return (await requireDeveloperAnalysis(discoveryRuntime, context, input.searchResults))
+          .signals;
+      },
+    }),
+    createDownstreamStage({
+      name: "developer_source_telemetry",
+      artifactType: "developer_source_telemetry",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(DeveloperSignalsArtifactV1Schema),
+      outputSchema: DeveloperSourceRunTelemetryArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("developer"),
+      loadInput: loadCommunityStageInput("developer_signals"),
+      toolName: "local_discovery_engine_import_developer_source_telemetry",
+      async execute(input, context) {
+        return (await requireDeveloperTelemetry(discoveryRuntime, context, input.searchResults))
+          .telemetry;
+      },
+    }),
+    createDownstreamStage({
       name: "normalization",
       artifactType: "candidates",
       version: "2.0.0",
@@ -878,19 +1184,25 @@ export function createDownstreamFixtureStages(
       outputSchema: EvidenceFindingsArtifactV1Schema,
       loadInput: loadEvidenceInput,
       async execute(input, context) {
-        let community;
-        if (
+        const developerSelected =
           context.run.config.discoverySourceAdapterMode === "selected_sources" &&
-          context.run.config.discoverySourceFamilies.includes("community")
-        ) {
+          context.run.config.discoverySourceFamilies.includes("developer");
+        const communitySelected =
+          context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+          context.run.config.discoverySourceFamilies.includes("community");
+        let community;
+        let developer;
+        if (communitySelected || developerSelected) {
           const searchArtifact = await context.getLatestArtifact("search_results");
           if (searchArtifact === null)
-            throw new Error("Community evidence requires the search_results artifact.");
-          community = await requireCommunityAnalysis(
-            discoveryRuntime,
-            context,
-            SearchResultsArtifactV2Schema.parse(searchArtifact.data),
-          );
+            throw new Error("Community/developer evidence requires the search_results artifact.");
+          const searchResults = SearchResultsArtifactV2Schema.parse(searchArtifact.data);
+          if (communitySelected) {
+            community = await requireCommunityAnalysis(discoveryRuntime, context, searchResults);
+          }
+          if (developerSelected) {
+            developer = await requireDeveloperAnalysis(discoveryRuntime, context, searchResults);
+          }
         }
         return buildEvidenceFindings(
           input.candidates,
@@ -900,6 +1212,7 @@ export function createDownstreamFixtureStages(
           input.jobCollection,
           input.hiringSignals,
           community,
+          developer,
         );
       },
     }),

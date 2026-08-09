@@ -56,7 +56,12 @@ describe("discovery runtime configuration", () => {
       maximumRedditSubreddits: 20,
       maximumRedditThreads: 100,
       maximumRedditThreadDrill: 5,
+      githubDepth: "default",
+      maximumGitHubQueries: 4,
+      maximumGitHubRepositories: 8,
+      maximumGitHubThreadDrill: 5,
       communitySignalRuleVersion: "community_signals@1.0.0",
+      developerSignalRuleVersion: "c1-j3.developer-signals.v1",
       hiringSignalRuleVersion: "hiring_signals@1.0.0",
       hiringTaxonomyVersion: "hiring_taxonomy@1.0.0",
       hiringTechnologyLexiconVersion: "hiring_technology_lexicon@1.0.0",
@@ -406,6 +411,84 @@ describe("discovery runtime configuration", () => {
           CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL: "5",
         }),
       "LOCAL_DISCOVERY_REDDIT_BUDGET_INVALID",
+    );
+  });
+
+  it("parses bounded public GitHub developer intelligence, supports all source families, and never forwards the GitHub token", async () => {
+    const projectPath = await fakeProject();
+    const base = {
+      CLUVVI_DISCOVERY_MODE: "local_discovery_engine",
+      CLUVVI_DISCOVERY_ENGINE_PATH: projectPath,
+      CLUVVI_DISCOVERY_ENGINE_COMMAND: "pnpm",
+      CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE: "selected_sources",
+      CLUVVI_DISCOVERY_SOURCE_FAMILIES: "hiring,community,developer",
+    };
+    const config = parseDiscoveryRuntimeConfig({
+      ...base,
+      CLUVVI_DISCOVERY_GITHUB_DEPTH: "deep",
+      CLUVVI_DISCOVERY_MAX_GITHUB_QUERIES: "6",
+      CLUVVI_DISCOVERY_MAX_GITHUB_REPOSITORIES: "12",
+      CLUVVI_DISCOVERY_MAX_GITHUB_THREAD_DRILL: "8",
+      DISCOVERY_GITHUB_ENABLED: "true",
+      DISCOVERY_GITHUB_REQUEST_TIMEOUT_MS: "12000",
+      DISCOVERY_GITHUB_MAX_RESPONSE_BYTES: "2097152",
+      DISCOVERY_GITHUB_TOKEN: "must-not-forward",
+      DISCOVERY_GITHUB_ALLOW_GH_CLI_TOKEN: "true",
+      PRIVATE_TOKEN: "must-not-forward",
+    });
+    expect(config).toMatchObject({
+      sourceAdapterMode: "selected_sources",
+      sourceFamilies: ["hiring", "community", "developer"],
+      githubDepth: "deep",
+      maximumGitHubQueries: 6,
+      maximumGitHubRepositories: 12,
+      maximumGitHubThreadDrill: 8,
+      developerSignalRuleVersion: "c1-j3.developer-signals.v1",
+      local: {
+        sourceFamilies: ["hiring", "community", "developer"],
+        githubDepth: "deep",
+        maximumGitHubQueries: 6,
+        maximumGitHubRepositories: 12,
+        maximumGitHubThreadDrill: 8,
+        providerEnvironment: {
+          DISCOVERY_GITHUB_ENABLED: "true",
+          DISCOVERY_GITHUB_REQUEST_TIMEOUT_MS: "12000",
+          DISCOVERY_GITHUB_MAX_RESPONSE_BYTES: "2097152",
+        },
+      },
+    });
+    if (config.mode !== "local_discovery_engine") throw new Error("Expected local config.");
+    expect(config.local.providerEnvironment).not.toHaveProperty("DISCOVERY_GITHUB_TOKEN");
+    expect(config.local.providerEnvironment).not.toHaveProperty(
+      "DISCOVERY_GITHUB_ALLOW_GH_CLI_TOKEN",
+    );
+    expect(config.local.providerEnvironment).not.toHaveProperty("PRIVATE_TOKEN");
+    expect(
+      allowedDiscoveryProviderEnvironment({
+        DISCOVERY_GITHUB_TOKEN: "must-not-forward",
+        DISCOVERY_GITHUB_ALLOW_GH_CLI_TOKEN: "true",
+        DISCOVERY_GITHUB_REQUEST_TIMEOUT_MS: "9000",
+      }),
+    ).toEqual({ DISCOVERY_GITHUB_REQUEST_TIMEOUT_MS: "9000" });
+    expectCode(
+      () => parseDiscoveryRuntimeConfig({ ...base, CLUVVI_DISCOVERY_GITHUB_DEPTH: "extreme" }),
+      "LOCAL_DISCOVERY_GITHUB_DEPTH_INVALID",
+    );
+    expectCode(
+      () => parseDiscoveryRuntimeConfig({ ...base, CLUVVI_DISCOVERY_MAX_GITHUB_QUERIES: "9" }),
+      "LOCAL_DISCOVERY_MAX_GITHUB_QUERIES_INVALID",
+    );
+    expectCode(
+      () =>
+        parseDiscoveryRuntimeConfig({
+          ...base,
+          CLUVVI_DISCOVERY_MAX_GITHUB_REPOSITORIES: "16",
+        }),
+      "LOCAL_DISCOVERY_MAX_GITHUB_REPOSITORIES_INVALID",
+    );
+    expectCode(
+      () => parseDiscoveryRuntimeConfig({ ...base, CLUVVI_DISCOVERY_MAX_GITHUB_THREAD_DRILL: "9" }),
+      "LOCAL_DISCOVERY_MAX_GITHUB_THREAD_DRILL_INVALID",
     );
   });
 

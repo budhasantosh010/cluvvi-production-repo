@@ -1,6 +1,7 @@
 "use client";
 
 import { CommunityIntelligenceView } from "@/components/community-intelligence-view";
+import { DeveloperIntelligenceView } from "@/components/developer-intelligence-view";
 import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
 import { ExtractionEvidenceView } from "@/components/extraction-evidence-view";
 import { HiringIntelligenceView } from "@/components/hiring-intelligence-view";
@@ -42,6 +43,14 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   community_comment_context: "Reddit comment context",
   community_analysis: "Community signal analysis",
   community_source_telemetry: "Community source telemetry",
+  developer_planning: "GitHub developer planning",
+  developer_repository_retrieval: "GitHub repository retrieval",
+  developer_thread_retrieval: "GitHub thread retrieval",
+  developer_thread_context: "GitHub thread context",
+  developer_comment_retrieval: "GitHub comment retrieval",
+  developer_comment_context: "GitHub comment context",
+  developer_analysis: "Developer signal analysis",
+  developer_source_telemetry: "Developer source telemetry",
   normalization: "Normalization",
   investigation: "Evidence analysis",
   buyer_identification: "Buyer hypotheses",
@@ -646,6 +655,19 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         maximumThreads={view.run.config.discoveryMaximumRedditThreads}
         maximumThreadDrill={view.run.config.discoveryMaximumRedditThreadDrill}
         communitySignalRuleVersion={view.run.config.communitySignalRuleVersion}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
+
+      <DeveloperIntelligenceView
+        artifacts={view.artifacts}
+        sourceAdapterMode={view.run.config.discoverySourceAdapterMode}
+        sourceFamilies={view.run.config.discoverySourceFamilies}
+        githubDepth={view.run.config.discoveryGitHubDepth}
+        maximumQueries={view.run.config.discoveryMaximumGitHubQueries}
+        maximumRepositories={view.run.config.discoveryMaximumGitHubRepositories}
+        maximumThreadDrill={view.run.config.discoveryMaximumGitHubThreadDrill}
+        developerSignalRuleVersion={view.run.config.developerSignalRuleVersion}
         runStatus={view.run.status}
         {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
       />

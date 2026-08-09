@@ -2,7 +2,7 @@
 
 Cluvvi is an evidence-backed buyer-discovery engine. Its commercial benchmark is to turn what someone sells into real opportunities worth contacting, with evidence, the right buyer, confidence, and clear limitations.
 
-## Current active phase: C1-J.0/C1-J.1 Universal Source Adapters and Public Hiring Intelligence
+## Current active phase: C1-J.3 Public GitHub Developer Intelligence
 
 ```text
 Command composer or CLI
@@ -32,9 +32,9 @@ Deterministic Evidence → identity hypotheses → ranking → Buyer Map
 SQLite durable stages and versioned artifacts
 ```
 
-C0.7 through C0.9 established the command-first local browser flow and interaction system. C1-A added typed deterministic Mission Understanding V1 and a source/query plan. C1-0 and C1-0.1 froze the standalone discovery boundary and the separate V1/V2 contracts. C1-B completed the standalone fixture Discovery Engine. C1-C through C1-F implemented Evidence, role-only Identity + Enrichment, transparent Ranking, and the Buyer Map. C1-G connected Cluvvi to the independently executable standalone engine through a safe process/file boundary. C1-H added approved live search. C1-HF added policy-controlled free search. C1-I added an opt-in depth-zero frontier and bounded public HTML extraction path. C1-I.5 added independent structured HTML/document evidence. C1-J.0 now adds universal source-adapter contracts, and C1-J.1 adds bounded public hiring/ATS intelligence through independently validated `source_target_plan.v1`, `job_collection.v1`, `hiring_signals.v1`, and `source_adapter_run_telemetry.v1` companions.
+C0.7 through C0.9 established the command-first local browser flow and interaction system. C1-A added typed deterministic Mission Understanding V1 and a source/query plan. C1-0 and C1-0.1 froze the standalone discovery boundary and the separate V1/V2 contracts. C1-B completed the standalone fixture Discovery Engine. C1-C through C1-F implemented Evidence, role-only Identity + Enrichment, transparent Ranking, and the Buyer Map. C1-G connected Cluvvi to the independently executable standalone engine through a safe process/file boundary. C1-H added approved live search. C1-HF added policy-controlled free search. C1-I added an opt-in depth-zero frontier and bounded public HTML extraction path. C1-I.5 added independent structured HTML/document evidence. C1-J.0 added universal source-adapter contracts, C1-J.1 added bounded public hiring/ATS intelligence, C1-J.2 added bounded keyless public Reddit community intelligence, and C1-J.3 adds bounded public GitHub developer intelligence through independently validated plan/repository/thread/comment/signal/telemetry companions.
 
-Search-only, extraction-only, and structured-parsing modes remain valid. Source adapters default to `none`; `selected_sources` with the `hiring` family is explicit opt-in. Cluvvi validates and durably persists public hiring artifacts, carries public jobs and cautious hiring signals through Evidence and Buyer Map, preserves exact target/board/job/provider provenance, and caps hiring contribution to ranking at one point. Hiring evidence never proves budget, expansion, replacement hiring, approved projects, purchase intent, buyer identity, or purchasing authority. Candidate/application data, private ATS endpoints, contact enrichment, and outreach remain out of scope.
+Search-only, extraction-only, and structured-parsing modes remain valid. Source adapters default to `none`; `selected_sources` can explicitly select `hiring`, `community`, `developer`, or their combinations. Cluvvi independently validates and durably persists public hiring, Reddit, and GitHub developer artifacts, carries them through Evidence and Buyer Map with source-specific provenance, keeps usernames/authors out of identity, and gives each source family its own bounded ranking contribution. Hiring, community, and developer evidence never proves representative demand, budget, expansion, replacement hiring, approved projects, purchase intent, buyer identity, contact identity, or purchasing authority. Candidate/application data, private ATS endpoints, private repositories/communities, contact enrichment, and outreach remain out of scope.
 
 ## Architecture status
 
@@ -52,8 +52,10 @@ Cluvvi currently:
 - optionally imports independently validated `crawl_frontier.v1`, `extracted_content.v1`, and `extraction_run_telemetry.v1` companion artifacts;
 - optionally imports independent `structured_content.v1` and `content_parse_telemetry.v1` artifacts for bounded selected HTML/document resources;
 - optionally imports independently validated `source_target_plan.v1`, `job_collection.v1`, `hiring_signals.v1`, and `source_adapter_run_telemetry.v1` artifacts for the public hiring source family;
-- rejects private or malformed URLs, raw HTML/bytes, temporary paths, headers, cookies, authorization/environment data, candidate/application/private ATS fields, digest mismatches, orphan references, invalid section graphs/tables, and inconsistent telemetry;
-- converts successful or partial page, structured, public-job, and hiring-signal items into deterministic evidence materials with explicit `untrusted_public_content` classification;
+- optionally imports the independently validated C1-J.2 Reddit plan/thread/comment/context/signal/telemetry companion family and manifest-referenced thread/comment files;
+- optionally imports the independently validated C1-J.3 GitHub developer plan/repository/thread/comment/signal/telemetry companion family and manifest-referenced universal thread/comment files;
+- rejects private or malformed URLs, raw HTML/bytes, temporary paths, headers, cookies, authorization/environment data, candidate/application/private ATS fields, private GitHub fields, secret/token/contact-shaped developer fields, digest mismatches, orphan references, invalid section graphs/tables, and inconsistent telemetry;
+- converts successful or partial page, structured, public-job, Reddit, and GitHub developer items into deterministic evidence materials with explicit `untrusted_public_content` classification;
 - contains all extracted/structured text inside a quoted-data prompt boundary so instructions, role changes, links, macros, formulas, and tool requests remain data rather than commands;
 - reuses completed discovery/frontier/extraction work when structured artifacts are corrected and resumed on the same run;
 - rejects paid results, attempts, telemetry, fallback flags, or credits under `free_only`;
@@ -66,21 +68,23 @@ Cluvvi currently:
 
 Cluvvi does not yet:
 
-- render JavaScript applications, recurse through sites, traverse comments/threads/transcripts, execute OCR, or access authenticated/private documents;
+- render JavaScript applications, recursively crawl sites, execute OCR, or access authenticated/private documents, communities, or repositories;
+- perform unbounded comment/thread traversal beyond the explicit bounded Reddit and GitHub source adapters;
 - collect candidate/application data or access private/login-gated ATS endpoints;
+- clone repositories, download source/diffs/patches/release assets, execute workflows, or perform GitHub mutations;
 - identify verified real people or infer private contact details;
-- prove budget, expansion, replacement hiring, approved projects, or purchase intent from public hiring/search evidence;
+- prove representative demand, budget, expansion, replacement hiring, approved projects, authority, or purchase intent from public hiring/community/developer/search evidence;
 - send outreach.
 
 Next:
 
-1. Preserve every C1-G through C1-J compatibility and browser gate before expanding the source-adapter family.
-2. Evaluate the narrow public-hiring evidence slice without expanding into recursive crawling, OCR, JavaScript rendering, candidate data, contacts, or outreach.
+1. Preserve every C1-G through C1-J.3 compatibility and browser gate before expanding the source-adapter family.
+2. Evaluate the bounded hiring, Reddit, and GitHub evidence slices without expanding into recursive crawling, OCR, JavaScript rendering, private data, contacts, monitoring, or outreach.
 3. Do not begin contact enrichment or outreach before identity and evidence quality thresholds are proven.
 
 `search_results.v1` remains the earlier frozen basic bridge contract. `search_results.v2`, schema `2.0`, is the expanded universal discovery-run contract. No V1-to-V2 adapter exists; only a future explicit adapter boundary is reserved.
 
-Read `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/C1_I_EXTRACTED_EVIDENCE.md`, `docs/C1_J0_SOURCE_ADAPTER_CONTRACTS.md`, `docs/C1_J1_PUBLIC_HIRING_INTELLIGENCE.md`, `docs/C1_J1_PUBLIC_HIRING_OPERATIONS.md`, and `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md` before starting discovery or downstream engine work.
+Read `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/C1_I_EXTRACTED_EVIDENCE.md`, `docs/C1_J0_SOURCE_ADAPTER_CONTRACTS.md`, `docs/C1_J1_PUBLIC_HIRING_INTELLIGENCE.md`, `docs/C1_J1_PUBLIC_HIRING_OPERATIONS.md`, `docs/C1_J2_REDDIT_COMMUNITY_INTELLIGENCE.md`, `docs/C1_J3_GITHUB_DEVELOPER_INTELLIGENCE.md`, and `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md` before starting discovery or downstream engine work.
 
 ## Start the browser application
 
@@ -123,7 +127,7 @@ $env:CLUVVI_DISCOVERY_EXTRACTION_MODE = "selected_public_pages" # or none
 $env:CLUVVI_DISCOVERY_MAX_EXTRACTIONS = "8"
 $env:CLUVVI_DISCOVERY_STRUCTURED_CONTENT_MODE = "selected_resources" # or none
 $env:CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE = "selected_sources" # or none
-$env:CLUVVI_DISCOVERY_SOURCE_FAMILIES = "hiring"
+$env:CLUVVI_DISCOVERY_SOURCE_FAMILIES = "hiring,community,developer"
 $env:CLUVVI_DISCOVERY_MAX_HIRING_TARGETS = "10"
 $env:CLUVVI_DISCOVERY_MAX_HIRING_BOARDS_PER_TARGET = "3"
 $env:CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD = "250"
@@ -133,6 +137,10 @@ $env:CLUVVI_DISCOVERY_MAX_REDDIT_QUERIES = "2"
 $env:CLUVVI_DISCOVERY_MAX_REDDIT_SUBREDDITS = "4"
 $env:CLUVVI_DISCOVERY_MAX_REDDIT_THREADS = "20"
 $env:CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL = "3"
+$env:CLUVVI_DISCOVERY_GITHUB_DEPTH = "default"
+$env:CLUVVI_DISCOVERY_MAX_GITHUB_QUERIES = "4"
+$env:CLUVVI_DISCOVERY_MAX_GITHUB_REPOSITORIES = "8"
+$env:CLUVVI_DISCOVERY_MAX_GITHUB_THREAD_DRILL = "5"
 
 # Optional public live-provider/source-adapter limits. Project A loads its ignored root .env.local for keys.
 $env:DISCOVERY_BROAD_PROVIDER_STRATEGY = "fanout"
@@ -189,7 +197,7 @@ CLUVVI_DISCOVERY_SOURCE_ADAPTER_MODE
 
 CLUVVI_DISCOVERY_SOURCE_FAMILIES
   comma-separated explicit families
-  C1-J.1 supports: hiring
+  implemented: hiring, community, developer
 
 CLUVVI_DISCOVERY_MAX_HIRING_TARGETS
   default: 10
@@ -202,7 +210,29 @@ CLUVVI_DISCOVERY_MAX_HIRING_JOBS_PER_BOARD
 
 CLUVVI_DISCOVERY_MAX_HIRING_JOBS_TOTAL
   default: 2000
+
+CLUVVI_DISCOVERY_REDDIT_DEPTH
+  quick | default | deep
+  default: default
+
+CLUVVI_DISCOVERY_MAX_REDDIT_QUERIES / SUBREDDITS / THREADS / THREAD_DRILL
+  bounded C1-J.2 public Reddit budgets
+
+CLUVVI_DISCOVERY_GITHUB_DEPTH
+  quick | default | deep
+  default: default
+
+CLUVVI_DISCOVERY_MAX_GITHUB_QUERIES
+  default: 4
+
+CLUVVI_DISCOVERY_MAX_GITHUB_REPOSITORIES
+  default: 8
+
+CLUVVI_DISCOVERY_MAX_GITHUB_THREAD_DRILL
+  default: 5
 ```
+
+Project B never accepts or forwards `DISCOVERY_GITHUB_TOKEN`; optional authenticated-free GitHub access remains Project A-owned and public-only.
 
 For every local-engine execution, Cluvvi creates an isolated run workspace:
 
@@ -220,6 +250,23 @@ For every local-engine execution, Cluvvi creates an isolated run workspace:
   job-collection.v1.json                              # selected_sources/hiring only
   hiring-signals.v1.json                              # selected_sources/hiring only
   source-adapter-run-telemetry.v1.json                # selected_sources/hiring only
+  community-source-plan.v1.json                       # selected_sources/community only
+  thread-manifest.v1.json                             # selected_sources/community only
+  community-thread-context.v1.json                    # selected_sources/community only
+  comment-collection-manifest.v1.json                 # selected_sources/community only
+  community-comment-context.v1.json                   # selected_sources/community only
+  community-signals.v1.json                           # selected_sources/community only
+  community-source-run-telemetry.v1.json              # selected_sources/community only
+  developer-source-plan.v1.json                       # selected_sources/developer only
+  developer-repository-collection.v1.json             # selected_sources/developer only
+  developer-thread-manifest.v1.json                   # selected_sources/developer only
+  developer-thread-metadata.v1.json                   # selected_sources/developer only
+  developer-comment-collection-manifest.v1.json       # selected_sources/developer only
+  developer-comment-metadata.v1.json                  # selected_sources/developer only
+  developer-signals.v1.json                           # selected_sources/developer only
+  developer-source-run-telemetry.v1.json              # selected_sources/developer only
+  developer/threads/*.thread.v1.json                  # manifest-referenced public GitHub threads
+  developer/comments/*.comment_collection.v1.json    # manifest-referenced public GitHub comments
   discovery-stdout.log
   discovery-stderr.log
   discovery-execution.json
@@ -240,8 +287,10 @@ Enter what you sell
 → DiscoveryRuntime returns validated search_results.v2
 → optional frontier → extraction → structured parsing
 → optional source_target_plan.v1 → job_collection.v1 → hiring_signals.v1 → source_adapter_run_telemetry.v1
-→ build deterministic snippet/page/structured/public-job/hiring-signal evidence materials
-→ produce evidence_findings.v1, identity_enrichment.v1, capped ranked_opportunities.v1, and buyer_map.v1
+→ optional Reddit community plan/thread/comment/context/signal/telemetry companions
+→ optional GitHub developer plan/repository/thread/comment/signal/telemetry companions
+→ build deterministic snippet/page/structured/public-job/community/developer evidence materials
+→ produce evidence_findings.v1, role-only identity_enrichment.v1, separately capped ranked_opportunities.v1, and buyer_map.v1
 → browser polls, refreshes, inspects, fails, and resumes safely
 ```
 
@@ -256,7 +305,7 @@ The browser exposes:
 /settings/local
 ```
 
-The browser distinguishes internal fixtures, local-engine fixtures, live search, opt-in public-page/structured evidence, and opt-in public hiring intelligence. Hiring views show target confidence, board/provider/access category, current public jobs, cautious signals, provider attempts, partial/unavailable outcomes, and telemetry; Buyer Map preserves public-job and hiring-signal provenance. Neither jobs nor hiring signals are presented as verified people, budget, expansion, replacement hiring, approved projects, or purchase intent.
+The browser distinguishes internal fixtures, local-engine fixtures, live search, opt-in public-page/structured evidence, public hiring intelligence, keyless Reddit community intelligence, and public GitHub developer intelligence. Hiring views show target confidence, board/provider/access category, current public jobs, cautious signals, provider attempts, partial/unavailable outcomes, and telemetry. Community views show bounded threads/comments/signals and engagement provenance. Developer views show public repositories, issue/PR context, selected comments/releases, rate-limit state, signal independence, identity boundaries, and zero-paid telemetry. Buyer Map preserves each source family's provenance and separate capped contribution; none of these public-source lanes is presented as verified buyer identity, representative demand, budget, authority, or purchase intent.
 
 ## CLI remains available
 
@@ -305,7 +354,11 @@ pnpm test:browser-balanced-live-discovery
 pnpm test:browser-extraction
 pnpm test:browser-structured-content
 pnpm test:browser-hiring
+pnpm test:browser-community
+pnpm test:browser-developer
 pnpm test:real-hiring-bridge
+pnpm test:real-community-bridge
+pnpm test:real-developer-bridge
 
 $env:RUN_EXTRACTION_DISCOVERY_INTEGRATION = "1"
 $env:CLUVVI_DISCOVERY_ENGINE_PATH = "C:\Users\Lenovo\Music\Startups\Cluvvi\Separate Discovery engine"
@@ -317,8 +370,8 @@ The fixture cross-project integration test is opt-in and proves the original C1-
 
 The real C1-I integration test is separately opt-in and pins the expected Project A commit before proving free-only search, selected public-page extraction, all three companion artifacts, zero paid usage, Evidence consumption, and Buyer Map provenance through the actual child-process boundary.
 
-The C1-J.1 real hiring bridge pins Project A at `19cf88710241b3337df4f7c401728741bffab384`, runs Project A in a separate process, performs a real bounded keyless Greenhouse retrieval, independently validates all four hiring sidecars in Project B, proves zero paid requests, and carries public-job/hiring-signal provenance through Evidence, Identity, the one-point hiring ranking cap, and Buyer Map. The operator-reviewed company/search seed exists only to isolate the public ATS provider boundary; the Greenhouse network retrieval is real.
+The C1-J.1 real hiring bridge pins Project A at `19cf88710241b3337df4f7c401728741bffab384`, runs Project A in a separate process, performs a real bounded keyless Greenhouse retrieval, independently validates all four hiring sidecars in Project B, proves zero paid requests, and carries public-job/hiring-signal provenance through Evidence, Identity, the one-point hiring ranking cap, and Buyer Map. The C1-J.2 real community bridge pins Project A at `db13a6cf568b307fa76782306179060b2df23d7c` and proves bounded public Reddit evidence with zero paid/authenticated usage. The C1-J.3 real developer bridge pins Project A at `b9002bff2f56ac20c8db696b3137bda336437b8b`; the latest fresh proof returned one public repository, two issue/PR threads, three comments, seven deterministic developer signals, anonymous access, and zero paid requests/credits. Operator-reviewed search/entity seeds exist only to isolate each source-adapter network boundary.
 
-The maintained browser suites prove fixture regressions, real live desktop/mobile completion, provider telemetry presentation, imported V2 inspection, refresh durability, no mobile overflow, invalid-telemetry failure, preserved exchange evidence, and successful same-run resume. The C1-I suite additionally proves the operations mode view, successful extracted evidence, all three companion artifacts, partial and total page failure, hostile-instruction containment, extraction-only resume with discovery reuse, mobile layout, and secret-free execution provenance. The C1-J suite proves operations desktop/mobile, target planning, provider ladder, Greenhouse/Ashby/Lever/Workable, JSON-LD and generic fallbacks, deduplication, SmartRecruiters auth-missing, partial/all-unavailable outcomes, invalid private-candidate artifact rejection, same-run hiring repair with prior-stage reuse, Buyer Map hiring provenance, and mobile hiring cards. Its runner uses isolated local state and a copied fixture to prevent cross-test leases and Windows process residue. Core and engine tests separately prove contract strictness, configuration allowlisting, request adaptation, process execution, stdout/stderr capture, timeout, cancellation, nonzero exit, missing/invalid artifacts, cross-artifact mismatch rejection, persistence, idempotency, and resume.
+The maintained browser suites prove fixture regressions, real live desktop/mobile completion, provider telemetry presentation, imported V2 inspection, refresh durability, no mobile overflow, invalid-artifact failure, preserved exchange evidence, and successful same-run resume. C1-J.1 covers bounded public ATS providers and hiring provenance. C1-J.2 covers keyless Reddit threads/comments/signals, unknown/stale engagement semantics, challenge degradation, same-run repair, and the separate community cap. C1-J.3 covers public repositories, issue/PR context, selected comments/releases, rate-limit degradation, exact durable developer stages, same-run repair/reuse, developer identity isolation, Buyer Map GitHub provenance, the separate +1 developer cap, and desktop/mobile Visual QA. Core and engine tests separately prove contract strictness, configuration allowlisting, request adaptation, process execution, stdout/stderr capture, timeout, cancellation, nonzero exit, missing/invalid artifacts, cross-artifact mismatch rejection, private/secret-field rejection, persistence, idempotency, and resume.
 
-Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`, `docs/C1_H_LIVE_DISCOVERY_OPERATIONS.md`, `docs/LIVE_DISCOVERY_OPERATIONS.md`, `docs/C1_I_EXTRACTED_EVIDENCE.md`, `docs/C1_I5_STRUCTURED_DOCUMENT_EVIDENCE.md`, `docs/C1_I5_STRUCTURED_DOCUMENT_EVIDENCE_OPERATIONS.md`, `docs/C1_J0_SOURCE_ADAPTER_CONTRACTS.md`, `docs/C1_J1_PUBLIC_HIRING_INTELLIGENCE.md`, `docs/C1_J1_PUBLIC_HIRING_OPERATIONS.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.
+Read `AGENTS.md`, `docs/CLUVVI_NEXT_IMPLEMENTATION_MASTER_PLAN.md`, `docs/ARCHITECTURE_6_ENGINES.md`, `docs/DISCOVERY_ENGINE_STANDALONE_PLAN.md`, `docs/SEARCH_RESULTS_V1_CONTRACT.md`, `docs/SEARCH_RESULTS_V2_CONTRACT.md`, `docs/C1_PARALLEL_BUILD_PLAN.md`, `docs/DISCOVERY_PROVIDER_RESEARCH_TEMPLATE.md`, `docs/C1_H_LIVE_DISCOVERY_OPERATIONS.md`, `docs/LIVE_DISCOVERY_OPERATIONS.md`, `docs/C1_I_EXTRACTED_EVIDENCE.md`, `docs/C1_I5_STRUCTURED_DOCUMENT_EVIDENCE.md`, `docs/C1_I5_STRUCTURED_DOCUMENT_EVIDENCE_OPERATIONS.md`, `docs/C1_J0_SOURCE_ADAPTER_CONTRACTS.md`, `docs/C1_J1_PUBLIC_HIRING_INTELLIGENCE.md`, `docs/C1_J1_PUBLIC_HIRING_OPERATIONS.md`, `docs/C1_J2_REDDIT_COMMUNITY_INTELLIGENCE.md`, `docs/C1_J3_GITHUB_DEVELOPER_INTELLIGENCE.md`, `docs/CLUVVI_LOCAL_CORE_ENGINE_MASTER_SPEC.md`, `docs/CLUVVI_C0_5_LOCAL_BROWSER_APP_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/FAILURES_AND_LIMITATIONS.md` before changing the active runtime.

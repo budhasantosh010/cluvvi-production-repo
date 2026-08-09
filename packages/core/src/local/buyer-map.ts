@@ -37,6 +37,11 @@ export const BuyerMapCitationV1Schema = z
         "reddit_thread",
         "reddit_comment",
         "community_signal",
+        "github_repository",
+        "github_thread",
+        "github_comment",
+        "github_release",
+        "developer_signal",
       ])
       .optional(),
     extractionItemId: z.string().min(1).optional(),
@@ -91,6 +96,23 @@ export const BuyerMapCitationV1Schema = z
       .optional(),
     engagementStalePossible: z.boolean().optional(),
     independentThreadCount: z.number().int().nonnegative().optional(),
+    repositoryId: z.string().min(1).optional(),
+    repositoryFullName: z.string().min(3).optional(),
+    developerThreadKind: z.enum(["issue", "pull_request", "discussion"]).optional(),
+    developerThreadNumber: z.number().int().positive().optional(),
+    developerCommentKind: z
+      .enum(["issue_comment", "review_comment", "review", "discussion_comment"])
+      .optional(),
+    developerSignalId: z.string().min(1).optional(),
+    developerSignalType: z.string().min(1).optional(),
+    developerQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    developerQueryIntents: z.array(z.string().min(1)).max(20).optional(),
+    developerLocalScore: z.number().min(0).max(2).optional(),
+    independentRepositoryCount: z.number().int().nonnegative().optional(),
+    authorAssociation: z.string().min(1).optional(),
+    releaseId: z.string().min(1).optional(),
+    releaseTagName: z.string().min(1).optional(),
+    releasePrerelease: z.boolean().optional(),
   })
   .strict();
 export type BuyerMapCitationV1 = z.infer<typeof BuyerMapCitationV1Schema>;
@@ -144,6 +166,11 @@ export const BuyerMapArtifactV1Schema = z
         redditThreadCitationCount: z.number().int().nonnegative().default(0),
         redditCommentCitationCount: z.number().int().nonnegative().default(0),
         communitySignalCitationCount: z.number().int().nonnegative().default(0),
+        githubRepositoryCitationCount: z.number().int().nonnegative().default(0),
+        githubThreadCitationCount: z.number().int().nonnegative().default(0),
+        githubCommentCitationCount: z.number().int().nonnegative().default(0),
+        githubReleaseCitationCount: z.number().int().nonnegative().default(0),
+        developerSignalCitationCount: z.number().int().nonnegative().default(0),
       })
       .strict(),
     evidenceSourceMode: z
@@ -157,6 +184,15 @@ export const BuyerMapArtifactV1Schema = z
         "snippet_plus_public_community_intelligence",
         "snippet_plus_hiring_and_community_intelligence",
         "snippet_plus_structured_hiring_and_community_intelligence",
+        "snippet_plus_public_developer_intelligence",
+        "snippet_plus_hiring_and_developer_intelligence",
+        "snippet_plus_community_and_developer_intelligence",
+        "snippet_plus_hiring_community_and_developer_intelligence",
+        "snippet_plus_extracted_and_developer_intelligence",
+        "snippet_plus_structured_and_developer_intelligence",
+        "snippet_plus_structured_hiring_and_developer_intelligence",
+        "snippet_plus_structured_community_and_developer_intelligence",
+        "snippet_plus_structured_hiring_community_and_developer_intelligence",
       ])
       .default("snippet_only"),
     opportunities: z.array(BuyerMapOpportunityV1Schema),

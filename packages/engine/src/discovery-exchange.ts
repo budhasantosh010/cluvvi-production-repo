@@ -21,6 +21,14 @@ export const DISCOVERY_EXCHANGE_FILE_NAMES = [
   "community-comment-context.v1.json",
   "community-signals.v1.json",
   "community-source-run-telemetry.v1.json",
+  "developer-source-plan.v1.json",
+  "developer-repository-collection.v1.json",
+  "developer-thread-manifest.v1.json",
+  "developer-thread-metadata.v1.json",
+  "developer-comment-collection-manifest.v1.json",
+  "developer-comment-metadata.v1.json",
+  "developer-signals.v1.json",
+  "developer-source-run-telemetry.v1.json",
   "discovery-stdout.log",
   "discovery-stderr.log",
   "discovery-execution.json",
@@ -50,6 +58,16 @@ export interface DiscoveryExchangePaths {
   communitySourceTelemetryPath: string;
   communityThreadsDirectory: string;
   communityCommentsDirectory: string;
+  developerSourcePlanPath: string;
+  developerRepositoryCollectionPath: string;
+  developerThreadManifestPath: string;
+  developerThreadMetadataPath: string;
+  developerCommentCollectionManifestPath: string;
+  developerCommentMetadataPath: string;
+  developerSignalsPath: string;
+  developerSourceTelemetryPath: string;
+  developerThreadsDirectory: string;
+  developerCommentsDirectory: string;
   stdoutPath: string;
   stderrPath: string;
   executionPath: string;
@@ -85,6 +103,22 @@ export function discoveryExchangePaths(
     communitySourceTelemetryPath: resolve(directory, "community-source-run-telemetry.v1.json"),
     communityThreadsDirectory: resolve(directory, "community", "threads"),
     communityCommentsDirectory: resolve(directory, "community", "comments"),
+    developerSourcePlanPath: resolve(directory, "developer-source-plan.v1.json"),
+    developerRepositoryCollectionPath: resolve(
+      directory,
+      "developer-repository-collection.v1.json",
+    ),
+    developerThreadManifestPath: resolve(directory, "developer-thread-manifest.v1.json"),
+    developerThreadMetadataPath: resolve(directory, "developer-thread-metadata.v1.json"),
+    developerCommentCollectionManifestPath: resolve(
+      directory,
+      "developer-comment-collection-manifest.v1.json",
+    ),
+    developerCommentMetadataPath: resolve(directory, "developer-comment-metadata.v1.json"),
+    developerSignalsPath: resolve(directory, "developer-signals.v1.json"),
+    developerSourceTelemetryPath: resolve(directory, "developer-source-run-telemetry.v1.json"),
+    developerThreadsDirectory: resolve(directory, "developer", "threads"),
+    developerCommentsDirectory: resolve(directory, "developer", "comments"),
     stdoutPath: resolve(directory, "discovery-stdout.log"),
     stderrPath: resolve(directory, "discovery-stderr.log"),
     executionPath: resolve(directory, "discovery-execution.json"),

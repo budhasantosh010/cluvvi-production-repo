@@ -112,6 +112,29 @@ export const DISCOVERY_PROVIDER_ENV_ALLOWLIST = [
   "DISCOVERY_REDDIT_ARCTIC_CACHE_MAX",
   "DISCOVERY_REDDIT_RELEVANCE_FLOOR",
   "DISCOVERY_REDDIT_CONTENT_SAFETY_FILTER",
+  "DISCOVERY_GITHUB_ENABLED",
+  "DISCOVERY_GITHUB_MODE",
+  "DISCOVERY_GITHUB_API_VERSION",
+  "DISCOVERY_GITHUB_DEPTH",
+  "DISCOVERY_GITHUB_MAX_QUERIES",
+  "DISCOVERY_GITHUB_MAX_REPOSITORY_TARGETS",
+  "DISCOVERY_GITHUB_MAX_DISCOVERY_ITEMS",
+  "DISCOVERY_GITHUB_MAX_THREAD_DRILL_QUICK",
+  "DISCOVERY_GITHUB_MAX_THREAD_DRILL_DEFAULT",
+  "DISCOVERY_GITHUB_MAX_THREAD_DRILL_DEEP",
+  "DISCOVERY_GITHUB_MAX_COMMENTS_PER_THREAD",
+  "DISCOVERY_GITHUB_MAX_COMMENTS_TOTAL",
+  "DISCOVERY_GITHUB_MAX_RELEASES_PER_REPOSITORY",
+  "DISCOVERY_GITHUB_MAX_ANON_SEARCH_REQUESTS",
+  "DISCOVERY_GITHUB_MAX_ANON_CORE_REQUESTS",
+  "DISCOVERY_GITHUB_MAX_AUTH_SEARCH_REQUESTS",
+  "DISCOVERY_GITHUB_MAX_AUTH_CORE_REQUESTS",
+  "DISCOVERY_GITHUB_API_CONCURRENCY",
+  "DISCOVERY_GITHUB_REQUEST_TIMEOUT_MS",
+  "DISCOVERY_GITHUB_MAX_RESPONSE_BYTES",
+  "DISCOVERY_GITHUB_MAX_RATE_LIMIT_WAIT_MS",
+  "DISCOVERY_GITHUB_DISCUSSIONS_ENABLED",
+  "DISCOVERY_GITHUB_PUBLIC_ONLY",
 ] as const;
 
 export type DiscoveryProviderEnvironmentKey = (typeof DISCOVERY_PROVIDER_ENV_ALLOWLIST)[number];
@@ -123,6 +146,7 @@ export const CLUVVI_ANYDOC_PARSER_VERSION = "@firecrawl/anydoc@0.1.6";
 export const CLUVVI_HTML_MARKDOWN_RENDERER_VERSION = "sanitized_html_to_gfm@1.0.0";
 export const CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION = "extraction_quality@1.0.0";
 export const CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION = "community_signals@1.0.0";
+export const CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION = "c1-j3.developer-signals.v1";
 export const CLUVVI_HIRING_SIGNAL_RULE_VERSION = "hiring_signals@1.0.0";
 export const CLUVVI_HIRING_TAXONOMY_VERSION = "hiring_taxonomy@1.0.0";
 export const CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION = "hiring_technology_lexicon@1.0.0";
@@ -150,7 +174,12 @@ export interface LocalDiscoveryEngineConfig {
   maximumRedditSubreddits?: number;
   maximumRedditThreads?: number;
   maximumRedditThreadDrill?: number;
+  githubDepth?: "quick" | "default" | "deep";
+  maximumGitHubQueries?: number;
+  maximumGitHubRepositories?: number;
+  maximumGitHubThreadDrill?: number;
   communitySignalRuleVersion?: string;
+  developerSignalRuleVersion?: string;
   hiringSignalRuleVersion?: string;
   hiringTaxonomyVersion?: string;
   hiringTechnologyLexiconVersion?: string;
@@ -184,7 +213,12 @@ export type DiscoveryRuntimeConfig =
       maximumRedditSubreddits: number;
       maximumRedditThreads: number;
       maximumRedditThreadDrill: number;
+      githubDepth: "quick" | "default" | "deep";
+      maximumGitHubQueries: number;
+      maximumGitHubRepositories: number;
+      maximumGitHubThreadDrill: number;
       communitySignalRuleVersion: string;
+      developerSignalRuleVersion: string;
       hiringSignalRuleVersion: string;
       hiringTaxonomyVersion: string;
       hiringTechnologyLexiconVersion: string;
@@ -215,7 +249,12 @@ export type DiscoveryRuntimeConfig =
       maximumRedditSubreddits: number;
       maximumRedditThreads: number;
       maximumRedditThreadDrill: number;
+      githubDepth: "quick" | "default" | "deep";
+      maximumGitHubQueries: number;
+      maximumGitHubRepositories: number;
+      maximumGitHubThreadDrill: number;
       communitySignalRuleVersion: string;
+      developerSignalRuleVersion: string;
       hiringSignalRuleVersion: string;
       hiringTaxonomyVersion: string;
       hiringTechnologyLexiconVersion: string;
@@ -252,6 +291,10 @@ const DEFAULT_MAX_REDDIT_QUERIES = 8;
 const DEFAULT_MAX_REDDIT_SUBREDDITS = 20;
 const DEFAULT_MAX_REDDIT_THREADS = 100;
 const DEFAULT_MAX_REDDIT_THREAD_DRILL = 5;
+const DEFAULT_GITHUB_DEPTH = "default" as const;
+const DEFAULT_MAX_GITHUB_QUERIES = 4;
+const DEFAULT_MAX_GITHUB_REPOSITORIES = 8;
+const DEFAULT_MAX_GITHUB_THREAD_DRILL = 5;
 
 function configuredValue(
   environment: Readonly<Record<string, string | undefined>>,
@@ -335,10 +378,14 @@ function parseSourceFamilies(value: string | undefined): CluvviSourceFamily[] {
         .filter(Boolean),
     ),
   ];
-  if (families.some((family) => family !== "hiring" && family !== "community")) {
+  if (
+    families.some(
+      (family) => family !== "hiring" && family !== "community" && family !== "developer",
+    )
+  ) {
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
-      "CLUVVI_DISCOVERY_SOURCE_FAMILIES currently supports hiring and community.",
+      "CLUVVI_DISCOVERY_SOURCE_FAMILIES currently supports hiring, community, and developer.",
     );
   }
   return families as CluvviSourceFamily[];
@@ -539,6 +586,43 @@ export function parseDiscoveryRuntimeConfig(
       "CLUVVI_DISCOVERY_MAX_REDDIT_THREAD_DRILL cannot exceed CLUVVI_DISCOVERY_MAX_REDDIT_THREADS.",
     );
   }
+  const githubDepthValue =
+    configuredValue(environment, "CLUVVI_DISCOVERY_GITHUB_DEPTH") ?? DEFAULT_GITHUB_DEPTH;
+  if (
+    !(["quick", "default", "deep"] as const).includes(
+      githubDepthValue as "quick" | "default" | "deep",
+    )
+  ) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_GITHUB_DEPTH_INVALID",
+      "CLUVVI_DISCOVERY_GITHUB_DEPTH must be quick, default, or deep.",
+    );
+  }
+  const githubDepth = githubDepthValue as "quick" | "default" | "deep";
+  const maximumGitHubQueries = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_GITHUB_QUERIES"),
+    DEFAULT_MAX_GITHUB_QUERIES,
+    1,
+    8,
+    "CLUVVI_DISCOVERY_MAX_GITHUB_QUERIES",
+    "LOCAL_DISCOVERY_MAX_GITHUB_QUERIES_INVALID",
+  );
+  const maximumGitHubRepositories = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_GITHUB_REPOSITORIES"),
+    DEFAULT_MAX_GITHUB_REPOSITORIES,
+    1,
+    15,
+    "CLUVVI_DISCOVERY_MAX_GITHUB_REPOSITORIES",
+    "LOCAL_DISCOVERY_MAX_GITHUB_REPOSITORIES_INVALID",
+  );
+  const maximumGitHubThreadDrill = parseBoundedInteger(
+    configuredValue(environment, "CLUVVI_DISCOVERY_MAX_GITHUB_THREAD_DRILL"),
+    DEFAULT_MAX_GITHUB_THREAD_DRILL,
+    1,
+    8,
+    "CLUVVI_DISCOVERY_MAX_GITHUB_THREAD_DRILL",
+    "LOCAL_DISCOVERY_MAX_GITHUB_THREAD_DRILL_INVALID",
+  );
   if (sourceAdapterMode === "none" && sourceFamilies.length > 0) {
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
@@ -584,7 +668,12 @@ export function parseDiscoveryRuntimeConfig(
       maximumRedditSubreddits,
       maximumRedditThreads,
       maximumRedditThreadDrill,
+      githubDepth,
+      maximumGitHubQueries,
+      maximumGitHubRepositories,
+      maximumGitHubThreadDrill,
       communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
+      developerSignalRuleVersion: CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION,
       hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
       hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
       hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
@@ -678,7 +767,12 @@ export function parseDiscoveryRuntimeConfig(
     maximumRedditSubreddits,
     maximumRedditThreads,
     maximumRedditThreadDrill,
+    githubDepth,
+    maximumGitHubQueries,
+    maximumGitHubRepositories,
+    maximumGitHubThreadDrill,
     communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
+    developerSignalRuleVersion: CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION,
     hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
     hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
     hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
@@ -710,7 +804,12 @@ export function parseDiscoveryRuntimeConfig(
       maximumRedditSubreddits,
       maximumRedditThreads,
       maximumRedditThreadDrill,
+      githubDepth,
+      maximumGitHubQueries,
+      maximumGitHubRepositories,
+      maximumGitHubThreadDrill,
       communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
+      developerSignalRuleVersion: CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION,
       hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
       hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
       hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,

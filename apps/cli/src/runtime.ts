@@ -38,8 +38,14 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
     discoveryMaximumRedditSubreddits: discoveryRuntime.maximumRedditSubreddits ?? 20,
     discoveryMaximumRedditThreads: discoveryRuntime.maximumRedditThreads ?? 100,
     discoveryMaximumRedditThreadDrill: discoveryRuntime.maximumRedditThreadDrill ?? 5,
+    discoveryGitHubDepth: discoveryRuntime.githubDepth ?? "default",
+    discoveryMaximumGitHubQueries: discoveryRuntime.maximumGitHubQueries ?? 4,
+    discoveryMaximumGitHubRepositories: discoveryRuntime.maximumGitHubRepositories ?? 8,
+    discoveryMaximumGitHubThreadDrill: discoveryRuntime.maximumGitHubThreadDrill ?? 5,
     communitySignalRuleVersion:
       discoveryRuntime.communitySignalRuleVersion ?? "community_signals@1.0.0",
+    developerSignalRuleVersion:
+      discoveryRuntime.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1",
     hiringSignalRuleVersion: discoveryRuntime.hiringSignalRuleVersion ?? "hiring_signals@1.0.0",
     hiringTaxonomyVersion: discoveryRuntime.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0",
     hiringTechnologyLexiconVersion:
@@ -62,6 +68,8 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
       discoveryRuntime.sourceAdapterConfigurationFingerprint ?? "fixture-no-source-adapters",
     communityConfigurationFingerprint:
       discoveryRuntime.communityConfigurationFingerprint ?? "fixture-no-community-sources",
+    developerConfigurationFingerprint:
+      discoveryRuntime.developerConfigurationFingerprint ?? "fixture-no-developer-sources",
     ...(eventSink === undefined ? {} : { eventSink }),
   });
   return { paths, store, engine, discoveryConfig };

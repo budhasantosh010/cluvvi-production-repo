@@ -20,7 +20,7 @@ export type CluvviStructuredContentMode = z.infer<typeof CluvviStructuredContent
 export const CluvviSourceAdapterModeSchema = z.enum(["none", "selected_sources"]);
 export type CluvviSourceAdapterMode = z.infer<typeof CluvviSourceAdapterModeSchema>;
 
-export const CluvviSourceFamilySchema = z.enum(["hiring", "community"]);
+export const CluvviSourceFamilySchema = z.enum(["hiring", "community", "developer"]);
 export type CluvviSourceFamily = z.infer<typeof CluvviSourceFamilySchema>;
 
 export const LIVE_DISCOVERY_PROVIDER_IDS = [
@@ -186,7 +186,7 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     maximumStructuredResources: z.number().int().min(1).max(100).default(8),
     maximumDocumentResources: z.number().int().min(1).max(100).default(4),
     sourceAdapterMode: CluvviSourceAdapterModeSchema.default("none"),
-    sourceFamilies: z.array(CluvviSourceFamilySchema).max(2).default([]),
+    sourceFamilies: z.array(CluvviSourceFamilySchema).max(3).default([]),
     maximumHiringTargets: z.number().int().min(1).max(100).default(10),
     maximumHiringBoardsPerTarget: z.number().int().min(1).max(20).default(4),
     maximumHiringJobsPerBoard: z.number().int().min(1).max(1000).default(250),
@@ -196,7 +196,12 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     maximumRedditSubreddits: z.number().int().min(1).max(20).default(20),
     maximumRedditThreads: z.number().int().min(1).max(200).default(100),
     maximumRedditThreadDrill: z.number().int().min(1).max(20).default(5),
+    githubDepth: z.enum(["quick", "default", "deep"]).default("default"),
+    maximumGitHubQueries: z.number().int().min(1).max(8).default(4),
+    maximumGitHubRepositories: z.number().int().min(1).max(15).default(8),
+    maximumGitHubThreadDrill: z.number().int().min(1).max(8).default(5),
     communitySignalRuleVersion: z.string().min(1).default("community_signals@1.0.0"),
+    developerSignalRuleVersion: z.string().min(1).default("c1-j3.developer-signals.v1"),
     hiringSignalRuleVersion: z.string().min(1).default("hiring_signals@1.0.0"),
     hiringTaxonomyVersion: z.string().min(1).default("hiring_taxonomy@1.0.0"),
     hiringTechnologyLexiconVersion: z.string().min(1).default("hiring_technology_lexicon@1.0.0"),
@@ -252,11 +257,33 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     communitySourceTelemetryImported: z.boolean().default(false),
     communityThreadsDirectory: z.string().min(1).optional(),
     communityCommentsDirectory: z.string().min(1).optional(),
+    developerSourcePlanPath: z.string().min(1).optional(),
+    developerSourcePlanImported: z.boolean().default(false),
+    developerRepositoryCollectionPath: z.string().min(1).optional(),
+    developerRepositoryCollectionImported: z.boolean().default(false),
+    developerThreadManifestPath: z.string().min(1).optional(),
+    developerThreadManifestImported: z.boolean().default(false),
+    developerThreadMetadataPath: z.string().min(1).optional(),
+    developerThreadMetadataImported: z.boolean().default(false),
+    developerCommentCollectionManifestPath: z.string().min(1).optional(),
+    developerCommentCollectionManifestImported: z.boolean().default(false),
+    developerCommentMetadataPath: z.string().min(1).optional(),
+    developerCommentMetadataImported: z.boolean().default(false),
+    developerSignalsPath: z.string().min(1).optional(),
+    developerSignalsImported: z.boolean().default(false),
+    developerSourceTelemetryPath: z.string().min(1).optional(),
+    developerSourceTelemetryImported: z.boolean().default(false),
+    developerThreadsDirectory: z.string().min(1).optional(),
+    developerCommentsDirectory: z.string().min(1).optional(),
     sourceAdapterConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
       .optional(),
     communityConfigurationFingerprint: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    developerConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
       .optional(),

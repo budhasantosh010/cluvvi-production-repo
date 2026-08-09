@@ -50,7 +50,12 @@ export function createRunCreationRecords(input: {
   discoveryMaximumRedditSubreddits?: number;
   discoveryMaximumRedditThreads?: number;
   discoveryMaximumRedditThreadDrill?: number;
+  discoveryGitHubDepth?: "quick" | "default" | "deep";
+  discoveryMaximumGitHubQueries?: number;
+  discoveryMaximumGitHubRepositories?: number;
+  discoveryMaximumGitHubThreadDrill?: number;
   communitySignalRuleVersion?: string;
+  developerSignalRuleVersion?: string;
   hiringSignalRuleVersion?: string;
   hiringTaxonomyVersion?: string;
   hiringTechnologyLexiconVersion?: string;
@@ -96,7 +101,12 @@ export function createRunCreationRecords(input: {
       discoveryMaximumRedditSubreddits: input.discoveryMaximumRedditSubreddits ?? 20,
       discoveryMaximumRedditThreads: input.discoveryMaximumRedditThreads ?? 100,
       discoveryMaximumRedditThreadDrill: input.discoveryMaximumRedditThreadDrill ?? 5,
+      discoveryGitHubDepth: input.discoveryGitHubDepth ?? "default",
+      discoveryMaximumGitHubQueries: input.discoveryMaximumGitHubQueries ?? 4,
+      discoveryMaximumGitHubRepositories: input.discoveryMaximumGitHubRepositories ?? 8,
+      discoveryMaximumGitHubThreadDrill: input.discoveryMaximumGitHubThreadDrill ?? 5,
       communitySignalRuleVersion: input.communitySignalRuleVersion ?? "community_signals@1.0.0",
+      developerSignalRuleVersion: input.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1",
       hiringSignalRuleVersion: input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0",
       hiringTaxonomyVersion: input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0",
       hiringTechnologyLexiconVersion:
@@ -142,7 +152,12 @@ export function createRunCreationRecords(input: {
       discoveryMaximumRedditSubreddits: run.config.discoveryMaximumRedditSubreddits,
       discoveryMaximumRedditThreads: run.config.discoveryMaximumRedditThreads,
       discoveryMaximumRedditThreadDrill: run.config.discoveryMaximumRedditThreadDrill,
+      discoveryGitHubDepth: run.config.discoveryGitHubDepth,
+      discoveryMaximumGitHubQueries: run.config.discoveryMaximumGitHubQueries,
+      discoveryMaximumGitHubRepositories: run.config.discoveryMaximumGitHubRepositories,
+      discoveryMaximumGitHubThreadDrill: run.config.discoveryMaximumGitHubThreadDrill,
       communitySignalRuleVersion: run.config.communitySignalRuleVersion,
+      developerSignalRuleVersion: run.config.developerSignalRuleVersion,
     },
     createdAt: now,
   });

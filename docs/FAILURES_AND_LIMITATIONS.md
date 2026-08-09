@@ -3123,3 +3123,39 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved as a transient external-availability event. A subsequent fresh Project A → Project B verification on August 8, 2026, against the same published Project A commit succeeded naturally with 8 real Reddit threads, 3 deterministic signals, 2 RSS requests, 3 public listing requests, 1 public comment request, 1 Arctic Shift request, zero paid requests/credits, and zero Reddit OAuth/login/cookies. The controlled Project B import/downstream/resume proofs continue to pass.
 
 **One-line solution:** Do not add a bypass or authenticated workaround; keep the bounded keyless behavior, record transient public-route failures honestly, and retry only when the public route is naturally available.
+
+## 175. C1-J.3 developer browser suite initially reused a stale production build
+
+**What failed:** The first C1-J.3 production-browser launch could not become healthy even though source TypeScript and focused developer tests were already green.
+
+**Where:** `scripts/run-developer-browser-tests.mjs` starting the production Next.js app with `CLUVVI_DISCOVERY_SOURCE_FAMILIES=developer`.
+
+**When:** Final C1-J.3 Project B verification on August 9, 2026.
+
+**Why:** The new developer browser runner copied the older browser-runner optimization that trusted any existing `apps/web/.next/BUILD_ID`. That build predated C1-J.3, so the bundled runtime still knew only `hiring` and `community`.
+
+**How it appeared:** The production server repeatedly returned `LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID` with the stale message that only hiring and community were supported, while the current source config tests already accepted `developer`.
+
+**What was tried:** The runner was changed to build `@cluvvi/web` from the current source before starting its isolated production browser environment.
+
+**Current status:** Resolved. The rebuilt C1-J.3 production browser suite passed 6/6 and all seven developer Visual-QA captures were inspected successfully.
+
+**One-line solution:** A release-specific production browser suite must build the current web source instead of trusting a possibly stale `.next` build marker.
+
+## 176. Initial C1-J.3 real bridge helper used stale Project A proof assumptions
+
+**What failed:** The first two C1-J.3 real cross-project proof attempts failed inside the proof helper before Project B contract validation.
+
+**Where:** `developer-real-bridge.integration.test.ts`, invoking published Project A commit `b9002bff2f56ac20c8db696b3137bda336437b8b`.
+
+**When:** Final C1-J.3 Project B verification on August 9, 2026.
+
+**Why:** The new helper initially seeded the source zone as the old bare `developer` value instead of Project A's frozen normalized `custom:developer` form. After that was corrected, the helper also read `developer.repositories` instead of Project A's actual `developer.repositoryCollection` result property.
+
+**How it appeared:** Project A first rejected the seed with a source-zone Zod error, then a later attempt completed the adapter call but the helper threw a local `TypeError` while printing its summary.
+
+**What was tried:** The proof seed was aligned to the published Project A V2 contract and the helper was aligned to Project A's actual developer runner return shape. No product contract, GitHub access policy, retry behavior, or security boundary was weakened.
+
+**Current status:** Resolved. The fresh proof then passed with anonymous public GitHub access, 1 repository, 2 threads, 3 comments, 7 deterministic developer signals, 0 rate-limit events, 0 private-resource rejections, and 0 paid requests/credits.
+
+**One-line solution:** Cross-project proof helpers must consume the exact published producer contract and runner shape rather than copy stale local assumptions.

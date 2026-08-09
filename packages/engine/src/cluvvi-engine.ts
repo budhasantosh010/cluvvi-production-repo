@@ -88,7 +88,12 @@ export class CluvviEngine {
   readonly #discoveryMaximumRedditSubreddits: number;
   readonly #discoveryMaximumRedditThreads: number;
   readonly #discoveryMaximumRedditThreadDrill: number;
+  readonly #discoveryGitHubDepth: "quick" | "default" | "deep";
+  readonly #discoveryMaximumGitHubQueries: number;
+  readonly #discoveryMaximumGitHubRepositories: number;
+  readonly #discoveryMaximumGitHubThreadDrill: number;
   readonly #communitySignalRuleVersion: string;
+  readonly #developerSignalRuleVersion: string;
   readonly #hiringSignalRuleVersion: string;
   readonly #hiringTaxonomyVersion: string;
   readonly #hiringTechnologyLexiconVersion: string;
@@ -103,6 +108,7 @@ export class CluvviEngine {
   readonly #structuredConfigurationFingerprint: string;
   readonly #sourceAdapterConfigurationFingerprint: string;
   readonly #communityConfigurationFingerprint: string;
+  readonly #developerConfigurationFingerprint: string;
 
   constructor(input: {
     store: CluvviStore;
@@ -131,7 +137,12 @@ export class CluvviEngine {
     discoveryMaximumRedditSubreddits?: number;
     discoveryMaximumRedditThreads?: number;
     discoveryMaximumRedditThreadDrill?: number;
+    discoveryGitHubDepth?: "quick" | "default" | "deep";
+    discoveryMaximumGitHubQueries?: number;
+    discoveryMaximumGitHubRepositories?: number;
+    discoveryMaximumGitHubThreadDrill?: number;
     communitySignalRuleVersion?: string;
+    developerSignalRuleVersion?: string;
     hiringSignalRuleVersion?: string;
     hiringTaxonomyVersion?: string;
     hiringTechnologyLexiconVersion?: string;
@@ -146,6 +157,7 @@ export class CluvviEngine {
     structuredConfigurationFingerprint?: string;
     sourceAdapterConfigurationFingerprint?: string;
     communityConfigurationFingerprint?: string;
+    developerConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -173,8 +185,14 @@ export class CluvviEngine {
     this.#discoveryMaximumRedditSubreddits = input.discoveryMaximumRedditSubreddits ?? 20;
     this.#discoveryMaximumRedditThreads = input.discoveryMaximumRedditThreads ?? 100;
     this.#discoveryMaximumRedditThreadDrill = input.discoveryMaximumRedditThreadDrill ?? 5;
+    this.#discoveryGitHubDepth = input.discoveryGitHubDepth ?? "default";
+    this.#discoveryMaximumGitHubQueries = input.discoveryMaximumGitHubQueries ?? 4;
+    this.#discoveryMaximumGitHubRepositories = input.discoveryMaximumGitHubRepositories ?? 8;
+    this.#discoveryMaximumGitHubThreadDrill = input.discoveryMaximumGitHubThreadDrill ?? 5;
     this.#communitySignalRuleVersion =
       input.communitySignalRuleVersion ?? "community_signals@1.0.0";
+    this.#developerSignalRuleVersion =
+      input.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1";
     this.#hiringSignalRuleVersion = input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
     this.#hiringTaxonomyVersion = input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
     this.#hiringTechnologyLexiconVersion =
@@ -198,6 +216,8 @@ export class CluvviEngine {
       input.sourceAdapterConfigurationFingerprint ?? "fixture-no-source-adapters";
     this.#communityConfigurationFingerprint =
       input.communityConfigurationFingerprint ?? "fixture-no-community-sources";
+    this.#developerConfigurationFingerprint =
+      input.developerConfigurationFingerprint ?? "fixture-no-developer-sources";
   }
 
   async start(input: {
@@ -230,7 +250,12 @@ export class CluvviEngine {
       discoveryMaximumRedditSubreddits: this.#discoveryMaximumRedditSubreddits,
       discoveryMaximumRedditThreads: this.#discoveryMaximumRedditThreads,
       discoveryMaximumRedditThreadDrill: this.#discoveryMaximumRedditThreadDrill,
+      discoveryGitHubDepth: this.#discoveryGitHubDepth,
+      discoveryMaximumGitHubQueries: this.#discoveryMaximumGitHubQueries,
+      discoveryMaximumGitHubRepositories: this.#discoveryMaximumGitHubRepositories,
+      discoveryMaximumGitHubThreadDrill: this.#discoveryMaximumGitHubThreadDrill,
       communitySignalRuleVersion: this.#communitySignalRuleVersion,
+      developerSignalRuleVersion: this.#developerSignalRuleVersion,
       hiringSignalRuleVersion: this.#hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.#hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.#hiringTechnologyLexiconVersion,
@@ -351,6 +376,26 @@ export class CluvviEngine {
                 communitySignalRuleVersion: this.#communitySignalRuleVersion,
               }
             : {}),
+          ...([
+            "developer_planning",
+            "developer_repository_retrieval",
+            "developer_thread_retrieval",
+            "developer_thread_context",
+            "developer_comment_retrieval",
+            "developer_comment_context",
+            "developer_analysis",
+            "developer_source_telemetry",
+          ].includes(stage.name)
+            ? {
+                developerConfiguration: this.#developerConfigurationFingerprint,
+                sourceFamily: "developer",
+                githubDepth: this.#discoveryGitHubDepth,
+                maximumGitHubQueries: this.#discoveryMaximumGitHubQueries,
+                maximumGitHubRepositories: this.#discoveryMaximumGitHubRepositories,
+                maximumGitHubThreadDrill: this.#discoveryMaximumGitHubThreadDrill,
+                developerSignalRuleVersion: this.#developerSignalRuleVersion,
+              }
+            : {}),
         });
         const previousSkipped = (await this.#store.listStageExecutions(run.id)).find(
           (execution) =>
@@ -423,6 +468,18 @@ export class CluvviEngine {
           "community_source_telemetry",
         ].includes(stage.name)
           ? { communityConfiguration: this.#communityConfigurationFingerprint }
+          : {}),
+        ...([
+          "developer_planning",
+          "developer_repository_retrieval",
+          "developer_thread_retrieval",
+          "developer_thread_context",
+          "developer_comment_retrieval",
+          "developer_comment_context",
+          "developer_analysis",
+          "developer_source_telemetry",
+        ].includes(stage.name)
+          ? { developerConfiguration: this.#developerConfigurationFingerprint }
           : {}),
       });
       const previous = await this.#store.findCompletedStageExecution(

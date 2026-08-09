@@ -4,6 +4,10 @@ import {
   CommunitySignalTypeV1Schema,
 } from "./community/community-artifacts";
 import {
+  DeveloperQueryIntentV1Schema,
+  DeveloperSignalTypeV1Schema,
+} from "./developer/developer-artifacts";
+import {
   HiringProviderIdV1Schema,
   RoleFamilyV1Schema,
   SeniorityLevelV1Schema,
@@ -25,6 +29,7 @@ export const EvidenceSignalTypeSchema = z.enum([
   "company_fit_signal",
   "hiring_signal",
   "community_signal",
+  "developer_signal",
   "procurement_signal",
   "budget_signal",
   "competitor_signal",
@@ -52,6 +57,11 @@ export const EvidenceMaterialKindV1Schema = z.enum([
   "reddit_thread",
   "reddit_comment",
   "community_signal",
+  "github_repository",
+  "github_thread",
+  "github_comment",
+  "github_release",
+  "developer_signal",
 ]);
 export type EvidenceMaterialKindV1 = z.infer<typeof EvidenceMaterialKindV1Schema>;
 
@@ -98,6 +108,23 @@ export const EvidenceMaterialV1Schema = z
     engagementState: z.enum(["unknown", "live", "archived"]).optional(),
     engagementStalePossible: z.boolean().optional(),
     independentThreadCount: z.number().int().nonnegative().optional(),
+    repositoryId: z.string().min(1).optional(),
+    repositoryFullName: z.string().min(3).optional(),
+    developerThreadKind: z.enum(["issue", "pull_request", "discussion"]).optional(),
+    developerThreadNumber: z.number().int().positive().optional(),
+    developerCommentKind: z
+      .enum(["issue_comment", "review_comment", "review", "discussion_comment"])
+      .optional(),
+    developerSignalId: z.string().min(1).optional(),
+    developerSignalType: DeveloperSignalTypeV1Schema.optional(),
+    developerQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    developerQueryIntents: z.array(DeveloperQueryIntentV1Schema).max(20).optional(),
+    developerLocalScore: z.number().min(0).max(2).optional(),
+    independentRepositoryCount: z.number().int().nonnegative().optional(),
+    authorAssociation: z.string().min(1).optional(),
+    releaseId: z.string().min(1).optional(),
+    releaseTagName: z.string().min(1).optional(),
+    releasePrerelease: z.boolean().optional(),
     extractionItemId: z.string().min(1).optional(),
     frontierItemId: z.string().min(1).optional(),
     structuredContentItemId: z.string().min(1).optional(),
@@ -208,6 +235,23 @@ export const EvidenceProvenanceV1Schema = z
     engagementState: z.enum(["unknown", "live", "archived"]).optional(),
     engagementStalePossible: z.boolean().optional(),
     independentThreadCount: z.number().int().nonnegative().optional(),
+    repositoryId: z.string().min(1).optional(),
+    repositoryFullName: z.string().min(3).optional(),
+    developerThreadKind: z.enum(["issue", "pull_request", "discussion"]).optional(),
+    developerThreadNumber: z.number().int().positive().optional(),
+    developerCommentKind: z
+      .enum(["issue_comment", "review_comment", "review", "discussion_comment"])
+      .optional(),
+    developerSignalId: z.string().min(1).optional(),
+    developerSignalType: DeveloperSignalTypeV1Schema.optional(),
+    developerQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    developerQueryIntents: z.array(DeveloperQueryIntentV1Schema).max(20).optional(),
+    developerLocalScore: z.number().min(0).max(2).optional(),
+    independentRepositoryCount: z.number().int().nonnegative().optional(),
+    authorAssociation: z.string().min(1).optional(),
+    releaseId: z.string().min(1).optional(),
+    releaseTagName: z.string().min(1).optional(),
+    releasePrerelease: z.boolean().optional(),
   })
   .strict();
 export type EvidenceProvenanceV1 = z.infer<typeof EvidenceProvenanceV1Schema>;
@@ -302,6 +346,15 @@ export const EvidenceFindingsArtifactV1Schema = z
         "snippet_plus_public_community_intelligence",
         "snippet_plus_hiring_and_community_intelligence",
         "snippet_plus_structured_hiring_and_community_intelligence",
+        "snippet_plus_public_developer_intelligence",
+        "snippet_plus_hiring_and_developer_intelligence",
+        "snippet_plus_community_and_developer_intelligence",
+        "snippet_plus_hiring_community_and_developer_intelligence",
+        "snippet_plus_extracted_and_developer_intelligence",
+        "snippet_plus_structured_and_developer_intelligence",
+        "snippet_plus_structured_hiring_and_developer_intelligence",
+        "snippet_plus_structured_community_and_developer_intelligence",
+        "snippet_plus_structured_hiring_community_and_developer_intelligence",
       ])
       .default("snippet_only"),
     materials: z.array(EvidenceMaterialV1Schema).default([]),

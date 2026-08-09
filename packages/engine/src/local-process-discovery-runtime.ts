@@ -10,6 +10,7 @@ import {
   type ProviderPolicyTraceV1,
   type SearchResultsArtifactV2,
   type ValidatedCommunityArtifactSet,
+  type ValidatedDeveloperArtifactSet,
   type ValidatedExtractionArtifactSet,
   type ValidatedStructuredContentArtifactSet,
 } from "@cluvvi/core";
@@ -42,6 +43,16 @@ import {
   readValidatedCommunityThreadManifestSet,
   readValidatedCommunityThreads,
 } from "./community-artifact-reader";
+import {
+  readValidatedDeveloperAnalysis,
+  readValidatedDeveloperArtifactSet,
+  readValidatedDeveloperCommentManifestSet,
+  readValidatedDeveloperComments,
+  readValidatedDeveloperPlan,
+  readValidatedDeveloperRepositories,
+  readValidatedDeveloperThreadManifestSet,
+  readValidatedDeveloperThreads,
+} from "./developer-artifact-reader";
 import { readValidatedStructuredContentArtifactSet } from "./structured-content-artifact-reader";
 
 interface ChildOutcome {
@@ -524,7 +535,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumStructuredResources: number;
   readonly maximumDocumentResources: number;
   readonly sourceAdapterMode: "none" | "selected_sources";
-  readonly sourceFamilies: readonly ("hiring" | "community")[];
+  readonly sourceFamilies: readonly ("hiring" | "community" | "developer")[];
   readonly maximumHiringTargets: number;
   readonly maximumHiringBoardsPerTarget: number;
   readonly maximumHiringJobsPerBoard: number;
@@ -534,7 +545,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumRedditSubreddits: number;
   readonly maximumRedditThreads: number;
   readonly maximumRedditThreadDrill: number;
+  readonly githubDepth: "quick" | "default" | "deep";
+  readonly maximumGitHubQueries: number;
+  readonly maximumGitHubRepositories: number;
+  readonly maximumGitHubThreadDrill: number;
   readonly communitySignalRuleVersion: string;
+  readonly developerSignalRuleVersion: string;
   readonly hiringSignalRuleVersion: string;
   readonly hiringTaxonomyVersion: string;
   readonly hiringTechnologyLexiconVersion: string;
@@ -549,6 +565,7 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly structuredConfigurationFingerprint: string;
   readonly sourceAdapterConfigurationFingerprint: string;
   readonly communityConfigurationFingerprint: string;
+  readonly developerConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
   readonly #now: () => string;
@@ -584,8 +601,16 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.maximumRedditThreadDrill =
       this.#config.maximumRedditThreadDrill ??
       (this.redditDepth === "quick" ? 3 : this.redditDepth === "deep" ? 8 : 5);
+    this.githubDepth = this.#config.githubDepth ?? "default";
+    this.maximumGitHubQueries = this.#config.maximumGitHubQueries ?? 4;
+    this.maximumGitHubRepositories = this.#config.maximumGitHubRepositories ?? 8;
+    this.maximumGitHubThreadDrill =
+      this.#config.maximumGitHubThreadDrill ??
+      (this.githubDepth === "quick" ? 3 : this.githubDepth === "deep" ? 8 : 5);
     this.communitySignalRuleVersion =
       this.#config.communitySignalRuleVersion ?? "community_signals@1.0.0";
+    this.developerSignalRuleVersion =
+      this.#config.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1";
     this.hiringSignalRuleVersion = this.#config.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
     this.hiringTaxonomyVersion = this.#config.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
     this.hiringTechnologyLexiconVersion =
@@ -614,13 +639,15 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       key.startsWith("DISCOVERY_ANYDOC_");
     const hiringEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_HIRING_");
     const redditEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_REDDIT_");
+    const githubEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_GITHUB_");
     const providerEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(
         ([key]) =>
           !key.startsWith("DISCOVERY_EXTRACTION_") &&
           !structuredEnvironmentKey(key) &&
           !hiringEnvironmentKey(key) &&
-          !redditEnvironmentKey(key),
+          !redditEnvironmentKey(key) &&
+          !githubEnvironmentKey(key),
       ),
     );
     const extractionEnvironment = Object.fromEntries(
@@ -634,6 +661,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     );
     const redditEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(([key]) => redditEnvironmentKey(key)),
+    );
+    const githubEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => githubEnvironmentKey(key)),
     );
     this.providerConfigurationFingerprint = createHash("sha256")
       .update(
@@ -706,6 +736,21 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
           maximumRedditThreadDrill: this.maximumRedditThreadDrill,
           communitySignalRuleVersion: this.communitySignalRuleVersion,
           redditEnvironment,
+        }),
+      )
+      .digest("hex");
+    this.developerConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          sourceAdapterMode: this.sourceAdapterMode,
+          developerEnabled: this.sourceFamilies.includes("developer"),
+          githubDepth: this.githubDepth,
+          maximumGitHubQueries: this.maximumGitHubQueries,
+          maximumGitHubRepositories: this.maximumGitHubRepositories,
+          maximumGitHubThreadDrill: this.maximumGitHubThreadDrill,
+          developerSignalRuleVersion: this.developerSignalRuleVersion,
+          githubEnvironment,
         }),
       )
       .digest("hex");
@@ -806,6 +851,82 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     });
   }
 
+  async readDeveloperPlan(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedDeveloperPlan({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readDeveloperRepositories(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedDeveloperRepositories({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readDeveloperThreadManifest(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedDeveloperThreadManifestSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readDeveloperThreads(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedDeveloperThreads({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readDeveloperCommentManifest(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedDeveloperCommentManifestSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readDeveloperComments(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedDeveloperComments({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readDeveloperAnalysis(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedDeveloperAnalysis({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readDeveloperArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperArtifactSet> {
+    return readValidatedDeveloperArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
   async readHiringArtifactSet(input: {
     runId: string;
     searchResults: SearchResultsArtifactV2;
@@ -890,6 +1011,18 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
                   String(this.maximumRedditThreads),
                   "--reddit-max-thread-drill",
                   String(this.maximumRedditThreadDrill),
+                ]
+              : []),
+            ...(this.sourceFamilies.includes("developer")
+              ? [
+                  "--github-depth",
+                  this.githubDepth,
+                  "--github-max-queries",
+                  String(this.maximumGitHubQueries),
+                  "--github-max-repositories",
+                  String(this.maximumGitHubRepositories),
+                  "--github-max-thread-drill",
+                  String(this.maximumGitHubThreadDrill),
                 ]
               : []),
           ]
@@ -1379,7 +1512,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       maximumRedditSubreddits: this.maximumRedditSubreddits,
       maximumRedditThreads: this.maximumRedditThreads,
       maximumRedditThreadDrill: this.maximumRedditThreadDrill,
+      githubDepth: this.githubDepth,
+      maximumGitHubQueries: this.maximumGitHubQueries,
+      maximumGitHubRepositories: this.maximumGitHubRepositories,
+      maximumGitHubThreadDrill: this.maximumGitHubThreadDrill,
       communitySignalRuleVersion: this.communitySignalRuleVersion,
+      developerSignalRuleVersion: this.developerSignalRuleVersion,
       hiringSignalRuleVersion: this.hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
@@ -1480,6 +1618,38 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             communitySignalsImported: false,
             communitySourceTelemetryImported: false,
           }),
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("developer")
+        ? {
+            developerSourcePlanPath: paths.developerSourcePlanPath,
+            developerSourcePlanImported: false,
+            developerRepositoryCollectionPath: paths.developerRepositoryCollectionPath,
+            developerRepositoryCollectionImported: false,
+            developerThreadManifestPath: paths.developerThreadManifestPath,
+            developerThreadManifestImported: false,
+            developerThreadMetadataPath: paths.developerThreadMetadataPath,
+            developerThreadMetadataImported: false,
+            developerCommentCollectionManifestPath: paths.developerCommentCollectionManifestPath,
+            developerCommentCollectionManifestImported: false,
+            developerCommentMetadataPath: paths.developerCommentMetadataPath,
+            developerCommentMetadataImported: false,
+            developerSignalsPath: paths.developerSignalsPath,
+            developerSignalsImported: false,
+            developerSourceTelemetryPath: paths.developerSourceTelemetryPath,
+            developerSourceTelemetryImported: false,
+            developerThreadsDirectory: paths.developerThreadsDirectory,
+            developerCommentsDirectory: paths.developerCommentsDirectory,
+            developerConfigurationFingerprint: this.developerConfigurationFingerprint,
+          }
+        : {
+            developerSourcePlanImported: false,
+            developerRepositoryCollectionImported: false,
+            developerThreadManifestImported: false,
+            developerThreadMetadataImported: false,
+            developerCommentCollectionManifestImported: false,
+            developerCommentMetadataImported: false,
+            developerSignalsImported: false,
+            developerSourceTelemetryImported: false,
+          }),
       providerIds,
       success: true,
     });
@@ -1554,7 +1724,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       maximumRedditSubreddits: this.maximumRedditSubreddits,
       maximumRedditThreads: this.maximumRedditThreads,
       maximumRedditThreadDrill: this.maximumRedditThreadDrill,
+      githubDepth: this.githubDepth,
+      maximumGitHubQueries: this.maximumGitHubQueries,
+      maximumGitHubRepositories: this.maximumGitHubRepositories,
+      maximumGitHubThreadDrill: this.maximumGitHubThreadDrill,
       communitySignalRuleVersion: this.communitySignalRuleVersion,
+      developerSignalRuleVersion: this.developerSignalRuleVersion,
       hiringSignalRuleVersion: this.hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
@@ -1651,6 +1826,39 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             communityCommentContextImported: false,
             communitySignalsImported: false,
             communitySourceTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("developer")
+        ? {
+            developerSourcePlanPath: input.paths.developerSourcePlanPath,
+            developerSourcePlanImported: false,
+            developerRepositoryCollectionPath: input.paths.developerRepositoryCollectionPath,
+            developerRepositoryCollectionImported: false,
+            developerThreadManifestPath: input.paths.developerThreadManifestPath,
+            developerThreadManifestImported: false,
+            developerThreadMetadataPath: input.paths.developerThreadMetadataPath,
+            developerThreadMetadataImported: false,
+            developerCommentCollectionManifestPath:
+              input.paths.developerCommentCollectionManifestPath,
+            developerCommentCollectionManifestImported: false,
+            developerCommentMetadataPath: input.paths.developerCommentMetadataPath,
+            developerCommentMetadataImported: false,
+            developerSignalsPath: input.paths.developerSignalsPath,
+            developerSignalsImported: false,
+            developerSourceTelemetryPath: input.paths.developerSourceTelemetryPath,
+            developerSourceTelemetryImported: false,
+            developerThreadsDirectory: input.paths.developerThreadsDirectory,
+            developerCommentsDirectory: input.paths.developerCommentsDirectory,
+            developerConfigurationFingerprint: this.developerConfigurationFingerprint,
+          }
+        : {
+            developerSourcePlanImported: false,
+            developerRepositoryCollectionImported: false,
+            developerThreadManifestImported: false,
+            developerThreadMetadataImported: false,
+            developerCommentCollectionManifestImported: false,
+            developerCommentMetadataImported: false,
+            developerSignalsImported: false,
+            developerSourceTelemetryImported: false,
           }),
       success: false,
       errorCode: input.code,

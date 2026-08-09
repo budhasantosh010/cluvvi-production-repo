@@ -46,7 +46,12 @@ export default async function DiscoveryOperationsPage() {
           maximumRedditSubreddits={diagnostics.discoveryMaximumRedditSubreddits}
           maximumRedditThreads={diagnostics.discoveryMaximumRedditThreads}
           maximumRedditThreadDrill={diagnostics.discoveryMaximumRedditThreadDrill}
+          githubDepth={diagnostics.discoveryGitHubDepth}
+          maximumGitHubQueries={diagnostics.discoveryMaximumGitHubQueries}
+          maximumGitHubRepositories={diagnostics.discoveryMaximumGitHubRepositories}
+          maximumGitHubThreadDrill={diagnostics.discoveryMaximumGitHubThreadDrill}
           communitySignalRuleVersion={diagnostics.communitySignalRuleVersion}
+          developerSignalRuleVersion={diagnostics.developerSignalRuleVersion}
           runtimeMode={diagnostics.discoveryRuntimeMode}
           runnerAvailable={diagnostics.runner.available}
         />

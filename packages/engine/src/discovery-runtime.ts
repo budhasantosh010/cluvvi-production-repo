@@ -14,6 +14,14 @@ import type {
   ValidatedCommunityPlanSet,
   ValidatedCommunityThreadManifestSet,
   ValidatedCommunityThreadSet,
+  ValidatedDeveloperAnalysisSet,
+  ValidatedDeveloperArtifactSet,
+  ValidatedDeveloperCommentManifestSet,
+  ValidatedDeveloperCommentSet,
+  ValidatedDeveloperPlanSet,
+  ValidatedDeveloperRepositorySet,
+  ValidatedDeveloperThreadManifestSet,
+  ValidatedDeveloperThreadSet,
   ValidatedExtractionArtifactSet,
   ValidatedStructuredContentArtifactSet,
 } from "@cluvvi/core";
@@ -48,7 +56,12 @@ export interface DiscoveryRuntime {
   readonly maximumRedditSubreddits?: number;
   readonly maximumRedditThreads?: number;
   readonly maximumRedditThreadDrill?: number;
+  readonly githubDepth?: "quick" | "default" | "deep";
+  readonly maximumGitHubQueries?: number;
+  readonly maximumGitHubRepositories?: number;
+  readonly maximumGitHubThreadDrill?: number;
   readonly communitySignalRuleVersion?: string;
+  readonly developerSignalRuleVersion?: string;
   readonly hiringSignalRuleVersion?: string;
   readonly hiringTaxonomyVersion?: string;
   readonly hiringTechnologyLexiconVersion?: string;
@@ -63,6 +76,7 @@ export interface DiscoveryRuntime {
   readonly structuredConfigurationFingerprint?: string;
   readonly sourceAdapterConfigurationFingerprint?: string;
   readonly communityConfigurationFingerprint?: string;
+  readonly developerConfigurationFingerprint?: string;
   execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2>;
   readExtractionArtifactSet?(input: {
     runId: string;
@@ -107,6 +121,38 @@ export interface DiscoveryRuntime {
     runId: string;
     searchResults: SearchResultsArtifactV2;
   }): Promise<ValidatedCommunityArtifactSet>;
+  readDeveloperPlan?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperPlanSet>;
+  readDeveloperRepositories?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperRepositorySet>;
+  readDeveloperThreadManifest?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperThreadManifestSet>;
+  readDeveloperThreads?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperThreadSet>;
+  readDeveloperCommentManifest?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperCommentManifestSet>;
+  readDeveloperComments?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperCommentSet>;
+  readDeveloperAnalysis?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperAnalysisSet>;
+  readDeveloperArtifactSet?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedDeveloperArtifactSet>;
 }
 
 export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
@@ -129,7 +175,12 @@ export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumRedditSubreddits = 20;
   readonly maximumRedditThreads = 100;
   readonly maximumRedditThreadDrill = 5;
+  readonly githubDepth = "default" as const;
+  readonly maximumGitHubQueries = 4;
+  readonly maximumGitHubRepositories = 8;
+  readonly maximumGitHubThreadDrill = 5;
   readonly communitySignalRuleVersion = "community_signals@1.0.0";
+  readonly developerSignalRuleVersion = "c1-j3.developer-signals.v1";
   readonly hiringSignalRuleVersion = "hiring_signals@1.0.0";
   readonly hiringTaxonomyVersion = "hiring_taxonomy@1.0.0";
   readonly hiringTechnologyLexiconVersion = "hiring_technology_lexicon@1.0.0";
@@ -144,6 +195,7 @@ export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly structuredConfigurationFingerprint = "fixture-no-structured-content";
   readonly sourceAdapterConfigurationFingerprint = "fixture-no-source-adapters";
   readonly communityConfigurationFingerprint = "fixture-no-community-sources";
+  readonly developerConfigurationFingerprint = "fixture-no-developer-sources";
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {
     void input;
