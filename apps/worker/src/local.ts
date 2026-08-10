@@ -88,6 +88,10 @@ async function main(): Promise<void> {
         discoveryRuntime.communityConfigurationFingerprint ?? "fixture-no-community-sources",
       developerConfigurationFingerprint:
         discoveryRuntime.developerConfigurationFingerprint ?? "fixture-no-developer-sources",
+      videoConfigurationFingerprint:
+        discoveryRuntime.videoConfigurationFingerprint ?? "fixture-no-video-sources",
+      specializedConfigurationFingerprint:
+        discoveryRuntime.specializedConfigurationFingerprint ?? "fixture-no-specialized-sources",
       stageDelayMs: Number(process.env["CLUVVI_FIXTURE_STAGE_DELAY_MS"] ?? 120),
     }),
     runnerId,

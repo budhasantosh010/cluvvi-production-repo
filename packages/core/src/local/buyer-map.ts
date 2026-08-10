@@ -8,6 +8,13 @@ import {
 } from "./hiring/hiring-artifacts";
 import { IdentityConfidenceSchema, ManualContactRouteV1Schema } from "./identity-enrichment";
 import { SourceZoneSchema } from "./search-results";
+import {
+  SourceAuthorityClassV1Schema,
+  SpecializedFindingTypeV1Schema,
+  SpecializedSignalTypeV1Schema,
+  SpecializedSourceTypeV1Schema,
+} from "./specialized/specialized-artifacts";
+import { VideoSignalTypeV1Schema } from "./video/video-artifacts";
 
 export const BuyerMapCitationV1Schema = z
   .object({
@@ -42,6 +49,12 @@ export const BuyerMapCitationV1Schema = z
         "github_comment",
         "github_release",
         "developer_signal",
+        "youtube_video",
+        "youtube_transcript_segment",
+        "youtube_comment",
+        "video_signal",
+        "specialized_finding",
+        "specialized_signal",
       ])
       .optional(),
     extractionItemId: z.string().min(1).optional(),
@@ -113,6 +126,32 @@ export const BuyerMapCitationV1Schema = z
     releaseId: z.string().min(1).optional(),
     releaseTagName: z.string().min(1).optional(),
     releasePrerelease: z.boolean().optional(),
+    videoId: z.string().min(1).optional(),
+    channelId: z.string().min(1).optional(),
+    channelName: z.string().min(1).optional(),
+    videoSignalId: z.string().min(1).optional(),
+    videoSignalType: VideoSignalTypeV1Schema.optional(),
+    videoQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    videoLocalScore: z.number().min(0).max(2).optional(),
+    independentVideoCount: z.number().int().nonnegative().optional(),
+    independentChannelCount: z.number().int().nonnegative().optional(),
+    transcriptArtifactId: z.string().min(1).optional(),
+    transcriptSegmentId: z.string().min(1).optional(),
+    subtitleSource: z.enum(["human", "automatic"]).optional(),
+    subtitleLanguage: z.string().min(1).optional(),
+    specializedFindingId: z.string().min(1).optional(),
+    specializedSignalId: z.string().min(1).optional(),
+    specializedSignalType: SpecializedSignalTypeV1Schema.optional(),
+    specializedFindingType: SpecializedFindingTypeV1Schema.optional(),
+    specializedSourceId: z.string().min(1).optional(),
+    specializedCandidateId: z.string().min(1).optional(),
+    sourceDomain: z.string().min(1).optional(),
+    specializedSourceType: SpecializedSourceTypeV1Schema.optional(),
+    sourceAuthorityClass: SourceAuthorityClassV1Schema.optional(),
+    specializedRoute: z
+      .enum(["dedicated_adapter", "generic_site_search", "generic_feed", "generic_page_extraction"])
+      .optional(),
+    independentSourceCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type BuyerMapCitationV1 = z.infer<typeof BuyerMapCitationV1Schema>;
@@ -124,7 +163,7 @@ export const BuyerMapOpportunityV1Schema = z
     entityKey: z.string().min(1),
     companyName: z.string().min(1),
     companyDomain: z.string().min(1).optional(),
-    score: z.number().int().min(-8).max(20),
+    score: z.number().int().min(-8).max(23),
     confidence: IdentityConfidenceSchema,
     whyItMayBeWorthContacting: z.string().min(1),
     likelyDecisionMakerTitles: z.array(z.string().min(1)).min(1),
@@ -171,6 +210,10 @@ export const BuyerMapArtifactV1Schema = z
         githubCommentCitationCount: z.number().int().nonnegative().default(0),
         githubReleaseCitationCount: z.number().int().nonnegative().default(0),
         developerSignalCitationCount: z.number().int().nonnegative().default(0),
+        videoCitationCount: z.number().int().nonnegative().default(0),
+        videoSignalCitationCount: z.number().int().nonnegative().default(0),
+        specializedFindingCitationCount: z.number().int().nonnegative().default(0),
+        specializedSignalCitationCount: z.number().int().nonnegative().default(0),
       })
       .strict(),
     evidenceSourceMode: z
@@ -193,6 +236,10 @@ export const BuyerMapArtifactV1Schema = z
         "snippet_plus_structured_hiring_and_developer_intelligence",
         "snippet_plus_structured_community_and_developer_intelligence",
         "snippet_plus_structured_hiring_community_and_developer_intelligence",
+        "snippet_plus_public_video_intelligence",
+        "snippet_plus_public_specialized_intelligence",
+        "snippet_plus_video_and_specialized_intelligence",
+        "snippet_plus_multi_source_intelligence",
       ])
       .default("snippet_only"),
     opportunities: z.array(BuyerMapOpportunityV1Schema),

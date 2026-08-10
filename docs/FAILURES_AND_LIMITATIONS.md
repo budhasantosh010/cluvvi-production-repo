@@ -3159,3 +3159,61 @@ The parked Supabase implementation still contains migrations and database-backed
 **Current status:** Resolved. The fresh proof then passed with anonymous public GitHub access, 1 repository, 2 threads, 3 comments, 7 deterministic developer signals, 0 rate-limit events, 0 private-resource rejections, and 0 paid requests/credits.
 
 **One-line solution:** Cross-project proof helpers must consume the exact published producer contract and runner shape rather than copy stale local assumptions.
+
+## 177. C1-J.4 real bridge initially rejected restricted YouTube search records too early
+
+**What failed:** Project B rejected the whole `video_collection.v1` when Project A truthfully retained a restricted/unavailable YouTube search result as metadata-only context.
+
+**Where:** C1-J.4 Project B video validator during the exact-SHA real bridge proof.
+
+**Why:** Project B had interpreted “public-only drill” as “every collection record must be public,” while Project A's contract permits non-public discovery records provided they are never selected for transcript/comments or used to support signals.
+
+**Current status:** Resolved. Restricted/private/premium/subscriber-only/age-restricted items may cross only as metadata-only candidates; transcript, comment, and signal references remain public/non-age-restricted only.
+
+**One-line solution:** Validate the drill boundary, not by deleting truthful metadata-only availability state.
+
+## 178. C1-J.5 candidate artifact warnings can grow after the deterministic ID snapshot
+
+**What failed:** Project B initially rejected a valid Project A candidate artifact because later adapter-degradation warnings were appended to the same warnings array after the candidate artifact ID had been computed.
+
+**Where:** `specialized_source_candidates.v1` import in the real Tech/AI proof.
+
+**Why:** The pinned Project A runner shares the warnings array across candidate creation and later dedicated-adapter execution.
+
+**Current status:** Resolved with a narrow compatibility check: the candidate ID must match the complete artifact or an exact prefix of its warnings array; all substantive context, candidate, and summary fields remain deterministic and validated.
+
+**One-line solution:** Tolerate only the producer's append-only warning suffix, never arbitrary candidate-content drift.
+
+## 179. Specialized candidate domain and telemetry counters use producer-specific meanings
+
+**What failed:** The non-tech dynamic-source proof reached Project B but failed candidate/telemetry reconciliation.
+
+**Where:** C1-J.5 candidate and telemetry validators.
+
+**Why:** Project A defines candidate-summary `uniqueDomains` as all grouped valid domains before the configured candidate cap, while telemetry `candidateDomains` counts emitted candidate records after the cap. Project B had assumed both fields were identical.
+
+**Current status:** Resolved. Project B requires summary unique domains to cover every emitted candidate domain, verifies accepted+rejected exactly against emitted candidates, and reconciles telemetry candidateDomains to emitted candidate count.
+
+**One-line solution:** Mirror the published producer semantics exactly instead of equating similarly named counters.
+
+## 180. Real-proof secret scan matched ordinary research prose
+
+**What failed:** A live arXiv paper summary containing the ordinary English word `token` tripped a broad string-level secret assertion even though no secret field existed.
+
+**Where:** C1-J.4/J.5 real bridge release test.
+
+**Current status:** Resolved. The proof now scans JSON field names for authorization/cookie/API-key/token-shaped fields while allowing untrusted public prose to contain ordinary words.
+
+**One-line solution:** Detect secret-shaped fields structurally; never treat arbitrary source text as a credential merely because it contains a keyword.
+
+## 181. Specialized registry overlay path was accidentally present in the Project B public environment allowlist
+
+**What failed:** Pre-release security review found `DISCOVERY_SPECIALIZED_SOURCE_REGISTRY_PATH` among otherwise non-secret forwarded specialized settings.
+
+**Where:** `packages/engine/src/discovery-runtime-config.ts`.
+
+**Why:** The initial J.5 allowlist copied Project A's operator configuration surface too broadly.
+
+**Current status:** Resolved before release. The registry path was removed from Project B's allowlist, runtime tests prove it is not forwarded, `.env.example` deliberately omits it, and the real non-tech bridge proof passes with the boundary enforced.
+
+**One-line solution:** Project B may forward bounded policy/budget values, never local executable/registry paths owned by Project A.

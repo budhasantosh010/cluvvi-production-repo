@@ -74,7 +74,7 @@ describe("CluvviEngine Project B fixture flow", () => {
         11,
       );
       expect(executionsBefore.filter((execution) => execution.status === "skipped")).toHaveLength(
-        24,
+        36,
       );
       expect(toolCallsBefore).toHaveLength(11);
       expect(existsSync(resolve(root, "runs", result.run.id, "run-report.md"))).toBe(true);
@@ -165,7 +165,7 @@ describe("CluvviEngine Project B fixture flow", () => {
       expect(resumed.run.status).toBe("completed");
       const afterResume = await store.listStageExecutions(runId);
       expect(afterResume.filter((execution) => execution.status === "completed")).toHaveLength(11);
-      expect(afterResume.filter((execution) => execution.status === "skipped")).toHaveLength(24);
+      expect(afterResume.filter((execution) => execution.status === "skipped")).toHaveLength(36);
       expect(afterResume.filter((execution) => execution.status === "failed")).toHaveLength(1);
       expect(await store.listArtifacts(runId)).toHaveLength(11);
 

@@ -6,7 +6,9 @@ import { DownstreamFixtureView } from "@/components/downstream-fixture-view";
 import { ExtractionEvidenceView } from "@/components/extraction-evidence-view";
 import { HiringIntelligenceView } from "@/components/hiring-intelligence-view";
 import { MissionUnderstandingView } from "@/components/mission-understanding-view";
+import { SpecializedIntelligenceView } from "@/components/specialized-intelligence-view";
 import { StructuredContentView } from "@/components/structured-content-view";
+import { VideoIntelligenceView } from "@/components/video-intelligence-view";
 import type { RunView } from "@cluvvi/application/contracts";
 import type { ArtifactRecord } from "@cluvvi/core";
 import Link from "next/link";
@@ -51,6 +53,18 @@ const labels: Record<RunView["stages"][number]["name"], string> = {
   developer_comment_context: "GitHub comment context",
   developer_analysis: "Developer signal analysis",
   developer_source_telemetry: "Developer source telemetry",
+  video_planning: "YouTube video planning",
+  video_retrieval: "YouTube video retrieval",
+  video_transcript_retrieval: "YouTube transcript retrieval",
+  video_comment_retrieval: "YouTube comment retrieval",
+  video_analysis: "Video signal analysis",
+  video_source_telemetry: "Video source telemetry",
+  specialized_context: "Specialized-source context",
+  specialized_candidate_discovery: "Specialized-source discovery",
+  specialized_planning: "Specialized-source planning",
+  specialized_retrieval: "Specialized-source retrieval",
+  specialized_analysis: "Specialized-source analysis",
+  specialized_source_telemetry: "Specialized-source telemetry",
   normalization: "Normalization",
   investigation: "Evidence analysis",
   buyer_identification: "Buyer hypotheses",
@@ -668,6 +682,28 @@ export function RunViewClient({ initial, initialRunner }: RunViewClientProps) {
         maximumRepositories={view.run.config.discoveryMaximumGitHubRepositories}
         maximumThreadDrill={view.run.config.discoveryMaximumGitHubThreadDrill}
         developerSignalRuleVersion={view.run.config.developerSignalRuleVersion}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
+
+      <VideoIntelligenceView
+        artifacts={view.artifacts}
+        sourceAdapterMode={view.run.config.discoverySourceAdapterMode}
+        sourceFamilies={view.run.config.discoverySourceFamilies}
+        youtubeDepth={view.run.config.discoveryYoutubeDepth}
+        videoSignalRuleVersion={view.run.config.videoSignalRuleVersion}
+        runStatus={view.run.status}
+        {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
+      />
+
+      <SpecializedIntelligenceView
+        artifacts={view.artifacts}
+        sourceAdapterMode={view.run.config.discoverySourceAdapterMode}
+        sourceFamilies={view.run.config.discoverySourceFamilies}
+        signalRuleVersion={view.run.config.specializedSignalRuleVersion}
+        contextRuleVersion={view.run.config.specializedContextRuleVersion}
+        coverageVersion={view.run.config.specializedCoverageVersion}
+        registryVersion={view.run.config.specializedRegistryVersion}
         runStatus={view.run.status}
         {...(view.run.failure?.code === undefined ? {} : { failureCode: view.run.failure.code })}
       />

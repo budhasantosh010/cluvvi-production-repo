@@ -135,6 +135,58 @@ export const DISCOVERY_PROVIDER_ENV_ALLOWLIST = [
   "DISCOVERY_GITHUB_MAX_RATE_LIMIT_WAIT_MS",
   "DISCOVERY_GITHUB_DISCUSSIONS_ENABLED",
   "DISCOVERY_GITHUB_PUBLIC_ONLY",
+  "DISCOVERY_YOUTUBE_ENABLED",
+  "DISCOVERY_YOUTUBE_DEPTH",
+  "DISCOVERY_YOUTUBE_MAX_QUERIES",
+  "DISCOVERY_YOUTUBE_SEARCH_RESULTS_QUICK",
+  "DISCOVERY_YOUTUBE_SEARCH_RESULTS_DEFAULT",
+  "DISCOVERY_YOUTUBE_SEARCH_RESULTS_DEEP",
+  "DISCOVERY_YOUTUBE_MAX_METADATA_DETAILS",
+  "DISCOVERY_YOUTUBE_TRANSCRIPT_DRILL_QUICK",
+  "DISCOVERY_YOUTUBE_TRANSCRIPT_DRILL_DEFAULT",
+  "DISCOVERY_YOUTUBE_TRANSCRIPT_DRILL_DEEP",
+  "DISCOVERY_YOUTUBE_COMMENTS_ENABLED",
+  "DISCOVERY_YOUTUBE_MAX_COMMENT_VIDEOS",
+  "DISCOVERY_YOUTUBE_MAX_COMMENTS_PER_VIDEO",
+  "DISCOVERY_YOUTUBE_MAX_COMMENTS_TOTAL",
+  "DISCOVERY_YOUTUBE_SEARCH_TIMEOUT_MS",
+  "DISCOVERY_YOUTUBE_METADATA_TIMEOUT_MS",
+  "DISCOVERY_YOUTUBE_TRANSCRIPT_TIMEOUT_MS",
+  "DISCOVERY_YOUTUBE_COMMENT_TIMEOUT_MS",
+  "DISCOVERY_YOUTUBE_MAX_STDOUT_BYTES",
+  "DISCOVERY_YOUTUBE_MAX_STDERR_BYTES",
+  "DISCOVERY_YOUTUBE_MAX_DESCRIPTION_CHARACTERS",
+  "DISCOVERY_YOUTUBE_MAX_TRANSCRIPT_CHARACTERS",
+  "DISCOVERY_YOUTUBE_MAX_TRANSCRIPT_SEGMENTS",
+  "DISCOVERY_YOUTUBE_SUBTITLE_LANGUAGES",
+  "DISCOVERY_YOUTUBE_CONTENT_SAFETY_FILTER",
+  "DISCOVERY_SPECIALIZED_ENABLED",
+  "DISCOVERY_SPECIALIZED_MODE",
+  "DISCOVERY_SPECIALIZED_DYNAMIC_DISCOVERY",
+  "DISCOVERY_SPECIALIZED_MAX_PACKS",
+  "DISCOVERY_SPECIALIZED_MAX_DISCOVERY_QUERIES",
+  "DISCOVERY_SPECIALIZED_MAX_CANDIDATES",
+  "DISCOVERY_SPECIALIZED_MAX_SELECTED_SOURCES",
+  "DISCOVERY_SPECIALIZED_MAX_SITE_QUERIES_PER_SOURCE",
+  "DISCOVERY_SPECIALIZED_MAX_PAGES_PER_SOURCE",
+  "DISCOVERY_SPECIALIZED_MAX_FEED_ITEMS_PER_SOURCE",
+  "DISCOVERY_SPECIALIZED_COVERAGE_THRESHOLD",
+  "DISCOVERY_SPECIALIZED_SOURCE_SCORE_THRESHOLD",
+  "DISCOVERY_SPECIALIZED_MAX_TOTAL_PAGES",
+  "DISCOVERY_SPECIALIZED_REQUEST_TIMEOUT_MS",
+  "DISCOVERY_SPECIALIZED_MAX_RESPONSE_BYTES",
+  "DISCOVERY_SPECIALIZED_MAX_SUMMARY_CHARACTERS",
+  "DISCOVERY_SPECIALIZED_ARXIV_ENABLED",
+  "DISCOVERY_SPECIALIZED_ARXIV_MAX_RESULTS",
+  "DISCOVERY_SPECIALIZED_ARXIV_MAX_TOTAL_RESULTS",
+  "DISCOVERY_SPECIALIZED_ARXIV_REQUEST_DELAY_MS",
+  "DISCOVERY_SPECIALIZED_ARXIV_PDF_DRILL_QUICK",
+  "DISCOVERY_SPECIALIZED_ARXIV_PDF_DRILL_DEFAULT",
+  "DISCOVERY_SPECIALIZED_ARXIV_PDF_DRILL_DEEP",
+  "DISCOVERY_SPECIALIZED_TECHMEME_ENABLED",
+  "DISCOVERY_SPECIALIZED_DIGG_ENABLED",
+  "DISCOVERY_SPECIALIZED_MAX_EXTERNAL_STDOUT_BYTES",
+  "DISCOVERY_SPECIALIZED_MAX_EXTERNAL_STDERR_BYTES",
 ] as const;
 
 export type DiscoveryProviderEnvironmentKey = (typeof DISCOVERY_PROVIDER_ENV_ALLOWLIST)[number];
@@ -147,6 +199,8 @@ export const CLUVVI_HTML_MARKDOWN_RENDERER_VERSION = "sanitized_html_to_gfm@1.0.
 export const CLUVVI_EXTRACTION_QUALITY_EVALUATOR_VERSION = "extraction_quality@1.0.0";
 export const CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION = "community_signals@1.0.0";
 export const CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION = "c1-j3.developer-signals.v1";
+export const CLUVVI_VIDEO_SIGNAL_RULE_VERSION = "c1-j4.video-signals.v1";
+export const CLUVVI_SPECIALIZED_SIGNAL_RULE_VERSION = "c1-j5.specialized-signals.v1";
 export const CLUVVI_HIRING_SIGNAL_RULE_VERSION = "hiring_signals@1.0.0";
 export const CLUVVI_HIRING_TAXONOMY_VERSION = "hiring_taxonomy@1.0.0";
 export const CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION = "hiring_technology_lexicon@1.0.0";
@@ -178,8 +232,11 @@ export interface LocalDiscoveryEngineConfig {
   maximumGitHubQueries?: number;
   maximumGitHubRepositories?: number;
   maximumGitHubThreadDrill?: number;
+  youtubeDepth?: "quick" | "default" | "deep";
   communitySignalRuleVersion?: string;
   developerSignalRuleVersion?: string;
+  videoSignalRuleVersion?: string;
+  specializedSignalRuleVersion?: string;
   hiringSignalRuleVersion?: string;
   hiringTaxonomyVersion?: string;
   hiringTechnologyLexiconVersion?: string;
@@ -217,8 +274,11 @@ export type DiscoveryRuntimeConfig =
       maximumGitHubQueries: number;
       maximumGitHubRepositories: number;
       maximumGitHubThreadDrill: number;
+      youtubeDepth: "quick" | "default" | "deep";
       communitySignalRuleVersion: string;
       developerSignalRuleVersion: string;
+      videoSignalRuleVersion: string;
+      specializedSignalRuleVersion: string;
       hiringSignalRuleVersion: string;
       hiringTaxonomyVersion: string;
       hiringTechnologyLexiconVersion: string;
@@ -253,8 +313,11 @@ export type DiscoveryRuntimeConfig =
       maximumGitHubQueries: number;
       maximumGitHubRepositories: number;
       maximumGitHubThreadDrill: number;
+      youtubeDepth: "quick" | "default" | "deep";
       communitySignalRuleVersion: string;
       developerSignalRuleVersion: string;
+      videoSignalRuleVersion: string;
+      specializedSignalRuleVersion: string;
       hiringSignalRuleVersion: string;
       hiringTaxonomyVersion: string;
       hiringTechnologyLexiconVersion: string;
@@ -295,6 +358,7 @@ const DEFAULT_GITHUB_DEPTH = "default" as const;
 const DEFAULT_MAX_GITHUB_QUERIES = 4;
 const DEFAULT_MAX_GITHUB_REPOSITORIES = 8;
 const DEFAULT_MAX_GITHUB_THREAD_DRILL = 5;
+const DEFAULT_YOUTUBE_DEPTH = "default" as const;
 
 function configuredValue(
   environment: Readonly<Record<string, string | undefined>>,
@@ -380,12 +444,17 @@ function parseSourceFamilies(value: string | undefined): CluvviSourceFamily[] {
   ];
   if (
     families.some(
-      (family) => family !== "hiring" && family !== "community" && family !== "developer",
+      (family) =>
+        family !== "hiring" &&
+        family !== "community" &&
+        family !== "developer" &&
+        family !== "video" &&
+        family !== "specialized",
     )
   ) {
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
-      "CLUVVI_DISCOVERY_SOURCE_FAMILIES currently supports hiring, community, and developer.",
+      "CLUVVI_DISCOVERY_SOURCE_FAMILIES currently supports hiring, community, developer, video, and specialized.",
     );
   }
   return families as CluvviSourceFamily[];
@@ -623,6 +692,19 @@ export function parseDiscoveryRuntimeConfig(
     "CLUVVI_DISCOVERY_MAX_GITHUB_THREAD_DRILL",
     "LOCAL_DISCOVERY_MAX_GITHUB_THREAD_DRILL_INVALID",
   );
+  const youtubeDepthValue =
+    configuredValue(environment, "CLUVVI_DISCOVERY_YOUTUBE_DEPTH") ?? DEFAULT_YOUTUBE_DEPTH;
+  if (
+    !(["quick", "default", "deep"] as const).includes(
+      youtubeDepthValue as "quick" | "default" | "deep",
+    )
+  ) {
+    throw new DiscoveryRuntimeConfigurationError(
+      "LOCAL_DISCOVERY_YOUTUBE_DEPTH_INVALID",
+      "CLUVVI_DISCOVERY_YOUTUBE_DEPTH must be quick, default, or deep.",
+    );
+  }
+  const youtubeDepth = youtubeDepthValue as "quick" | "default" | "deep";
   if (sourceAdapterMode === "none" && sourceFamilies.length > 0) {
     throw new DiscoveryRuntimeConfigurationError(
       "LOCAL_DISCOVERY_SOURCE_FAMILY_INVALID",
@@ -672,8 +754,11 @@ export function parseDiscoveryRuntimeConfig(
       maximumGitHubQueries,
       maximumGitHubRepositories,
       maximumGitHubThreadDrill,
+      youtubeDepth,
       communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
       developerSignalRuleVersion: CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION,
+      videoSignalRuleVersion: CLUVVI_VIDEO_SIGNAL_RULE_VERSION,
+      specializedSignalRuleVersion: CLUVVI_SPECIALIZED_SIGNAL_RULE_VERSION,
       hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
       hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
       hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
@@ -771,8 +856,11 @@ export function parseDiscoveryRuntimeConfig(
     maximumGitHubQueries,
     maximumGitHubRepositories,
     maximumGitHubThreadDrill,
+    youtubeDepth,
     communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
     developerSignalRuleVersion: CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION,
+    videoSignalRuleVersion: CLUVVI_VIDEO_SIGNAL_RULE_VERSION,
+    specializedSignalRuleVersion: CLUVVI_SPECIALIZED_SIGNAL_RULE_VERSION,
     hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
     hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
     hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,
@@ -808,8 +896,11 @@ export function parseDiscoveryRuntimeConfig(
       maximumGitHubQueries,
       maximumGitHubRepositories,
       maximumGitHubThreadDrill,
+      youtubeDepth,
       communitySignalRuleVersion: CLUVVI_COMMUNITY_SIGNAL_RULE_VERSION,
       developerSignalRuleVersion: CLUVVI_DEVELOPER_SIGNAL_RULE_VERSION,
+      videoSignalRuleVersion: CLUVVI_VIDEO_SIGNAL_RULE_VERSION,
+      specializedSignalRuleVersion: CLUVVI_SPECIALIZED_SIGNAL_RULE_VERSION,
       hiringSignalRuleVersion: CLUVVI_HIRING_SIGNAL_RULE_VERSION,
       hiringTaxonomyVersion: CLUVVI_HIRING_TAXONOMY_VERSION,
       hiringTechnologyLexiconVersion: CLUVVI_HIRING_TECHNOLOGY_LEXICON_VERSION,

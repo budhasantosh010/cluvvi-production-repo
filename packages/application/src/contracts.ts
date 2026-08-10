@@ -74,15 +74,22 @@ export interface CapabilityReport {
   discoveryMaximumGitHubQueries: number;
   discoveryMaximumGitHubRepositories: number;
   discoveryMaximumGitHubThreadDrill: number;
+  discoveryYoutubeDepth: "quick" | "default" | "deep";
   communitySignalRuleVersion: string;
   developerSignalRuleVersion: string;
+  videoSignalRuleVersion: string;
+  specializedSignalRuleVersion: string;
+  specializedContextRuleVersion: string;
+  specializedCoverageVersion: string;
+  specializedRegistryVersion: string;
   capabilities: {
     localEngine: true;
     missionCompiler: false;
     webSearch: boolean;
     webFetch: boolean;
     enrichment: false;
-    youtube: false;
+    youtube: boolean;
+    specializedSources: boolean;
     outreach: false;
   };
   warnings: string[];
@@ -119,8 +126,14 @@ export interface LocalDiagnostics {
   discoveryMaximumGitHubQueries: number;
   discoveryMaximumGitHubRepositories: number;
   discoveryMaximumGitHubThreadDrill: number;
+  discoveryYoutubeDepth: "quick" | "default" | "deep";
   communitySignalRuleVersion: string;
   developerSignalRuleVersion: string;
+  videoSignalRuleVersion: string;
+  specializedSignalRuleVersion: string;
+  specializedContextRuleVersion: string;
+  specializedCoverageVersion: string;
+  specializedRegistryVersion: string;
   runner: {
     available: boolean;
     heartbeat: RunnerHeartbeat | null;

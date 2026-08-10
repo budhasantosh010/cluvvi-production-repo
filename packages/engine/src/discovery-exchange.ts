@@ -29,6 +29,18 @@ export const DISCOVERY_EXCHANGE_FILE_NAMES = [
   "developer-comment-metadata.v1.json",
   "developer-signals.v1.json",
   "developer-source-run-telemetry.v1.json",
+  "video-source-plan.v1.json",
+  "video-collection.v1.json",
+  "transcript-manifest.v1.json",
+  "video-comment-manifest.v1.json",
+  "video-signals.v1.json",
+  "video-source-run-telemetry.v1.json",
+  "specialized-source-context.v1.json",
+  "specialized-source-candidates.v1.json",
+  "specialized-source-plan.v1.json",
+  "specialized-findings.v1.json",
+  "specialized-signals.v1.json",
+  "specialized-source-run-telemetry.v1.json",
   "discovery-stdout.log",
   "discovery-stderr.log",
   "discovery-execution.json",
@@ -68,6 +80,20 @@ export interface DiscoveryExchangePaths {
   developerSourceTelemetryPath: string;
   developerThreadsDirectory: string;
   developerCommentsDirectory: string;
+  videoSourcePlanPath: string;
+  videoCollectionPath: string;
+  transcriptManifestPath: string;
+  videoCommentManifestPath: string;
+  videoSignalsPath: string;
+  videoSourceTelemetryPath: string;
+  videoTranscriptsDirectory: string;
+  videoCommentsDirectory: string;
+  specializedSourceContextPath: string;
+  specializedSourceCandidatesPath: string;
+  specializedSourcePlanPath: string;
+  specializedFindingsPath: string;
+  specializedSignalsPath: string;
+  specializedSourceTelemetryPath: string;
   stdoutPath: string;
   stderrPath: string;
   executionPath: string;
@@ -119,6 +145,20 @@ export function discoveryExchangePaths(
     developerSourceTelemetryPath: resolve(directory, "developer-source-run-telemetry.v1.json"),
     developerThreadsDirectory: resolve(directory, "developer", "threads"),
     developerCommentsDirectory: resolve(directory, "developer", "comments"),
+    videoSourcePlanPath: resolve(directory, "video-source-plan.v1.json"),
+    videoCollectionPath: resolve(directory, "video-collection.v1.json"),
+    transcriptManifestPath: resolve(directory, "transcript-manifest.v1.json"),
+    videoCommentManifestPath: resolve(directory, "video-comment-manifest.v1.json"),
+    videoSignalsPath: resolve(directory, "video-signals.v1.json"),
+    videoSourceTelemetryPath: resolve(directory, "video-source-run-telemetry.v1.json"),
+    videoTranscriptsDirectory: resolve(directory, "video", "transcripts"),
+    videoCommentsDirectory: resolve(directory, "video", "comments"),
+    specializedSourceContextPath: resolve(directory, "specialized-source-context.v1.json"),
+    specializedSourceCandidatesPath: resolve(directory, "specialized-source-candidates.v1.json"),
+    specializedSourcePlanPath: resolve(directory, "specialized-source-plan.v1.json"),
+    specializedFindingsPath: resolve(directory, "specialized-findings.v1.json"),
+    specializedSignalsPath: resolve(directory, "specialized-signals.v1.json"),
+    specializedSourceTelemetryPath: resolve(directory, "specialized-source-run-telemetry.v1.json"),
     stdoutPath: resolve(directory, "discovery-stdout.log"),
     stderrPath: resolve(directory, "discovery-stderr.log"),
     executionPath: resolve(directory, "discovery-execution.json"),

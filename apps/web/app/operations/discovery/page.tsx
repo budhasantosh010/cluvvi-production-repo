@@ -50,8 +50,14 @@ export default async function DiscoveryOperationsPage() {
           maximumGitHubQueries={diagnostics.discoveryMaximumGitHubQueries}
           maximumGitHubRepositories={diagnostics.discoveryMaximumGitHubRepositories}
           maximumGitHubThreadDrill={diagnostics.discoveryMaximumGitHubThreadDrill}
+          youtubeDepth={diagnostics.discoveryYoutubeDepth}
           communitySignalRuleVersion={diagnostics.communitySignalRuleVersion}
           developerSignalRuleVersion={diagnostics.developerSignalRuleVersion}
+          videoSignalRuleVersion={diagnostics.videoSignalRuleVersion}
+          specializedSignalRuleVersion={diagnostics.specializedSignalRuleVersion}
+          specializedContextRuleVersion={diagnostics.specializedContextRuleVersion}
+          specializedCoverageVersion={diagnostics.specializedCoverageVersion}
+          specializedRegistryVersion={diagnostics.specializedRegistryVersion}
           runtimeMode={diagnostics.discoveryRuntimeMode}
           runnerAvailable={diagnostics.runner.available}
         />

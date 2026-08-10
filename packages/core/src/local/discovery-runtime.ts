@@ -20,7 +20,13 @@ export type CluvviStructuredContentMode = z.infer<typeof CluvviStructuredContent
 export const CluvviSourceAdapterModeSchema = z.enum(["none", "selected_sources"]);
 export type CluvviSourceAdapterMode = z.infer<typeof CluvviSourceAdapterModeSchema>;
 
-export const CluvviSourceFamilySchema = z.enum(["hiring", "community", "developer"]);
+export const CluvviSourceFamilySchema = z.enum([
+  "hiring",
+  "community",
+  "developer",
+  "video",
+  "specialized",
+]);
 export type CluvviSourceFamily = z.infer<typeof CluvviSourceFamilySchema>;
 
 export const LIVE_DISCOVERY_PROVIDER_IDS = [
@@ -186,7 +192,7 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     maximumStructuredResources: z.number().int().min(1).max(100).default(8),
     maximumDocumentResources: z.number().int().min(1).max(100).default(4),
     sourceAdapterMode: CluvviSourceAdapterModeSchema.default("none"),
-    sourceFamilies: z.array(CluvviSourceFamilySchema).max(3).default([]),
+    sourceFamilies: z.array(CluvviSourceFamilySchema).max(5).default([]),
     maximumHiringTargets: z.number().int().min(1).max(100).default(10),
     maximumHiringBoardsPerTarget: z.number().int().min(1).max(20).default(4),
     maximumHiringJobsPerBoard: z.number().int().min(1).max(1000).default(250),
@@ -200,8 +206,11 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     maximumGitHubQueries: z.number().int().min(1).max(8).default(4),
     maximumGitHubRepositories: z.number().int().min(1).max(15).default(8),
     maximumGitHubThreadDrill: z.number().int().min(1).max(8).default(5),
+    youtubeDepth: z.enum(["quick", "default", "deep"]).default("default"),
     communitySignalRuleVersion: z.string().min(1).default("community_signals@1.0.0"),
     developerSignalRuleVersion: z.string().min(1).default("c1-j3.developer-signals.v1"),
+    videoSignalRuleVersion: z.string().min(1).default("c1-j4.video-signals.v1"),
+    specializedSignalRuleVersion: z.string().min(1).default("c1-j5.specialized-signals.v1"),
     hiringSignalRuleVersion: z.string().min(1).default("hiring_signals@1.0.0"),
     hiringTaxonomyVersion: z.string().min(1).default("hiring_taxonomy@1.0.0"),
     hiringTechnologyLexiconVersion: z.string().min(1).default("hiring_technology_lexicon@1.0.0"),
@@ -275,6 +284,32 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
     developerSourceTelemetryImported: z.boolean().default(false),
     developerThreadsDirectory: z.string().min(1).optional(),
     developerCommentsDirectory: z.string().min(1).optional(),
+    videoSourcePlanPath: z.string().min(1).optional(),
+    videoSourcePlanImported: z.boolean().default(false),
+    videoCollectionPath: z.string().min(1).optional(),
+    videoCollectionImported: z.boolean().default(false),
+    transcriptManifestPath: z.string().min(1).optional(),
+    transcriptManifestImported: z.boolean().default(false),
+    videoCommentManifestPath: z.string().min(1).optional(),
+    videoCommentManifestImported: z.boolean().default(false),
+    videoSignalsPath: z.string().min(1).optional(),
+    videoSignalsImported: z.boolean().default(false),
+    videoSourceTelemetryPath: z.string().min(1).optional(),
+    videoSourceTelemetryImported: z.boolean().default(false),
+    videoTranscriptsDirectory: z.string().min(1).optional(),
+    videoCommentsDirectory: z.string().min(1).optional(),
+    specializedSourceContextPath: z.string().min(1).optional(),
+    specializedSourceContextImported: z.boolean().default(false),
+    specializedSourceCandidatesPath: z.string().min(1).optional(),
+    specializedSourceCandidatesImported: z.boolean().default(false),
+    specializedSourcePlanPath: z.string().min(1).optional(),
+    specializedSourcePlanImported: z.boolean().default(false),
+    specializedFindingsPath: z.string().min(1).optional(),
+    specializedFindingsImported: z.boolean().default(false),
+    specializedSignalsPath: z.string().min(1).optional(),
+    specializedSignalsImported: z.boolean().default(false),
+    specializedSourceTelemetryPath: z.string().min(1).optional(),
+    specializedSourceTelemetryImported: z.boolean().default(false),
     sourceAdapterConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
@@ -284,6 +319,14 @@ export const LocalDiscoveryExecutionRecordV1Schema = z
       .regex(/^[a-f0-9]{64}$/)
       .optional(),
     developerConfigurationFingerprint: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    videoConfigurationFingerprint: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    specializedConfigurationFingerprint: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
       .optional(),

@@ -14,6 +14,8 @@ import {
   type BuyerMapCoverageGapV1,
   type ValidatedCommunityAnalysisSet,
   type ValidatedDeveloperAnalysisSet,
+  type ValidatedSpecializedAnalysisSet,
+  type ValidatedVideoAnalysisSet,
   type DiscoveryCandidateEntityV1,
   type DiscoveryCandidatesArtifactV1,
   type EvidenceFindingV1,
@@ -1245,6 +1247,461 @@ function developerEvidence(input: {
   return { materials, findings };
 }
 
+function exactResultForSourceConcepts(
+  candidates: DiscoveryCandidatesArtifactV1,
+  concepts: string[],
+): NormalizedDiscoveryResultV2 | undefined {
+  const normalized = [
+    ...new Set(
+      concepts.map((value) => value.trim().toLowerCase()).filter((value) => value.length > 1),
+    ),
+  ];
+  if (normalized.length !== 1) return undefined;
+  const concept = normalized[0];
+  if (concept === undefined) return undefined;
+  const matchingEntities = candidates.entities.filter((entity) =>
+    [entity.displayName, entity.domain]
+      .filter((value): value is string => value !== undefined)
+      .map((value) => value.trim().toLowerCase())
+      .includes(concept),
+  );
+  if (matchingEntities.length !== 1) return undefined;
+  const entity = matchingEntities[0];
+  if (entity === undefined) return undefined;
+  return entity.resultIds
+    .map((resultId) => candidates.results.find((result) => result.id === resultId))
+    .find((result) => result !== undefined);
+}
+
+function videoEvidence(input: {
+  candidates: DiscoveryCandidatesArtifactV1;
+  video?: ValidatedVideoAnalysisSet;
+}): { materials: EvidenceMaterialV1[]; findings: EvidenceFindingV1[] } {
+  if (input.video === undefined || input.candidates.results.length === 0) {
+    return { materials: [], findings: [] };
+  }
+  const video = input.video;
+  const materials: EvidenceMaterialV1[] = [];
+  const findings: EvidenceFindingV1[] = [];
+  const primaryEntities = video.plan.queries
+    .filter((query) => query.selected)
+    .map((query) => query.primaryEntity)
+    .filter((value): value is string => value !== undefined);
+  const result = exactResultForSourceConcepts(input.candidates, primaryEntities);
+  if (result === undefined) return { materials, findings };
+  const videosById = new Map(video.collection.videos.map((entry) => [entry.videoId, entry]));
+  const transcriptManifestById = new Map(
+    video.transcriptManifest.entries.map((entry) => [entry.transcriptArtifactId, entry]),
+  );
+  const queryIds = video.plan.queries
+    .filter((query) => query.selected)
+    .map((query) => query.queryId);
+
+  for (const entry of video.collection.videos) {
+    const content = `${entry.title}\n${entry.description ?? ""}`.trim().slice(0, 20_000);
+    if (content.length === 0) continue;
+    materials.push({
+      id: `material_youtube_video_${entry.videoId}`,
+      kind: "youtube_video",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: entry.url,
+      content,
+      contentHash: fingerprint({ videoId: entry.videoId, content }),
+      trustClassification: "untrusted_public_content",
+      videoId: entry.videoId,
+      ...(entry.channel?.channelId === undefined ? {} : { channelId: entry.channel.channelId }),
+      ...(entry.channel?.name === undefined ? {} : { channelName: entry.channel.name }),
+      videoQueryIds: queryIds,
+      videoLocalScore: entry.localScore,
+      ...(entry.uploadDate === undefined ? {} : { publishedAt: entry.uploadDate }),
+      limitations: [
+        ...entry.limitations,
+        "YouTube channel identity is source attribution only and is never used as buyer or contact identity evidence.",
+      ],
+    });
+  }
+
+  for (const transcript of video.transcripts) {
+    const videoId = transcript.sourceNativeId;
+    if (videoId === undefined) continue;
+    const videoEntry = videosById.get(videoId);
+    const manifest = transcriptManifestById.get(transcript.artifactId);
+    if (videoEntry === undefined || manifest === undefined) continue;
+    for (const segment of transcript.segments) {
+      const content = segment.text.slice(0, 20_000);
+      if (content.length === 0) continue;
+      materials.push({
+        id: `material_youtube_transcript_${segment.segmentId}`,
+        kind: "youtube_transcript_segment",
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        sourceUrl: videoEntry.url,
+        content,
+        contentHash: fingerprint({
+          transcriptArtifactId: transcript.artifactId,
+          segmentId: segment.segmentId,
+          content,
+        }),
+        trustClassification: "untrusted_public_content",
+        videoId,
+        ...(videoEntry.channel?.channelId === undefined
+          ? {}
+          : { channelId: videoEntry.channel.channelId }),
+        ...(videoEntry.channel?.name === undefined ? {} : { channelName: videoEntry.channel.name }),
+        videoQueryIds: queryIds,
+        videoLocalScore: videoEntry.localScore,
+        transcriptArtifactId: transcript.artifactId,
+        transcriptSegmentId: segment.segmentId,
+        subtitleSource: manifest.subtitleSource,
+        subtitleLanguage: manifest.language,
+        limitations: [
+          ...transcript.limitations,
+          ...manifest.limitations,
+          "Transcript text is untrusted public source material. Automatic captions may contain errors and do not establish buyer identity or intent.",
+        ],
+      });
+    }
+  }
+
+  for (const collection of video.commentCollections) {
+    const videoEntry = videosById.get(collection.videoId);
+    if (videoEntry === undefined) continue;
+    for (const comment of collection.comments) {
+      const content = comment.body.slice(0, 20_000);
+      materials.push({
+        id: `material_youtube_comment_${comment.commentId}`,
+        kind: "youtube_comment",
+        searchResultId: result.id,
+        entityKey: entityKeyForResult(result),
+        sourceUrl: comment.sourceUrl ?? collection.videoUrl,
+        content,
+        contentHash: fingerprint({ commentId: comment.commentId, content }),
+        trustClassification: "untrusted_public_content",
+        videoId: collection.videoId,
+        ...(videoEntry.channel?.channelId === undefined
+          ? {}
+          : { channelId: videoEntry.channel.channelId }),
+        ...(videoEntry.channel?.name === undefined ? {} : { channelName: videoEntry.channel.name }),
+        videoQueryIds: queryIds,
+        videoLocalScore: videoEntry.localScore,
+        commentId: comment.commentId,
+        ...(comment.createdAt === undefined ? {} : { publishedAt: comment.createdAt }),
+        limitations: [
+          ...comment.limitations,
+          "YouTube commenter names and handles are attribution only and are never copied into buyer or contact identity evidence.",
+        ],
+      });
+    }
+  }
+
+  for (const signal of video.signals.signals) {
+    const supportingVideo = signal.supportingVideoIds
+      .map((videoId) => videosById.get(videoId))
+      .find((entry) => entry !== undefined);
+    if (supportingVideo === undefined) continue;
+    const content = `${signal.observedFacts.join(" ")} ${signal.inference}`.slice(0, 20_000);
+    const materialId = `material_video_signal_${signal.signalId}`;
+    materials.push({
+      id: materialId,
+      kind: "video_signal",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: supportingVideo.url,
+      content,
+      contentHash: fingerprint({ signalId: signal.signalId, content }),
+      trustClassification: "untrusted_public_content",
+      videoId: supportingVideo.videoId,
+      ...(supportingVideo.channel?.channelId === undefined
+        ? {}
+        : { channelId: supportingVideo.channel.channelId }),
+      ...(supportingVideo.channel?.name === undefined
+        ? {}
+        : { channelName: supportingVideo.channel.name }),
+      videoSignalId: signal.signalId,
+      videoSignalType: signal.type,
+      videoQueryIds: queryIds,
+      videoLocalScore: supportingVideo.localScore,
+      relevanceScore: signal.missionRelevance.score,
+      confidence: signal.confidence,
+      independentVideoCount: signal.independentVideoCount,
+      independentChannelCount: signal.independentChannelCount,
+      limitations: [
+        ...signal.limitations,
+        "Deterministic video signals summarize bounded public video, transcript, and comment evidence only; they do not prove buyer identity, budget, authority, purchase intent, or representative market demand.",
+      ],
+    });
+    findings.push({
+      id: `finding_video_signal_${fingerprint({ signalId: signal.signalId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "video_signal",
+      positive: true,
+      strength:
+        signal.missionRelevance.relevant &&
+        signal.missionRelevance.score >= 0.7 &&
+        signal.confidence >= 0.7 &&
+        signal.independentVideoCount >= 2 &&
+        signal.independentChannelCount >= 2
+          ? "moderate"
+          : "weak",
+      summary: `${signal.inference} This remains bounded public video evidence and does not establish a commercial decision or buyer identity.`,
+      supportingText: content,
+      sourceUrl: supportingVideo.url,
+      providerId: "youtube_public",
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "video_signal",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: supportingVideo.url,
+        providerId: "youtube_public",
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "video_signal",
+        trustClassification: "untrusted_public_content",
+        videoId: supportingVideo.videoId,
+        ...(supportingVideo.channel?.channelId === undefined
+          ? {}
+          : { channelId: supportingVideo.channel.channelId }),
+        ...(supportingVideo.channel?.name === undefined
+          ? {}
+          : { channelName: supportingVideo.channel.name }),
+        videoSignalId: signal.signalId,
+        videoSignalType: signal.type,
+        videoQueryIds: queryIds,
+        videoLocalScore: supportingVideo.localScore,
+        relevanceScore: signal.missionRelevance.score,
+        confidence: signal.confidence,
+        independentVideoCount: signal.independentVideoCount,
+        independentChannelCount: signal.independentChannelCount,
+      },
+    });
+  }
+  return { materials, findings };
+}
+
+function specializedEvidence(input: {
+  candidates: DiscoveryCandidatesArtifactV1;
+  specialized?: ValidatedSpecializedAnalysisSet;
+}): { materials: EvidenceMaterialV1[]; findings: EvidenceFindingV1[] } {
+  if (input.specialized === undefined || input.candidates.results.length === 0) {
+    return { materials: [], findings: [] };
+  }
+  const specialized = input.specialized;
+  const materials: EvidenceMaterialV1[] = [];
+  const findings: EvidenceFindingV1[] = [];
+  const findingsById = new Map(
+    specialized.findings.findings.map((finding) => [finding.findingId, finding]),
+  );
+  const resultForFinding = (finding: (typeof specialized.findings.findings)[number]) =>
+    exactResultForSourceConcepts(input.candidates, finding.organizationNames);
+
+  for (const sourceFinding of specialized.findings.findings) {
+    const result = resultForFinding(sourceFinding);
+    if (result === undefined) continue;
+    const content = `${sourceFinding.title}\n${sourceFinding.summary ?? ""}`
+      .trim()
+      .slice(0, 20_000);
+    const materialId = `material_specialized_finding_${sourceFinding.findingId}`;
+    materials.push({
+      id: materialId,
+      kind: "specialized_finding",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: sourceFinding.url,
+      content,
+      contentHash: fingerprint({ findingId: sourceFinding.findingId, content }),
+      trustClassification: "untrusted_public_content",
+      specializedFindingId: sourceFinding.findingId,
+      specializedFindingType: sourceFinding.findingType,
+      ...(sourceFinding.sourceId === undefined
+        ? {}
+        : { specializedSourceId: sourceFinding.sourceId }),
+      ...(sourceFinding.candidateId === undefined
+        ? {}
+        : { specializedCandidateId: sourceFinding.candidateId }),
+      sourceDomain: sourceFinding.sourceDomain,
+      specializedSourceType: sourceFinding.sourceType,
+      sourceAuthorityClass: sourceFinding.authorityClass,
+      specializedRoute: sourceFinding.route,
+      relevanceScore: sourceFinding.relevance,
+      confidence: sourceFinding.sourceConfidence,
+      ...(sourceFinding.publishedAt === undefined
+        ? {}
+        : { publishedAt: sourceFinding.publishedAt }),
+      limitations: [
+        ...sourceFinding.limitations,
+        "Specialized publisher and source identities are provenance only and are never promoted to buyer or contact identity.",
+      ],
+    });
+    findings.push({
+      id: `finding_specialized_source_${fingerprint({ findingId: sourceFinding.findingId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "specialized_signal",
+      positive: true,
+      strength:
+        sourceFinding.relevance >= 0.75 && sourceFinding.sourceConfidence >= 0.75
+          ? "moderate"
+          : "weak",
+      summary:
+        "A selected specialized public source contains mission-relevant evidence for an already-known entity. Source authority is provenance, not buyer identity or purchase intent.",
+      supportingText: content,
+      sourceUrl: sourceFinding.url,
+      providerId: "specialized_public",
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "specialized_finding",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: sourceFinding.url,
+        providerId: "specialized_public",
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        ...(sourceFinding.publishedAt === undefined
+          ? {}
+          : { publishedAt: sourceFinding.publishedAt }),
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "specialized_finding",
+        trustClassification: "untrusted_public_content",
+        specializedFindingId: sourceFinding.findingId,
+        specializedFindingType: sourceFinding.findingType,
+        ...(sourceFinding.sourceId === undefined
+          ? {}
+          : { specializedSourceId: sourceFinding.sourceId }),
+        ...(sourceFinding.candidateId === undefined
+          ? {}
+          : { specializedCandidateId: sourceFinding.candidateId }),
+        sourceDomain: sourceFinding.sourceDomain,
+        specializedSourceType: sourceFinding.sourceType,
+        sourceAuthorityClass: sourceFinding.authorityClass,
+        specializedRoute: sourceFinding.route,
+        relevanceScore: sourceFinding.relevance,
+        confidence: sourceFinding.sourceConfidence,
+      },
+    });
+  }
+
+  for (const signal of specialized.signals.signals) {
+    const supporting = signal.supportingFindingIds
+      .map((findingId) => findingsById.get(findingId))
+      .filter((finding): finding is NonNullable<typeof finding> => finding !== undefined);
+    const resolved = supporting
+      .map((finding) => ({ finding, result: resultForFinding(finding) }))
+      .filter((entry) => entry.result !== undefined);
+    const entityKeys = new Set(
+      resolved.map((entry) => entityKeyForResult(entry.result as NormalizedDiscoveryResultV2)),
+    );
+    if (resolved.length === 0 || entityKeys.size !== 1) continue;
+    const first = resolved[0];
+    if (first?.result === undefined) continue;
+    const result = first.result;
+    const sourceFinding = first.finding;
+    const content = `${signal.observedFacts.join(" ")} ${signal.inference}`.slice(0, 20_000);
+    const materialId = `material_specialized_signal_${signal.signalId}`;
+    materials.push({
+      id: materialId,
+      kind: "specialized_signal",
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      sourceUrl: sourceFinding.url,
+      content,
+      contentHash: fingerprint({ signalId: signal.signalId, content }),
+      trustClassification: "untrusted_public_content",
+      specializedFindingId: sourceFinding.findingId,
+      specializedSignalId: signal.signalId,
+      specializedSignalType: signal.type,
+      specializedFindingType: sourceFinding.findingType,
+      ...(sourceFinding.sourceId === undefined
+        ? {}
+        : { specializedSourceId: sourceFinding.sourceId }),
+      ...(sourceFinding.candidateId === undefined
+        ? {}
+        : { specializedCandidateId: sourceFinding.candidateId }),
+      sourceDomain: sourceFinding.sourceDomain,
+      specializedSourceType: sourceFinding.sourceType,
+      sourceAuthorityClass: sourceFinding.authorityClass,
+      specializedRoute: sourceFinding.route,
+      relevanceScore: signal.missionRelevance.score,
+      confidence: signal.confidence,
+      independentSourceCount: signal.independentSourceCount,
+      limitations: [
+        ...signal.limitations,
+        "Deterministic specialized-source signals describe bounded public evidence only; they do not prove buyer identity, budget, authority, purchase intent, or representative market demand.",
+      ],
+    });
+    findings.push({
+      id: `finding_specialized_signal_${fingerprint({ signalId: signal.signalId }).slice(0, 16)}`,
+      searchResultId: result.id,
+      entityKey: entityKeyForResult(result),
+      signalType: "specialized_signal",
+      positive: true,
+      strength:
+        signal.missionRelevance.relevant &&
+        signal.missionRelevance.score >= 0.7 &&
+        signal.confidence >= 0.7 &&
+        signal.independentSourceCount >= 2
+          ? "moderate"
+          : "weak",
+      summary: `${signal.inference} This remains bounded public specialized-source evidence and does not establish a commercial decision or buyer identity.`,
+      supportingText: content,
+      sourceUrl: sourceFinding.url,
+      providerId: "specialized_public",
+      sourceZone: result.sourceZone,
+      stale: false,
+      materialId,
+      materialKind: "specialized_signal",
+      provenance: {
+        searchResultId: result.id,
+        queryId: result.queryId,
+        query: result.query,
+        sourceUrl: sourceFinding.url,
+        providerId: "specialized_public",
+        providerCategory: result.providerCategory,
+        sourceZone: result.sourceZone,
+        searchMethod: result.searchMethod,
+        signalIntent: result.signalIntent,
+        discoveredAt: result.discoveredAt,
+        materialId,
+        materialKind: "specialized_signal",
+        trustClassification: "untrusted_public_content",
+        specializedFindingId: sourceFinding.findingId,
+        specializedSignalId: signal.signalId,
+        specializedSignalType: signal.type,
+        specializedFindingType: sourceFinding.findingType,
+        ...(sourceFinding.sourceId === undefined
+          ? {}
+          : { specializedSourceId: sourceFinding.sourceId }),
+        ...(sourceFinding.candidateId === undefined
+          ? {}
+          : { specializedCandidateId: sourceFinding.candidateId }),
+        sourceDomain: sourceFinding.sourceDomain,
+        specializedSourceType: sourceFinding.sourceType,
+        sourceAuthorityClass: sourceFinding.authorityClass,
+        specializedRoute: sourceFinding.route,
+        relevanceScore: signal.missionRelevance.score,
+        confidence: signal.confidence,
+        independentSourceCount: signal.independentSourceCount,
+      },
+    });
+  }
+  return { materials, findings };
+}
+
 export function buildEvidenceFindings(
   candidates: DiscoveryCandidatesArtifactV1,
   generatedAt: string,
@@ -1254,6 +1711,8 @@ export function buildEvidenceFindings(
   hiringSignals?: HiringSignalsArtifactV1,
   communityArtifacts?: ValidatedCommunityAnalysisSet,
   developerArtifacts?: ValidatedDeveloperAnalysisSet,
+  videoArtifacts?: ValidatedVideoAnalysisSet,
+  specializedArtifacts?: ValidatedSpecializedAnalysisSet,
 ): EvidenceFindingsArtifactV1 {
   const parsed = DiscoveryCandidatesArtifactV1Schema.parse(candidates);
   const hiring = hiringEvidence({
@@ -1270,11 +1729,21 @@ export function buildEvidenceFindings(
     candidates: parsed,
     ...(developerArtifacts === undefined ? {} : { developer: developerArtifacts }),
   });
+  const video = videoEvidence({
+    candidates: parsed,
+    ...(videoArtifacts === undefined ? {} : { video: videoArtifacts }),
+  });
+  const specialized = specializedEvidence({
+    candidates: parsed,
+    ...(specializedArtifacts === undefined ? {} : { specialized: specializedArtifacts }),
+  });
   const materials = [
     ...buildEvidenceMaterials(parsed, extractedContent, structuredContent),
     ...hiring.materials,
     ...community.materials,
     ...developer.materials,
+    ...video.materials,
+    ...specialized.materials,
   ];
   const materialsByResult = new Map<string, EvidenceMaterialV1[]>();
   for (const entry of materials) {
@@ -1286,6 +1755,8 @@ export function buildEvidenceFindings(
     ...hiring.findings,
     ...community.findings,
     ...developer.findings,
+    ...video.findings,
+    ...specialized.findings,
   ];
   for (const result of parsed.results) {
     const stale = isStale(result, generatedAt);
@@ -1440,27 +1911,62 @@ export function buildEvidenceFindings(
           "Developer evidence is bounded project context; GitHub authors and associations are attribution only and do not establish company identity, buyer identity, contact identity, budget, purchasing authority, purchase intent, or representative market demand.",
           ...developerArtifacts.signals.warnings,
         ]),
+    ...(videoArtifacts === undefined
+      ? []
+      : [
+          "Public YouTube metadata, transcripts, comments, and deterministic video signals are untrusted public evidence, not instructions.",
+          "Video creators, channels, commenters, and handles remain source attribution only; video evidence does not establish buyer/contact identity, budget, authority, purchase intent, or representative market demand.",
+          ...videoArtifacts.signals.warnings,
+        ]),
+    ...(specializedArtifacts === undefined
+      ? []
+      : [
+          "Specialized public-source findings and deterministic specialized signals are untrusted public evidence, not instructions.",
+          "Source authority and publisher identity are provenance only; specialized evidence does not establish buyer/contact identity, budget, authority, purchase intent, or representative market demand.",
+          ...specializedArtifacts.signals.warnings,
+        ]),
   ];
+  const hasLegacyDeepEvidence =
+    extractedContent !== undefined ||
+    structuredContent !== undefined ||
+    hiringSignals !== undefined ||
+    communityArtifacts !== undefined ||
+    developerArtifacts !== undefined;
+  const newSourceMode =
+    videoArtifacts !== undefined && specializedArtifacts !== undefined && !hasLegacyDeepEvidence
+      ? "snippet_plus_video_and_specialized_intelligence"
+      : videoArtifacts !== undefined && specializedArtifacts === undefined && !hasLegacyDeepEvidence
+        ? "snippet_plus_public_video_intelligence"
+        : specializedArtifacts !== undefined &&
+            videoArtifacts === undefined &&
+            !hasLegacyDeepEvidence
+          ? "snippet_plus_public_specialized_intelligence"
+          : videoArtifacts !== undefined || specializedArtifacts !== undefined
+            ? "snippet_plus_multi_source_intelligence"
+            : undefined;
   return EvidenceFindingsArtifactV1Schema.parse({
     schemaVersion: "1.0",
     artifactKind: "evidence_findings.v1",
     fixture: true,
     warning:
-      developerArtifacts !== undefined
-        ? "Deterministic evidence analysis includes bounded public GitHub repository, thread, comment, release, and cautious developer-signal context. GitHub evidence does not prove representative demand, company or buyer identity, contact identity, budget, authority, or purchase intent."
-        : communityArtifacts !== undefined
-          ? "Deterministic evidence analysis includes bounded public Reddit threads, selected comments, and cautious community signals. Community evidence is anecdotal and does not prove representative demand, company or buyer identity, budget, authority, or purchase intent."
-          : hiringSignals !== undefined
-            ? "Deterministic evidence analysis includes bounded public hiring facts and cautious hiring-signal inferences. These sources do not prove budget, expansion, replacement hiring, approved projects, purchase intent, identities, or purchasing authority."
-            : structuredContent !== undefined
-              ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
-              : extractedContent === undefined
-                ? PROJECT_B_FIXTURE_WARNING
-                : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
+      videoArtifacts !== undefined || specializedArtifacts !== undefined
+        ? "Deterministic evidence analysis includes bounded public video and/or specialized-source intelligence. Creator, commenter, channel, publisher, and source identities remain attribution only; this evidence does not prove representative demand, buyer/contact identity, budget, authority, or purchase intent."
+        : developerArtifacts !== undefined
+          ? "Deterministic evidence analysis includes bounded public GitHub repository, thread, comment, release, and cautious developer-signal context. GitHub evidence does not prove representative demand, company or buyer identity, contact identity, budget, authority, or purchase intent."
+          : communityArtifacts !== undefined
+            ? "Deterministic evidence analysis includes bounded public Reddit threads, selected comments, and cautious community signals. Community evidence is anecdotal and does not prove representative demand, company or buyer identity, budget, authority, or purchase intent."
+            : hiringSignals !== undefined
+              ? "Deterministic evidence analysis includes bounded public hiring facts and cautious hiring-signal inferences. These sources do not prove budget, expansion, replacement hiring, approved projects, purchase intent, identities, or purchasing authority."
+              : structuredContent !== undefined
+                ? "Deterministic evidence analysis over search results, bounded public-page extraction, and structured public resources. Resource claims, identities, and buying intent are not independently verified."
+                : extractedContent === undefined
+                  ? PROJECT_B_FIXTURE_WARNING
+                  : "Deterministic evidence analysis over search results and bounded public-page extraction. Page claims, identities, and buying intent are not independently verified.",
     generatedAt,
     sourceArtifact: parsed.sourceArtifact,
     evidenceSourceMode:
-      developerArtifacts !== undefined
+      newSourceMode ??
+      (developerArtifacts !== undefined
         ? structuredContent !== undefined
           ? hiringSignals !== undefined && communityArtifacts !== undefined
             ? "snippet_plus_structured_hiring_community_and_developer_intelligence"
@@ -1494,7 +2000,7 @@ export function buildEvidenceFindings(
               ? "snippet_plus_structured_public_content"
               : extractedContent === undefined
                 ? "snippet_only"
-                : "snippet_plus_extracted_public_pages",
+                : "snippet_plus_extracted_public_pages"),
     materials,
     extractionSummary: {
       selectedPages: extractionSummary?.selectedUrls ?? 0,
@@ -1549,7 +2055,10 @@ export function buildBuyerHypotheses(
     const positive = findings.filter((finding) => finding.positive);
     const identityPositive = positive.filter(
       (finding) =>
-        finding.signalType !== "community_signal" && finding.signalType !== "developer_signal",
+        finding.signalType !== "community_signal" &&
+        finding.signalType !== "developer_signal" &&
+        finding.signalType !== "video_signal" &&
+        finding.signalType !== "specialized_signal",
     );
     const strongPositive = identityPositive.filter(
       (finding) => finding.strength === "strong",
@@ -1589,6 +2098,15 @@ export function buildBuyerHypotheses(
     );
     const developerSignalFindings = findings.filter(
       (finding) => finding.materialKind === "developer_signal",
+    );
+    const videoSignalFindings = findings.filter(
+      (finding) => finding.materialKind === "video_signal",
+    );
+    const specializedFindingFindings = findings.filter(
+      (finding) => finding.materialKind === "specialized_finding",
+    );
+    const specializedSignalFindings = findings.filter(
+      (finding) => finding.materialKind === "specialized_signal",
     );
     const confidence =
       strongPositive >= 2 && strongNegative === 0
@@ -1648,6 +2166,54 @@ export function buildBuyerHypotheses(
                 "Developer evidence was attached only to an already-existing discovery entity and did not create or identify a buyer.",
                 "GitHub usernames, handles, author associations, commit identities, and contributors are never used as company, buyer, or contact identities.",
                 "Developer discussion and release activity do not establish budget, purchasing authority, representative market demand, or purchase intent.",
+              ],
+            },
+          }),
+      ...(videoSignalFindings.length === 0
+        ? {}
+        : {
+            videoIdentityEvidence: {
+              observedVideoFindingIds: findings
+                .filter((finding) => finding.materialKind === "youtube_video")
+                .map((finding) => finding.id),
+              observedTranscriptFindingIds: findings
+                .filter((finding) => finding.materialKind === "youtube_transcript_segment")
+                .map((finding) => finding.id),
+              observedCommentFindingIds: findings
+                .filter((finding) => finding.materialKind === "youtube_comment")
+                .map((finding) => finding.id),
+              inferredSignalFindingIds: videoSignalFindings.map((finding) => finding.id),
+              confidence: "low" as const,
+              conservativeMatch: true as const,
+              creatorIdentityUsed: false as const,
+              commentAuthorIdentityUsed: false as const,
+              limitations: [
+                "Video evidence was attached only to an already-existing discovery entity and did not create or identify a buyer.",
+                "YouTube creator, channel, commenter, and handle identities remain source attribution only and are never used as company, buyer, or contact identities.",
+                "Video discussion does not establish budget, purchasing authority, representative market demand, or purchase intent.",
+              ],
+            },
+          }),
+      ...(specializedFindingFindings.length === 0 && specializedSignalFindings.length === 0
+        ? {}
+        : {
+            specializedIdentityEvidence: {
+              observedFindingIds: specializedFindingFindings.map((finding) => finding.id),
+              inferredSignalFindingIds: specializedSignalFindings.map((finding) => finding.id),
+              observedSourceDomains: [
+                ...new Set(
+                  [...specializedFindingFindings, ...specializedSignalFindings]
+                    .map((finding) => finding.provenance.sourceDomain)
+                    .filter((value): value is string => value !== undefined),
+                ),
+              ],
+              confidence: "low" as const,
+              conservativeMatch: true as const,
+              publisherIdentityUsed: false as const,
+              limitations: [
+                "Specialized-source evidence was attached only to an already-existing discovery entity and did not create or identify a buyer.",
+                "Publisher, regulator, association, database, and source identities remain provenance only and are never used as buyer or contact identities.",
+                "Specialized-source activity does not establish budget, purchasing authority, representative market demand, or purchase intent.",
               ],
             },
           }),
@@ -1766,7 +2332,10 @@ export function buildRankedOpportunities(input: {
     const negative = findings.filter((finding) => !finding.positive);
     const baselineFindings = findings.filter(
       (finding) =>
-        finding.signalType !== "community_signal" && finding.signalType !== "developer_signal",
+        finding.signalType !== "community_signal" &&
+        finding.signalType !== "developer_signal" &&
+        finding.signalType !== "video_signal" &&
+        finding.signalType !== "specialized_signal",
     );
     const baselinePositive = baselineFindings.filter((finding) => finding.positive);
     const hasPain = baselinePositive.some(
@@ -1839,6 +2408,77 @@ export function buildRankedOpportunities(input: {
         (finding) => finding.provenance.independentThreadCount ?? 0,
       ),
     );
+    const qualifyingVideoSignalTypes = new Set([
+      "pain",
+      "complaint",
+      "workflow_friction",
+      "switching_intent",
+      "alternative_search",
+      "comparison",
+      "implementation_difficulty",
+      "pricing_concern",
+      "support_problem",
+      "feature_demand",
+      "migration_signal",
+    ]);
+    const qualifyingVideoFindings = positive.filter(
+      (finding) =>
+        finding.signalType === "video_signal" &&
+        finding.materialKind === "video_signal" &&
+        finding.strength !== "weak" &&
+        finding.provenance.videoSignalType !== undefined &&
+        qualifyingVideoSignalTypes.has(finding.provenance.videoSignalType) &&
+        (finding.provenance.independentVideoCount ?? 0) >= 2 &&
+        (finding.provenance.independentChannelCount ?? 0) >= 2 &&
+        (finding.provenance.confidence ?? 0) >= 0.7 &&
+        (finding.provenance.relevanceScore ?? 0) >= 0.7,
+    );
+    const hasVideo = qualifyingVideoFindings.length > 0;
+    const videoIndependentVideoCount = Math.max(
+      0,
+      ...qualifyingVideoFindings.map((finding) => finding.provenance.independentVideoCount ?? 0),
+    );
+    const videoIndependentChannelCount = Math.max(
+      0,
+      ...qualifyingVideoFindings.map((finding) => finding.provenance.independentChannelCount ?? 0),
+    );
+    const qualifyingSpecializedSignalTypes = new Set([
+      "regulatory_change",
+      "compliance_pressure_possible",
+      "enforcement_or_quality_event",
+      "procurement_opportunity",
+      "contract_or_project_activity",
+      "industry_activity",
+      "association_activity",
+      "standard_change",
+      "certification_or_licensing_event",
+      "conference_activity",
+      "new_research",
+      "new_method",
+      "evaluation_result",
+      "benchmark_result",
+      "technical_attention",
+      "technology_emergence_possible",
+      "product_or_company_event",
+    ]);
+    const qualifyingSpecializedFindings = positive.filter(
+      (finding) =>
+        finding.signalType === "specialized_signal" &&
+        finding.materialKind === "specialized_signal" &&
+        finding.strength !== "weak" &&
+        finding.provenance.specializedSignalType !== undefined &&
+        qualifyingSpecializedSignalTypes.has(finding.provenance.specializedSignalType) &&
+        (finding.provenance.independentSourceCount ?? 0) >= 2 &&
+        (finding.provenance.confidence ?? 0) >= 0.7 &&
+        (finding.provenance.relevanceScore ?? 0) >= 0.7,
+    );
+    const hasSpecialized = qualifyingSpecializedFindings.length > 0;
+    const specializedIndependentSourceCount = Math.max(
+      0,
+      ...qualifyingSpecializedFindings.map(
+        (finding) => finding.provenance.independentSourceCount ?? 0,
+      ),
+    );
     const hasWorkaround = baselinePositive.some((finding) =>
       ["competitor_signal", "workaround_signal", "manual_process_signal"].includes(
         finding.signalType,
@@ -1854,6 +2494,8 @@ export function buildRankedOpportunities(input: {
         (finding) =>
           finding.signalType !== "community_signal" &&
           finding.signalType !== "developer_signal" &&
+          finding.signalType !== "video_signal" &&
+          finding.signalType !== "specialized_signal" &&
           finding.signalType === "negative_signal",
       ) || textMatchesExclusion(exclusionText, input.mission.input.exclusions);
     const weakOrStale =
@@ -1919,10 +2561,14 @@ export function buildRankedOpportunities(input: {
     ];
     const communityPoints = hasCommunity ? 1 : 0;
     const developerPoints = hasDeveloper ? 1 : 0;
+    const videoPoints = hasVideo ? 1 : 0;
+    const specializedPoints = hasSpecialized ? 1 : 0;
     const score =
       components.reduce((sum, component) => sum + component.points, 0) +
       communityPoints +
-      developerPoints;
+      developerPoints +
+      videoPoints +
+      specializedPoints;
     const confidence =
       score >= 14 && !hasExclusionConflict ? "high" : score >= 7 ? "medium" : "low";
     const risks = [
@@ -1962,6 +2608,25 @@ export function buildRankedOpportunities(input: {
           : "No qualifying independent developer signal was applied. Single-repository activity, release activity alone, maintenance/adoption hints, weak discussion, low-confidence signals, and ambiguous entity links contribute zero points.",
         independentRepositoryCount: developerIndependentRepositoryCount,
         independentThreadCount: developerIndependentThreadCount,
+      },
+      videoContribution: {
+        applied: hasVideo,
+        points: videoPoints,
+        maximumShareOfPositiveScore: 0.08,
+        rationale: hasVideo
+          ? "A mission-relevant public video pain, switching, comparison, implementation, pricing, support, feature-demand, or migration signal supported by at least two independent videos from two channels contributes exactly one capped point. Creator/commenter identity, budget, authority, purchase intent, and representative market demand are not inferred."
+          : "No qualifying independent video signal was applied. A single video/channel, weak or low-confidence transcript/comment evidence, creator attribution, and ambiguous entity links contribute zero points.",
+        independentVideoCount: videoIndependentVideoCount,
+        independentChannelCount: videoIndependentChannelCount,
+      },
+      specializedContribution: {
+        applied: hasSpecialized,
+        points: specializedPoints,
+        maximumShareOfPositiveScore: 0.08,
+        rationale: hasSpecialized
+          ? "A mission-relevant specialized-source signal supported by at least two independent public sources contributes exactly one capped point. Source authority affects provenance, not buyer identity, budget, authority, purchase intent, or representative market demand."
+          : "No qualifying independent specialized-source signal was applied. Single-source, weak, low-confidence, or ambiguously linked evidence contributes zero points.",
+        independentSourceCount: specializedIndependentSourceCount,
       },
       hiringContribution: {
         applied: hasHiring,
@@ -2218,6 +2883,78 @@ export function buildBuyerMap(input: {
         ...(finding.provenance.releasePrerelease === undefined
           ? {}
           : { releasePrerelease: finding.provenance.releasePrerelease }),
+        ...(finding.provenance.videoId === undefined
+          ? {}
+          : { videoId: finding.provenance.videoId }),
+        ...(finding.provenance.channelId === undefined
+          ? {}
+          : { channelId: finding.provenance.channelId }),
+        ...(finding.provenance.channelName === undefined
+          ? {}
+          : { channelName: finding.provenance.channelName }),
+        ...(finding.provenance.videoSignalId === undefined
+          ? {}
+          : { videoSignalId: finding.provenance.videoSignalId }),
+        ...(finding.provenance.videoSignalType === undefined
+          ? {}
+          : { videoSignalType: finding.provenance.videoSignalType }),
+        ...(finding.provenance.videoQueryIds === undefined
+          ? {}
+          : { videoQueryIds: finding.provenance.videoQueryIds }),
+        ...(finding.provenance.videoLocalScore === undefined
+          ? {}
+          : { videoLocalScore: finding.provenance.videoLocalScore }),
+        ...(finding.provenance.independentVideoCount === undefined
+          ? {}
+          : { independentVideoCount: finding.provenance.independentVideoCount }),
+        ...(finding.provenance.independentChannelCount === undefined
+          ? {}
+          : { independentChannelCount: finding.provenance.independentChannelCount }),
+        ...(finding.provenance.transcriptArtifactId === undefined
+          ? {}
+          : { transcriptArtifactId: finding.provenance.transcriptArtifactId }),
+        ...(finding.provenance.transcriptSegmentId === undefined
+          ? {}
+          : { transcriptSegmentId: finding.provenance.transcriptSegmentId }),
+        ...(finding.provenance.subtitleSource === undefined
+          ? {}
+          : { subtitleSource: finding.provenance.subtitleSource }),
+        ...(finding.provenance.subtitleLanguage === undefined
+          ? {}
+          : { subtitleLanguage: finding.provenance.subtitleLanguage }),
+        ...(finding.provenance.specializedFindingId === undefined
+          ? {}
+          : { specializedFindingId: finding.provenance.specializedFindingId }),
+        ...(finding.provenance.specializedSignalId === undefined
+          ? {}
+          : { specializedSignalId: finding.provenance.specializedSignalId }),
+        ...(finding.provenance.specializedSignalType === undefined
+          ? {}
+          : { specializedSignalType: finding.provenance.specializedSignalType }),
+        ...(finding.provenance.specializedFindingType === undefined
+          ? {}
+          : { specializedFindingType: finding.provenance.specializedFindingType }),
+        ...(finding.provenance.specializedSourceId === undefined
+          ? {}
+          : { specializedSourceId: finding.provenance.specializedSourceId }),
+        ...(finding.provenance.specializedCandidateId === undefined
+          ? {}
+          : { specializedCandidateId: finding.provenance.specializedCandidateId }),
+        ...(finding.provenance.sourceDomain === undefined
+          ? {}
+          : { sourceDomain: finding.provenance.sourceDomain }),
+        ...(finding.provenance.specializedSourceType === undefined
+          ? {}
+          : { specializedSourceType: finding.provenance.specializedSourceType }),
+        ...(finding.provenance.sourceAuthorityClass === undefined
+          ? {}
+          : { sourceAuthorityClass: finding.provenance.sourceAuthorityClass }),
+        ...(finding.provenance.specializedRoute === undefined
+          ? {}
+          : { specializedRoute: finding.provenance.specializedRoute }),
+        ...(finding.provenance.independentSourceCount === undefined
+          ? {}
+          : { independentSourceCount: finding.provenance.independentSourceCount }),
       })),
       risks: opportunity.risks,
       limitations: opportunity.limitations,
@@ -2244,17 +2981,22 @@ export function buildBuyerMap(input: {
     schemaVersion: "1.0",
     artifactKind: "buyer_map.v1",
     fixture: true,
-    warning: evidence.evidenceSourceMode.includes("developer_intelligence")
-      ? "Buyer Map includes bounded public GitHub evidence. Repositories, issues, pull requests, comments, reviews, releases, and deterministic developer signals do not verify representative demand, company or buyer identity, contact identity, budget, purchasing authority, or buying intent. GitHub usernames and author associations remain source attribution only."
-      : evidence.evidenceSourceMode.includes("community_intelligence")
-        ? "Buyer Map includes sampled public Reddit evidence. Community threads, comments, and deterministic signals are anecdotal and do not verify representative demand, company or buyer identity, budget, purchasing authority, or buying intent."
-        : evidence.evidenceSourceMode.includes("hiring_intelligence")
-          ? "Buyer Map includes bounded public hiring evidence. Jobs and hiring signals do not verify budget, expansion, replacement hiring, approved projects, identities, purchasing authority, or buying intent."
-          : evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
-            ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
-            : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
-              ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
-              : PROJECT_B_FIXTURE_WARNING,
+    warning:
+      evidence.evidenceSourceMode.includes("video") ||
+      evidence.evidenceSourceMode.includes("specialized") ||
+      evidence.evidenceSourceMode === "snippet_plus_multi_source_intelligence"
+        ? "Buyer Map includes bounded public video and/or specialized-source evidence. Creator, channel, commenter, publisher, regulator, association, and source identities remain attribution only and do not verify buyer/contact identity, budget, purchasing authority, purchase intent, or representative demand."
+        : evidence.evidenceSourceMode.includes("developer_intelligence")
+          ? "Buyer Map includes bounded public GitHub evidence. Repositories, issues, pull requests, comments, reviews, releases, and deterministic developer signals do not verify representative demand, company or buyer identity, contact identity, budget, purchasing authority, or buying intent. GitHub usernames and author associations remain source attribution only."
+          : evidence.evidenceSourceMode.includes("community_intelligence")
+            ? "Buyer Map includes sampled public Reddit evidence. Community threads, comments, and deterministic signals are anecdotal and do not verify representative demand, company or buyer identity, budget, purchasing authority, or buying intent."
+            : evidence.evidenceSourceMode.includes("hiring_intelligence")
+              ? "Buyer Map includes bounded public hiring evidence. Jobs and hiring signals do not verify budget, expansion, replacement hiring, approved projects, identities, purchasing authority, or buying intent."
+              : evidence.evidenceSourceMode === "snippet_plus_structured_public_content"
+                ? "Buyer Map is a deterministic synthesis of search results, bounded public-page extraction, and structured public resources. It does not verify identities, purchasing authority, or buying intent."
+                : evidence.evidenceSourceMode === "snippet_plus_extracted_public_pages"
+                  ? "Buyer Map is a deterministic synthesis of search results and bounded untrusted public-page extraction. It does not verify identities, purchasing authority, or buying intent."
+                  : PROJECT_B_FIXTURE_WARNING,
     generatedAt: input.generatedAt,
     evidenceSourceMode: evidence.evidenceSourceMode,
     summary: {
@@ -2345,6 +3087,39 @@ export function buildBuyerMap(input: {
         (count, opportunity) =>
           count +
           opportunity.evidence.filter((citation) => citation.materialKind === "developer_signal")
+            .length,
+        0,
+      ),
+      videoCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter(
+            (citation) =>
+              citation.materialKind === "youtube_video" ||
+              citation.materialKind === "youtube_transcript_segment" ||
+              citation.materialKind === "youtube_comment" ||
+              citation.materialKind === "video_signal",
+          ).length,
+        0,
+      ),
+      videoSignalCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "video_signal")
+            .length,
+        0,
+      ),
+      specializedFindingCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "specialized_finding")
+            .length,
+        0,
+      ),
+      specializedSignalCitationCount: opportunities.reduce(
+        (count, opportunity) =>
+          count +
+          opportunity.evidence.filter((citation) => citation.materialKind === "specialized_signal")
             .length,
         0,
       ),

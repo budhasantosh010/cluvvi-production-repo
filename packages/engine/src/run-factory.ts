@@ -54,8 +54,11 @@ export function createRunCreationRecords(input: {
   discoveryMaximumGitHubQueries?: number;
   discoveryMaximumGitHubRepositories?: number;
   discoveryMaximumGitHubThreadDrill?: number;
+  discoveryYoutubeDepth?: "quick" | "default" | "deep";
   communitySignalRuleVersion?: string;
   developerSignalRuleVersion?: string;
+  videoSignalRuleVersion?: string;
+  specializedSignalRuleVersion?: string;
   hiringSignalRuleVersion?: string;
   hiringTaxonomyVersion?: string;
   hiringTechnologyLexiconVersion?: string;
@@ -105,8 +108,12 @@ export function createRunCreationRecords(input: {
       discoveryMaximumGitHubQueries: input.discoveryMaximumGitHubQueries ?? 4,
       discoveryMaximumGitHubRepositories: input.discoveryMaximumGitHubRepositories ?? 8,
       discoveryMaximumGitHubThreadDrill: input.discoveryMaximumGitHubThreadDrill ?? 5,
+      discoveryYoutubeDepth: input.discoveryYoutubeDepth ?? "default",
       communitySignalRuleVersion: input.communitySignalRuleVersion ?? "community_signals@1.0.0",
       developerSignalRuleVersion: input.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1",
+      videoSignalRuleVersion: input.videoSignalRuleVersion ?? "c1-j4.video-signals.v1",
+      specializedSignalRuleVersion:
+        input.specializedSignalRuleVersion ?? "c1-j5.specialized-signals.v1",
       hiringSignalRuleVersion: input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0",
       hiringTaxonomyVersion: input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0",
       hiringTechnologyLexiconVersion:
@@ -156,8 +163,11 @@ export function createRunCreationRecords(input: {
       discoveryMaximumGitHubQueries: run.config.discoveryMaximumGitHubQueries,
       discoveryMaximumGitHubRepositories: run.config.discoveryMaximumGitHubRepositories,
       discoveryMaximumGitHubThreadDrill: run.config.discoveryMaximumGitHubThreadDrill,
+      discoveryYoutubeDepth: run.config.discoveryYoutubeDepth,
       communitySignalRuleVersion: run.config.communitySignalRuleVersion,
       developerSignalRuleVersion: run.config.developerSignalRuleVersion,
+      videoSignalRuleVersion: run.config.videoSignalRuleVersion,
+      specializedSignalRuleVersion: run.config.specializedSignalRuleVersion,
     },
     createdAt: now,
   });

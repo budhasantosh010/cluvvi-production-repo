@@ -35,6 +35,18 @@ import {
   SourceTargetPlanArtifactV1Schema,
   StructuredContentArtifactV1Schema,
   ThreadManifestArtifactV1Schema,
+  TranscriptManifestArtifactV1Schema,
+  VideoCollectionArtifactV1Schema,
+  VideoCommentManifestArtifactV1Schema,
+  VideoSignalsArtifactV1Schema,
+  VideoSourcePlanArtifactV1Schema,
+  VideoSourceRunTelemetryArtifactV1Schema,
+  SpecializedSourceContextArtifactV1Schema,
+  SpecializedSourceCandidateCollectionArtifactV1Schema,
+  SpecializedSourcePlanArtifactV1Schema,
+  SpecializedFindingsArtifactV1Schema,
+  SpecializedSignalsArtifactV1Schema,
+  SpecializedSourceRunTelemetryArtifactV1Schema,
   type ArtifactType,
   type SearchResultsArtifactV2,
 } from "@cluvvi/core";
@@ -709,6 +721,263 @@ async function requireDeveloperTelemetry(
   return runtime.readDeveloperArtifactSet({ runId: context.run.id, searchResults });
 }
 
+function assertVideoConfigured(runtime: DiscoveryRuntime, context: StageContext): void {
+  if (
+    runtime.sourceAdapterMode !== "selected_sources" ||
+    !runtime.sourceFamilies?.includes("video") ||
+    context.run.config.discoverySourceAdapterMode !== "selected_sources" ||
+    !context.run.config.discoverySourceFamilies.includes("video")
+  ) {
+    throw new CluvviError({
+      code: "DISCOVERY_VIDEO_NOT_CONFIGURED",
+      category: "configuration",
+      message:
+        "The run requested public YouTube video intelligence, but the active Discovery runtime is not configured for the video source family.",
+      retryable: true,
+      stage: context.run.phase,
+      context: {
+        retrySafe: true,
+        resumeSupported: true,
+        discoveryReuseExpected: true,
+        hiringReuseExpected: true,
+        communityReuseExpected: true,
+        developerReuseExpected: true,
+      },
+    });
+  }
+}
+
+async function requireVideoPlan(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertVideoConfigured(runtime, context);
+  if (runtime.readVideoPlan === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_VIDEO_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the video source plan.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readVideoPlan({ runId: context.run.id, searchResults });
+}
+
+async function requireVideoCollection(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertVideoConfigured(runtime, context);
+  if (runtime.readVideoCollection === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_VIDEO_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the public YouTube video collection.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readVideoCollection({ runId: context.run.id, searchResults });
+}
+
+async function requireVideoTranscripts(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertVideoConfigured(runtime, context);
+  if (runtime.readVideoTranscripts === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_VIDEO_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated public transcripts.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readVideoTranscripts({ runId: context.run.id, searchResults });
+}
+
+async function requireVideoComments(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertVideoConfigured(runtime, context);
+  if (runtime.readVideoComments === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_VIDEO_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import bounded public video comments.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readVideoComments({ runId: context.run.id, searchResults });
+}
+
+async function requireVideoAnalysis(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertVideoConfigured(runtime, context);
+  if (runtime.readVideoAnalysis === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_VIDEO_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import validated video signals.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readVideoAnalysis({ runId: context.run.id, searchResults });
+}
+
+async function requireVideoTelemetry(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertVideoConfigured(runtime, context);
+  if (runtime.readVideoArtifactSet === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_VIDEO_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import video source telemetry.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readVideoArtifactSet({ runId: context.run.id, searchResults });
+}
+
+function assertSpecializedConfigured(runtime: DiscoveryRuntime, context: StageContext): void {
+  if (
+    runtime.sourceAdapterMode !== "selected_sources" ||
+    !runtime.sourceFamilies?.includes("specialized") ||
+    context.run.config.discoverySourceAdapterMode !== "selected_sources" ||
+    !context.run.config.discoverySourceFamilies.includes("specialized")
+  ) {
+    throw new CluvviError({
+      code: "DISCOVERY_SPECIALIZED_NOT_CONFIGURED",
+      category: "configuration",
+      message:
+        "The run requested specialized public-source intelligence, but the active Discovery runtime is not configured for the specialized source family.",
+      retryable: true,
+      stage: context.run.phase,
+      context: {
+        retrySafe: true,
+        resumeSupported: true,
+        discoveryReuseExpected: true,
+        hiringReuseExpected: true,
+        communityReuseExpected: true,
+        developerReuseExpected: true,
+        videoReuseExpected: true,
+      },
+    });
+  }
+}
+
+async function requireSpecializedContext(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertSpecializedConfigured(runtime, context);
+  if (runtime.readSpecializedContext === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_SPECIALIZED_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import specialized source context.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readSpecializedContext({ runId: context.run.id, searchResults });
+}
+
+async function requireSpecializedCandidates(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertSpecializedConfigured(runtime, context);
+  if (runtime.readSpecializedCandidates === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_SPECIALIZED_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import specialized source candidates.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readSpecializedCandidates({ runId: context.run.id, searchResults });
+}
+
+async function requireSpecializedPlan(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertSpecializedConfigured(runtime, context);
+  if (runtime.readSpecializedPlan === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_SPECIALIZED_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import the specialized source plan.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readSpecializedPlan({ runId: context.run.id, searchResults });
+}
+
+async function requireSpecializedFindings(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertSpecializedConfigured(runtime, context);
+  if (runtime.readSpecializedFindings === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_SPECIALIZED_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import specialized public findings.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readSpecializedFindings({ runId: context.run.id, searchResults });
+}
+
+async function requireSpecializedAnalysis(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertSpecializedConfigured(runtime, context);
+  if (runtime.readSpecializedAnalysis === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_SPECIALIZED_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import specialized-source signals.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readSpecializedAnalysis({ runId: context.run.id, searchResults });
+}
+
+async function requireSpecializedTelemetry(
+  runtime: DiscoveryRuntime,
+  context: StageContext,
+  searchResults: SearchResultsArtifactV2,
+) {
+  assertSpecializedConfigured(runtime, context);
+  if (runtime.readSpecializedArtifactSet === undefined)
+    throw new CluvviError({
+      code: "DISCOVERY_SPECIALIZED_NOT_SUPPORTED",
+      category: "unsupported",
+      message: "The active Discovery runtime cannot import specialized source telemetry.",
+      retryable: false,
+      stage: context.run.phase,
+    });
+  return runtime.readSpecializedArtifactSet({ runId: context.run.id, searchResults });
+}
+
 export function createDownstreamFixtureStages(
   input: { discoveryRuntime?: DiscoveryRuntime } = {},
 ): readonly EngineStage<unknown, unknown>[] {
@@ -1164,6 +1433,206 @@ export function createDownstreamFixtureStages(
       },
     }),
     createDownstreamStage({
+      name: "video_planning",
+      artifactType: "video_source_plan",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: VideoSourcePlanArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("video"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_video_source_plan",
+      async execute(searchResults, context) {
+        return (await requireVideoPlan(discoveryRuntime, context, searchResults)).plan;
+      },
+    }),
+    createDownstreamStage({
+      name: "video_retrieval",
+      artifactType: "video_collection",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(VideoSourcePlanArtifactV1Schema),
+      outputSchema: VideoCollectionArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("video"),
+      loadInput: loadCommunityStageInput("video_source_plan"),
+      toolName: "local_discovery_engine_import_video_collection",
+      async execute(input, context) {
+        return (await requireVideoCollection(discoveryRuntime, context, input.searchResults))
+          .collection;
+      },
+    }),
+    createDownstreamStage({
+      name: "video_transcript_retrieval",
+      artifactType: "transcript_manifest",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(VideoCollectionArtifactV1Schema),
+      outputSchema: TranscriptManifestArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("video"),
+      loadInput: loadCommunityStageInput("video_collection"),
+      toolName: "local_discovery_engine_import_transcript_manifest",
+      async execute(input, context) {
+        return (await requireVideoTranscripts(discoveryRuntime, context, input.searchResults))
+          .transcriptManifest;
+      },
+    }),
+    createDownstreamStage({
+      name: "video_comment_retrieval",
+      artifactType: "video_comment_manifest",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(TranscriptManifestArtifactV1Schema),
+      outputSchema: VideoCommentManifestArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("video"),
+      loadInput: loadCommunityStageInput("transcript_manifest"),
+      toolName: "local_discovery_engine_import_video_comment_manifest",
+      async execute(input, context) {
+        return (await requireVideoComments(discoveryRuntime, context, input.searchResults))
+          .commentManifest;
+      },
+    }),
+    createDownstreamStage({
+      name: "video_analysis",
+      artifactType: "video_signals",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(VideoCommentManifestArtifactV1Schema),
+      outputSchema: VideoSignalsArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("video"),
+      loadInput: loadCommunityStageInput("video_comment_manifest"),
+      toolName: "local_discovery_engine_import_video_signals",
+      async execute(input, context) {
+        return (await requireVideoAnalysis(discoveryRuntime, context, input.searchResults)).signals;
+      },
+    }),
+    createDownstreamStage({
+      name: "video_source_telemetry",
+      artifactType: "video_source_telemetry",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(VideoSignalsArtifactV1Schema),
+      outputSchema: VideoSourceRunTelemetryArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("video"),
+      loadInput: loadCommunityStageInput("video_signals"),
+      toolName: "local_discovery_engine_import_video_source_telemetry",
+      async execute(input, context) {
+        return (await requireVideoTelemetry(discoveryRuntime, context, input.searchResults))
+          .telemetry;
+      },
+    }),
+    createDownstreamStage({
+      name: "specialized_context",
+      artifactType: "specialized_source_context",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: SearchResultsArtifactV2Schema,
+      outputSchema: SpecializedSourceContextArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("specialized"),
+      loadInput: requireArtifact(SearchResultsArtifactV2Schema, "search_results"),
+      toolName: "local_discovery_engine_import_specialized_source_context",
+      async execute(searchResults, context) {
+        return (await requireSpecializedContext(discoveryRuntime, context, searchResults)).context;
+      },
+    }),
+    createDownstreamStage({
+      name: "specialized_candidate_discovery",
+      artifactType: "specialized_source_candidates",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(SpecializedSourceContextArtifactV1Schema),
+      outputSchema: SpecializedSourceCandidateCollectionArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("specialized"),
+      loadInput: loadCommunityStageInput("specialized_source_context"),
+      toolName: "local_discovery_engine_import_specialized_source_candidates",
+      async execute(input, context) {
+        return (await requireSpecializedCandidates(discoveryRuntime, context, input.searchResults))
+          .candidates;
+      },
+    }),
+    createDownstreamStage({
+      name: "specialized_planning",
+      artifactType: "specialized_source_plan",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(SpecializedSourceCandidateCollectionArtifactV1Schema),
+      outputSchema: SpecializedSourcePlanArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("specialized"),
+      loadInput: loadCommunityStageInput("specialized_source_candidates"),
+      toolName: "local_discovery_engine_import_specialized_source_plan",
+      async execute(input, context) {
+        return (await requireSpecializedPlan(discoveryRuntime, context, input.searchResults)).plan;
+      },
+    }),
+    createDownstreamStage({
+      name: "specialized_retrieval",
+      artifactType: "specialized_findings",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(SpecializedSourcePlanArtifactV1Schema),
+      outputSchema: SpecializedFindingsArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("specialized"),
+      loadInput: loadCommunityStageInput("specialized_source_plan"),
+      toolName: "local_discovery_engine_import_specialized_findings",
+      async execute(input, context) {
+        return (await requireSpecializedFindings(discoveryRuntime, context, input.searchResults))
+          .findings;
+      },
+    }),
+    createDownstreamStage({
+      name: "specialized_analysis",
+      artifactType: "specialized_signals",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(SpecializedFindingsArtifactV1Schema),
+      outputSchema: SpecializedSignalsArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("specialized"),
+      loadInput: loadCommunityStageInput("specialized_findings"),
+      toolName: "local_discovery_engine_import_specialized_signals",
+      async execute(input, context) {
+        return (await requireSpecializedAnalysis(discoveryRuntime, context, input.searchResults))
+          .signals;
+      },
+    }),
+    createDownstreamStage({
+      name: "specialized_source_telemetry",
+      artifactType: "specialized_source_telemetry",
+      version: "1.0.0",
+      schemaVersion: "1.0",
+      inputSchema: communityStageInputSchema(SpecializedSignalsArtifactV1Schema),
+      outputSchema: SpecializedSourceRunTelemetryArtifactV1Schema,
+      shouldRun: (context) =>
+        context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+        context.run.config.discoverySourceFamilies.includes("specialized"),
+      loadInput: loadCommunityStageInput("specialized_signals"),
+      toolName: "local_discovery_engine_import_specialized_source_telemetry",
+      async execute(input, context) {
+        return (await requireSpecializedTelemetry(discoveryRuntime, context, input.searchResults))
+          .telemetry;
+      },
+    }),
+    createDownstreamStage({
       name: "normalization",
       artifactType: "candidates",
       version: "2.0.0",
@@ -1190,18 +1659,38 @@ export function createDownstreamFixtureStages(
         const communitySelected =
           context.run.config.discoverySourceAdapterMode === "selected_sources" &&
           context.run.config.discoverySourceFamilies.includes("community");
+        const videoSelected =
+          context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+          context.run.config.discoverySourceFamilies.includes("video");
+        const specializedSelected =
+          context.run.config.discoverySourceAdapterMode === "selected_sources" &&
+          context.run.config.discoverySourceFamilies.includes("specialized");
         let community;
         let developer;
-        if (communitySelected || developerSelected) {
+        let video;
+        let specialized;
+        if (communitySelected || developerSelected || videoSelected || specializedSelected) {
           const searchArtifact = await context.getLatestArtifact("search_results");
           if (searchArtifact === null)
-            throw new Error("Community/developer evidence requires the search_results artifact.");
+            throw new Error(
+              "Community/developer/video/specialized evidence requires the search_results artifact.",
+            );
           const searchResults = SearchResultsArtifactV2Schema.parse(searchArtifact.data);
           if (communitySelected) {
             community = await requireCommunityAnalysis(discoveryRuntime, context, searchResults);
           }
           if (developerSelected) {
             developer = await requireDeveloperAnalysis(discoveryRuntime, context, searchResults);
+          }
+          if (videoSelected) {
+            video = await requireVideoAnalysis(discoveryRuntime, context, searchResults);
+          }
+          if (specializedSelected) {
+            specialized = await requireSpecializedAnalysis(
+              discoveryRuntime,
+              context,
+              searchResults,
+            );
           }
         }
         return buildEvidenceFindings(
@@ -1213,6 +1702,8 @@ export function createDownstreamFixtureStages(
           input.hiringSignals,
           community,
           developer,
+          video,
+          specialized,
         );
       },
     }),

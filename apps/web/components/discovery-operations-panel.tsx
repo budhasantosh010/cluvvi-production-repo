@@ -33,8 +33,14 @@ interface DiscoveryOperationsPanelProps {
   maximumGitHubQueries: number;
   maximumGitHubRepositories: number;
   maximumGitHubThreadDrill: number;
+  youtubeDepth: "quick" | "default" | "deep";
   communitySignalRuleVersion: string;
   developerSignalRuleVersion: string;
+  videoSignalRuleVersion: string;
+  specializedSignalRuleVersion: string;
+  specializedContextRuleVersion: string;
+  specializedCoverageVersion: string;
+  specializedRegistryVersion: string;
   runtimeMode: "fixture" | "local_discovery_engine";
   runnerAvailable: boolean;
 }
@@ -62,8 +68,14 @@ export function DiscoveryOperationsPanel({
   maximumGitHubQueries,
   maximumGitHubRepositories,
   maximumGitHubThreadDrill,
+  youtubeDepth,
   communitySignalRuleVersion,
   developerSignalRuleVersion,
+  videoSignalRuleVersion,
+  specializedSignalRuleVersion,
+  specializedContextRuleVersion,
+  specializedCoverageVersion,
+  specializedRegistryVersion,
   runtimeMode,
   runnerAvailable,
 }: DiscoveryOperationsPanelProps) {
@@ -77,26 +89,42 @@ export function DiscoveryOperationsPanel({
     | "hiring"
     | "community"
     | "developer"
+    | "video"
+    | "specialized"
     | "hiring_community"
     | "hiring_developer"
     | "community_developer"
-    | "all";
-  const activeFamilyMode: SourceFamilyPreviewMode =
-    sourceFamilies.includes("hiring") &&
-    sourceFamilies.includes("community") &&
-    sourceFamilies.includes("developer")
-      ? "all"
-      : sourceFamilies.includes("hiring") && sourceFamilies.includes("community")
-        ? "hiring_community"
-        : sourceFamilies.includes("hiring") && sourceFamilies.includes("developer")
-          ? "hiring_developer"
-          : sourceFamilies.includes("community") && sourceFamilies.includes("developer")
-            ? "community_developer"
-            : sourceFamilies.includes("community")
-              ? "community"
-              : sourceFamilies.includes("developer")
-                ? "developer"
-                : "hiring";
+    | "video_specialized"
+    | "all"
+    | "all_five";
+  const hasAllFive = ["hiring", "community", "developer", "video", "specialized"].every((family) =>
+    sourceFamilies.includes(family as CluvviSourceFamily),
+  );
+  const activeFamilyMode: SourceFamilyPreviewMode = hasAllFive
+    ? "all_five"
+    : sourceFamilies.length === 2 &&
+        sourceFamilies.includes("video") &&
+        sourceFamilies.includes("specialized")
+      ? "video_specialized"
+      : sourceFamilies.length === 1 && sourceFamilies.includes("specialized")
+        ? "specialized"
+        : sourceFamilies.length === 1 && sourceFamilies.includes("video")
+          ? "video"
+          : sourceFamilies.includes("hiring") &&
+              sourceFamilies.includes("community") &&
+              sourceFamilies.includes("developer")
+            ? "all"
+            : sourceFamilies.includes("hiring") && sourceFamilies.includes("community")
+              ? "hiring_community"
+              : sourceFamilies.includes("hiring") && sourceFamilies.includes("developer")
+                ? "hiring_developer"
+                : sourceFamilies.includes("community") && sourceFamilies.includes("developer")
+                  ? "community_developer"
+                  : sourceFamilies.includes("community")
+                    ? "community"
+                    : sourceFamilies.includes("developer")
+                      ? "developer"
+                      : "hiring";
   const [previewSourceFamilyMode, setPreviewSourceFamilyMode] =
     useState<SourceFamilyPreviewMode>(activeFamilyMode);
   const active =
@@ -108,17 +136,25 @@ export function DiscoveryOperationsPanel({
   const selectedStructured = previewStructuredMode === "selected_resources";
   const selectedHiring =
     previewSourceAdapterMode === "selected_sources" &&
-    ["hiring", "hiring_community", "hiring_developer", "all"].includes(previewSourceFamilyMode);
+    ["hiring", "hiring_community", "hiring_developer", "all", "all_five"].includes(
+      previewSourceFamilyMode,
+    );
   const selectedCommunity =
     previewSourceAdapterMode === "selected_sources" &&
-    ["community", "hiring_community", "community_developer", "all"].includes(
+    ["community", "hiring_community", "community_developer", "all", "all_five"].includes(
       previewSourceFamilyMode,
     );
   const selectedDeveloper =
     previewSourceAdapterMode === "selected_sources" &&
-    ["developer", "hiring_developer", "community_developer", "all"].includes(
+    ["developer", "hiring_developer", "community_developer", "all", "all_five"].includes(
       previewSourceFamilyMode,
     );
+  const selectedVideo =
+    previewSourceAdapterMode === "selected_sources" &&
+    ["video", "video_specialized", "all_five"].includes(previewSourceFamilyMode);
+  const selectedSpecialized =
+    previewSourceAdapterMode === "selected_sources" &&
+    ["specialized", "video_specialized", "all_five"].includes(previewSourceFamilyMode);
 
   return (
     <div className="grid gap-6">
@@ -211,10 +247,14 @@ export function DiscoveryOperationsPanel({
               <option value="hiring">Hiring — public ATS/jobs</option>
               <option value="community">Community — keyless public Reddit</option>
               <option value="developer">Developer — public GitHub</option>
+              <option value="video">Video — public YouTube</option>
+              <option value="specialized">Specialized — industry sources</option>
               <option value="hiring_community">Hiring + community</option>
               <option value="hiring_developer">Hiring + developer</option>
               <option value="community_developer">Community + developer</option>
+              <option value="video_specialized">Video + specialized</option>
               <option value="all">Hiring + community + developer</option>
+              <option value="all_five">All five public families</option>
             </select>
           </label>
         </div>
@@ -359,6 +399,50 @@ export function DiscoveryOperationsPanel({
               </li>
             </ul>
           </article>
+          <article
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
+              selectedVideo
+                ? "border-neutral-950 bg-neutral-950 text-white"
+                : "border-neutral-200 bg-neutral-50 text-neutral-900"
+            }`}
+            data-testid="video-mode-card"
+          >
+            <p className={`eyebrow ${selectedVideo ? "text-neutral-300" : ""}`}>C1-J.4 video</p>
+            <h3 className="mt-2 text-lg font-semibold">Public YouTube intelligence</h3>
+            <ul
+              className={`mt-3 grid gap-2 text-sm leading-6 ${selectedVideo ? "text-neutral-300" : "text-neutral-600"}`}
+            >
+              <li>• Depth {youtubeDepth}; bounded public metadata and text only</li>
+              <li>• Human subtitles preferred; automatic captions may be a fallback</li>
+              <li>• Selected public comments and deterministic video signals</li>
+              <li>• No media download, cookies, login, proxy, or challenge bypass</li>
+              <li>• Creators, channels, handles, and commenters are attribution only</li>
+              <li>• Zero paid requests and zero paid credits</li>
+            </ul>
+          </article>
+          <article
+            className={`min-w-0 overflow-hidden rounded-3xl border p-5 ${
+              selectedSpecialized
+                ? "border-neutral-950 bg-neutral-950 text-white"
+                : "border-neutral-200 bg-neutral-50 text-neutral-900"
+            }`}
+            data-testid="specialized-mode-card"
+          >
+            <p className={`eyebrow ${selectedSpecialized ? "text-neutral-300" : ""}`}>
+              C1-J.5 specialized
+            </p>
+            <h3 className="mt-2 text-lg font-semibold">Universal industry intelligence</h3>
+            <ul
+              className={`mt-3 grid gap-2 text-sm leading-6 ${selectedSpecialized ? "text-neutral-300" : "text-neutral-600"}`}
+            >
+              <li>• Top-level family is specialized, not research</li>
+              <li>• Context, known packs, signal-specific coverage, and bounded gap discovery</li>
+              <li>• Dynamic sources may use generic public site/feed/page routes only</li>
+              <li>• Tech/AI Pack #1: arXiv, Techmeme, optional Digg CLI</li>
+              <li>• Dynamic candidates cannot inject an executable adapter or script path</li>
+              <li>• Registry {specializedRegistryVersion}; zero paid credits</li>
+            </ul>
+          </article>
         </div>
 
         {!active && (
@@ -403,6 +487,12 @@ export function DiscoveryOperationsPanel({
             ["Maximum GitHub repositories", String(maximumGitHubRepositories)],
             ["Maximum GitHub thread drill", String(maximumGitHubThreadDrill)],
             ["Developer signal rules", developerSignalRuleVersion],
+            ["YouTube depth", youtubeDepth],
+            ["Video signal rules", videoSignalRuleVersion],
+            ["Specialized signal rules", specializedSignalRuleVersion],
+            ["Specialized context rules", specializedContextRuleVersion],
+            ["Specialized coverage version", specializedCoverageVersion],
+            ["Specialized registry version", specializedRegistryVersion],
             ["Structured parser policy", "structured_parser_policy@1.0.0"],
             ["AnyDoc parser", "@firecrawl/anydoc@0.1.6"],
             ["HTML renderer", "sanitized_html_to_gfm@1.0.0"],
@@ -419,15 +509,17 @@ export function DiscoveryOperationsPanel({
       <section className="rounded-3xl border border-violet-200 bg-violet-50 p-6 sm:p-8">
         <p className="eyebrow text-violet-700">Hard scope boundary</p>
         <h2 className="mt-2 text-xl font-semibold text-violet-950">
-          What C1-J.3 still does not do
+          What C1-J.5 still does not do
         </h2>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-violet-900">
-          No recursive crawling, browser or JavaScript challenge bypass, OCR execution, private
-          communities or repositories, authenticated Reddit access, GitHub mutations, repository
-          cloning, source/diff/patch download, developer or contact enrichment, outreach,
-          monitoring, or workflow automation. Public Reddit and GitHub evidence is bounded and
-          untrusted; it does not prove representative demand, company or buyer identity, budget,
-          purchasing authority, or purchase intent.
+          No recursive crawling, browser or JavaScript challenge bypass, private communities or
+          repositories, authenticated Reddit access, GitHub mutations, repository cloning,
+          source/diff/patch download, YouTube media download, cookies, login, proxy bypass, runtime
+          package installation, arbitrary specialized script or binary injection, or a top-level
+          research family. Creator, commenter, developer, publisher, and source identity stays
+          attribution-only. There is no contact enrichment, outreach, monitoring, workflow
+          automation, or later fusion milestone in C1-J.5, and public evidence does not prove
+          representative demand, buyer identity, budget, purchasing authority, or purchase intent.
         </p>
       </section>
     </div>

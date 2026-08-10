@@ -14,6 +14,13 @@ import {
   SourceAccessCategoryV1Schema,
 } from "./hiring/hiring-artifacts";
 import {
+  SourceAuthorityClassV1Schema,
+  SpecializedFindingTypeV1Schema,
+  SpecializedSignalTypeV1Schema,
+  SpecializedSourceTypeV1Schema,
+} from "./specialized/specialized-artifacts";
+import { VideoSignalTypeV1Schema } from "./video/video-artifacts";
+import {
   CoverageReportV2Schema,
   DiscoveryProviderCategorySchema,
   NormalizedDiscoveryResultV2Schema,
@@ -30,6 +37,8 @@ export const EvidenceSignalTypeSchema = z.enum([
   "hiring_signal",
   "community_signal",
   "developer_signal",
+  "video_signal",
+  "specialized_signal",
   "procurement_signal",
   "budget_signal",
   "competitor_signal",
@@ -62,6 +71,12 @@ export const EvidenceMaterialKindV1Schema = z.enum([
   "github_comment",
   "github_release",
   "developer_signal",
+  "youtube_video",
+  "youtube_transcript_segment",
+  "youtube_comment",
+  "video_signal",
+  "specialized_finding",
+  "specialized_signal",
 ]);
 export type EvidenceMaterialKindV1 = z.infer<typeof EvidenceMaterialKindV1Schema>;
 
@@ -125,6 +140,32 @@ export const EvidenceMaterialV1Schema = z
     releaseId: z.string().min(1).optional(),
     releaseTagName: z.string().min(1).optional(),
     releasePrerelease: z.boolean().optional(),
+    videoId: z.string().min(1).optional(),
+    channelId: z.string().min(1).optional(),
+    channelName: z.string().min(1).optional(),
+    videoSignalId: z.string().min(1).optional(),
+    videoSignalType: VideoSignalTypeV1Schema.optional(),
+    videoQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    videoLocalScore: z.number().min(0).max(2).optional(),
+    independentVideoCount: z.number().int().nonnegative().optional(),
+    independentChannelCount: z.number().int().nonnegative().optional(),
+    transcriptArtifactId: z.string().min(1).optional(),
+    transcriptSegmentId: z.string().min(1).optional(),
+    subtitleSource: z.enum(["human", "automatic"]).optional(),
+    subtitleLanguage: z.string().min(1).optional(),
+    specializedFindingId: z.string().min(1).optional(),
+    specializedSignalId: z.string().min(1).optional(),
+    specializedSignalType: SpecializedSignalTypeV1Schema.optional(),
+    specializedFindingType: SpecializedFindingTypeV1Schema.optional(),
+    specializedSourceId: z.string().min(1).optional(),
+    specializedCandidateId: z.string().min(1).optional(),
+    sourceDomain: z.string().min(1).optional(),
+    specializedSourceType: SpecializedSourceTypeV1Schema.optional(),
+    sourceAuthorityClass: SourceAuthorityClassV1Schema.optional(),
+    specializedRoute: z
+      .enum(["dedicated_adapter", "generic_site_search", "generic_feed", "generic_page_extraction"])
+      .optional(),
+    independentSourceCount: z.number().int().nonnegative().optional(),
     extractionItemId: z.string().min(1).optional(),
     frontierItemId: z.string().min(1).optional(),
     structuredContentItemId: z.string().min(1).optional(),
@@ -252,6 +293,32 @@ export const EvidenceProvenanceV1Schema = z
     releaseId: z.string().min(1).optional(),
     releaseTagName: z.string().min(1).optional(),
     releasePrerelease: z.boolean().optional(),
+    videoId: z.string().min(1).optional(),
+    channelId: z.string().min(1).optional(),
+    channelName: z.string().min(1).optional(),
+    videoSignalId: z.string().min(1).optional(),
+    videoSignalType: VideoSignalTypeV1Schema.optional(),
+    videoQueryIds: z.array(z.string().min(1)).max(20).optional(),
+    videoLocalScore: z.number().min(0).max(2).optional(),
+    independentVideoCount: z.number().int().nonnegative().optional(),
+    independentChannelCount: z.number().int().nonnegative().optional(),
+    transcriptArtifactId: z.string().min(1).optional(),
+    transcriptSegmentId: z.string().min(1).optional(),
+    subtitleSource: z.enum(["human", "automatic"]).optional(),
+    subtitleLanguage: z.string().min(1).optional(),
+    specializedFindingId: z.string().min(1).optional(),
+    specializedSignalId: z.string().min(1).optional(),
+    specializedSignalType: SpecializedSignalTypeV1Schema.optional(),
+    specializedFindingType: SpecializedFindingTypeV1Schema.optional(),
+    specializedSourceId: z.string().min(1).optional(),
+    specializedCandidateId: z.string().min(1).optional(),
+    sourceDomain: z.string().min(1).optional(),
+    specializedSourceType: SpecializedSourceTypeV1Schema.optional(),
+    sourceAuthorityClass: SourceAuthorityClassV1Schema.optional(),
+    specializedRoute: z
+      .enum(["dedicated_adapter", "generic_site_search", "generic_feed", "generic_page_extraction"])
+      .optional(),
+    independentSourceCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type EvidenceProvenanceV1 = z.infer<typeof EvidenceProvenanceV1Schema>;
@@ -355,6 +422,10 @@ export const EvidenceFindingsArtifactV1Schema = z
         "snippet_plus_structured_hiring_and_developer_intelligence",
         "snippet_plus_structured_community_and_developer_intelligence",
         "snippet_plus_structured_hiring_community_and_developer_intelligence",
+        "snippet_plus_public_video_intelligence",
+        "snippet_plus_public_specialized_intelligence",
+        "snippet_plus_video_and_specialized_intelligence",
+        "snippet_plus_multi_source_intelligence",
       ])
       .default("snippet_only"),
     materials: z.array(EvidenceMaterialV1Schema).default([]),

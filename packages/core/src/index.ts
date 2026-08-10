@@ -11,6 +11,8 @@ export * from "./local/fingerprint";
 export * from "./local/community/index";
 export * from "./local/developer/index";
 export * from "./local/hiring/index";
+export * from "./local/video/index";
+export * from "./local/specialized/index";
 export * from "./local/ids";
 export * from "./local/identity-enrichment";
 export * from "./local/mission";

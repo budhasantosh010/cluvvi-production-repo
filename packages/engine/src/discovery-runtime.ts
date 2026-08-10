@@ -23,7 +23,19 @@ import type {
   ValidatedDeveloperThreadManifestSet,
   ValidatedDeveloperThreadSet,
   ValidatedExtractionArtifactSet,
+  ValidatedSpecializedAnalysisSet,
+  ValidatedSpecializedArtifactSet,
+  ValidatedSpecializedCandidateSet,
+  ValidatedSpecializedContextSet,
+  ValidatedSpecializedFindingSet,
+  ValidatedSpecializedPlanSet,
   ValidatedStructuredContentArtifactSet,
+  ValidatedVideoAnalysisSet,
+  ValidatedVideoArtifactSet,
+  ValidatedVideoCollectionSet,
+  ValidatedVideoCommentSet,
+  ValidatedVideoPlanSet,
+  ValidatedVideoTranscriptSet,
 } from "@cluvvi/core";
 import type { ValidatedHiringArtifactSet } from "@cluvvi/core/hiring-validation";
 import type { BridgeDiscoveryRequestV1 } from "./discovery-request-adapter";
@@ -60,8 +72,11 @@ export interface DiscoveryRuntime {
   readonly maximumGitHubQueries?: number;
   readonly maximumGitHubRepositories?: number;
   readonly maximumGitHubThreadDrill?: number;
+  readonly youtubeDepth?: "quick" | "default" | "deep";
   readonly communitySignalRuleVersion?: string;
   readonly developerSignalRuleVersion?: string;
+  readonly videoSignalRuleVersion?: string;
+  readonly specializedSignalRuleVersion?: string;
   readonly hiringSignalRuleVersion?: string;
   readonly hiringTaxonomyVersion?: string;
   readonly hiringTechnologyLexiconVersion?: string;
@@ -77,6 +92,8 @@ export interface DiscoveryRuntime {
   readonly sourceAdapterConfigurationFingerprint?: string;
   readonly communityConfigurationFingerprint?: string;
   readonly developerConfigurationFingerprint?: string;
+  readonly videoConfigurationFingerprint?: string;
+  readonly specializedConfigurationFingerprint?: string;
   execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2>;
   readExtractionArtifactSet?(input: {
     runId: string;
@@ -153,6 +170,54 @@ export interface DiscoveryRuntime {
     runId: string;
     searchResults: SearchResultsArtifactV2;
   }): Promise<ValidatedDeveloperArtifactSet>;
+  readVideoPlan?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedVideoPlanSet>;
+  readVideoCollection?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedVideoCollectionSet>;
+  readVideoTranscripts?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedVideoTranscriptSet>;
+  readVideoComments?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedVideoCommentSet>;
+  readVideoAnalysis?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedVideoAnalysisSet>;
+  readVideoArtifactSet?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedVideoArtifactSet>;
+  readSpecializedContext?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedSpecializedContextSet>;
+  readSpecializedCandidates?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedSpecializedCandidateSet>;
+  readSpecializedPlan?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedSpecializedPlanSet>;
+  readSpecializedFindings?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedSpecializedFindingSet>;
+  readSpecializedAnalysis?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedSpecializedAnalysisSet>;
+  readSpecializedArtifactSet?(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedSpecializedArtifactSet>;
 }
 
 export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
@@ -179,8 +244,11 @@ export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumGitHubQueries = 4;
   readonly maximumGitHubRepositories = 8;
   readonly maximumGitHubThreadDrill = 5;
+  readonly youtubeDepth = "default" as const;
   readonly communitySignalRuleVersion = "community_signals@1.0.0";
   readonly developerSignalRuleVersion = "c1-j3.developer-signals.v1";
+  readonly videoSignalRuleVersion = "c1-j4.video-signals.v1";
+  readonly specializedSignalRuleVersion = "c1-j5.specialized-signals.v1";
   readonly hiringSignalRuleVersion = "hiring_signals@1.0.0";
   readonly hiringTaxonomyVersion = "hiring_taxonomy@1.0.0";
   readonly hiringTechnologyLexiconVersion = "hiring_technology_lexicon@1.0.0";
@@ -196,6 +264,8 @@ export class FixtureDiscoveryRuntime implements DiscoveryRuntime {
   readonly sourceAdapterConfigurationFingerprint = "fixture-no-source-adapters";
   readonly communityConfigurationFingerprint = "fixture-no-community-sources";
   readonly developerConfigurationFingerprint = "fixture-no-developer-sources";
+  readonly videoConfigurationFingerprint = "fixture-no-video-sources";
+  readonly specializedConfigurationFingerprint = "fixture-no-specialized-sources";
 
   async execute(input: DiscoveryRuntimeExecutionInput): Promise<SearchResultsArtifactV2> {
     void input;

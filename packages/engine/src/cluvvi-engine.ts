@@ -92,8 +92,11 @@ export class CluvviEngine {
   readonly #discoveryMaximumGitHubQueries: number;
   readonly #discoveryMaximumGitHubRepositories: number;
   readonly #discoveryMaximumGitHubThreadDrill: number;
+  readonly #discoveryYoutubeDepth: "quick" | "default" | "deep";
   readonly #communitySignalRuleVersion: string;
   readonly #developerSignalRuleVersion: string;
+  readonly #videoSignalRuleVersion: string;
+  readonly #specializedSignalRuleVersion: string;
   readonly #hiringSignalRuleVersion: string;
   readonly #hiringTaxonomyVersion: string;
   readonly #hiringTechnologyLexiconVersion: string;
@@ -109,6 +112,8 @@ export class CluvviEngine {
   readonly #sourceAdapterConfigurationFingerprint: string;
   readonly #communityConfigurationFingerprint: string;
   readonly #developerConfigurationFingerprint: string;
+  readonly #videoConfigurationFingerprint: string;
+  readonly #specializedConfigurationFingerprint: string;
 
   constructor(input: {
     store: CluvviStore;
@@ -141,8 +146,11 @@ export class CluvviEngine {
     discoveryMaximumGitHubQueries?: number;
     discoveryMaximumGitHubRepositories?: number;
     discoveryMaximumGitHubThreadDrill?: number;
+    discoveryYoutubeDepth?: "quick" | "default" | "deep";
     communitySignalRuleVersion?: string;
     developerSignalRuleVersion?: string;
+    videoSignalRuleVersion?: string;
+    specializedSignalRuleVersion?: string;
     hiringSignalRuleVersion?: string;
     hiringTaxonomyVersion?: string;
     hiringTechnologyLexiconVersion?: string;
@@ -158,6 +166,8 @@ export class CluvviEngine {
     sourceAdapterConfigurationFingerprint?: string;
     communityConfigurationFingerprint?: string;
     developerConfigurationFingerprint?: string;
+    videoConfigurationFingerprint?: string;
+    specializedConfigurationFingerprint?: string;
   }) {
     this.#store = input.store;
     this.#stages = input.stages;
@@ -189,10 +199,14 @@ export class CluvviEngine {
     this.#discoveryMaximumGitHubQueries = input.discoveryMaximumGitHubQueries ?? 4;
     this.#discoveryMaximumGitHubRepositories = input.discoveryMaximumGitHubRepositories ?? 8;
     this.#discoveryMaximumGitHubThreadDrill = input.discoveryMaximumGitHubThreadDrill ?? 5;
+    this.#discoveryYoutubeDepth = input.discoveryYoutubeDepth ?? "default";
     this.#communitySignalRuleVersion =
       input.communitySignalRuleVersion ?? "community_signals@1.0.0";
     this.#developerSignalRuleVersion =
       input.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1";
+    this.#videoSignalRuleVersion = input.videoSignalRuleVersion ?? "c1-j4.video-signals.v1";
+    this.#specializedSignalRuleVersion =
+      input.specializedSignalRuleVersion ?? "c1-j5.specialized-signals.v1";
     this.#hiringSignalRuleVersion = input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
     this.#hiringTaxonomyVersion = input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
     this.#hiringTechnologyLexiconVersion =
@@ -218,6 +232,10 @@ export class CluvviEngine {
       input.communityConfigurationFingerprint ?? "fixture-no-community-sources";
     this.#developerConfigurationFingerprint =
       input.developerConfigurationFingerprint ?? "fixture-no-developer-sources";
+    this.#videoConfigurationFingerprint =
+      input.videoConfigurationFingerprint ?? "fixture-no-video-sources";
+    this.#specializedConfigurationFingerprint =
+      input.specializedConfigurationFingerprint ?? "fixture-no-specialized-sources";
   }
 
   async start(input: {
@@ -254,8 +272,11 @@ export class CluvviEngine {
       discoveryMaximumGitHubQueries: this.#discoveryMaximumGitHubQueries,
       discoveryMaximumGitHubRepositories: this.#discoveryMaximumGitHubRepositories,
       discoveryMaximumGitHubThreadDrill: this.#discoveryMaximumGitHubThreadDrill,
+      discoveryYoutubeDepth: this.#discoveryYoutubeDepth,
       communitySignalRuleVersion: this.#communitySignalRuleVersion,
       developerSignalRuleVersion: this.#developerSignalRuleVersion,
+      videoSignalRuleVersion: this.#videoSignalRuleVersion,
+      specializedSignalRuleVersion: this.#specializedSignalRuleVersion,
       hiringSignalRuleVersion: this.#hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.#hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.#hiringTechnologyLexiconVersion,
@@ -396,6 +417,35 @@ export class CluvviEngine {
                 developerSignalRuleVersion: this.#developerSignalRuleVersion,
               }
             : {}),
+          ...([
+            "video_planning",
+            "video_retrieval",
+            "video_transcript_retrieval",
+            "video_comment_retrieval",
+            "video_analysis",
+            "video_source_telemetry",
+          ].includes(stage.name)
+            ? {
+                videoConfiguration: this.#videoConfigurationFingerprint,
+                sourceFamily: "video",
+                youtubeDepth: this.#discoveryYoutubeDepth,
+                videoSignalRuleVersion: this.#videoSignalRuleVersion,
+              }
+            : {}),
+          ...([
+            "specialized_context",
+            "specialized_candidate_discovery",
+            "specialized_planning",
+            "specialized_retrieval",
+            "specialized_analysis",
+            "specialized_source_telemetry",
+          ].includes(stage.name)
+            ? {
+                specializedConfiguration: this.#specializedConfigurationFingerprint,
+                sourceFamily: "specialized",
+                specializedSignalRuleVersion: this.#specializedSignalRuleVersion,
+              }
+            : {}),
         });
         const previousSkipped = (await this.#store.listStageExecutions(run.id)).find(
           (execution) =>
@@ -480,6 +530,26 @@ export class CluvviEngine {
           "developer_source_telemetry",
         ].includes(stage.name)
           ? { developerConfiguration: this.#developerConfigurationFingerprint }
+          : {}),
+        ...([
+          "video_planning",
+          "video_retrieval",
+          "video_transcript_retrieval",
+          "video_comment_retrieval",
+          "video_analysis",
+          "video_source_telemetry",
+        ].includes(stage.name)
+          ? { videoConfiguration: this.#videoConfigurationFingerprint }
+          : {}),
+        ...([
+          "specialized_context",
+          "specialized_candidate_discovery",
+          "specialized_planning",
+          "specialized_retrieval",
+          "specialized_analysis",
+          "specialized_source_telemetry",
+        ].includes(stage.name)
+          ? { specializedConfiguration: this.#specializedConfigurationFingerprint }
           : {}),
       });
       const previous = await this.#store.findCompletedStageExecution(

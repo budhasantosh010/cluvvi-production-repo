@@ -70,6 +70,10 @@ export function createLocalRuntime(eventSink?: EngineEventSink) {
       discoveryRuntime.communityConfigurationFingerprint ?? "fixture-no-community-sources",
     developerConfigurationFingerprint:
       discoveryRuntime.developerConfigurationFingerprint ?? "fixture-no-developer-sources",
+    videoConfigurationFingerprint:
+      discoveryRuntime.videoConfigurationFingerprint ?? "fixture-no-video-sources",
+    specializedConfigurationFingerprint:
+      discoveryRuntime.specializedConfigurationFingerprint ?? "fixture-no-specialized-sources",
     ...(eventSink === undefined ? {} : { eventSink }),
   });
   return { paths, store, engine, discoveryConfig };

@@ -89,8 +89,14 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
   readonly #discoveryMaximumGitHubQueries: number;
   readonly #discoveryMaximumGitHubRepositories: number;
   readonly #discoveryMaximumGitHubThreadDrill: number;
+  readonly #discoveryYoutubeDepth: "quick" | "default" | "deep";
   readonly #communitySignalRuleVersion: string;
   readonly #developerSignalRuleVersion: string;
+  readonly #videoSignalRuleVersion: string;
+  readonly #specializedSignalRuleVersion: string;
+  readonly #specializedContextRuleVersion: string;
+  readonly #specializedCoverageVersion: string;
+  readonly #specializedRegistryVersion: string;
   readonly #hiringSignalRuleVersion: string;
   readonly #hiringTaxonomyVersion: string;
   readonly #hiringTechnologyLexiconVersion: string;
@@ -128,8 +134,14 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
     discoveryMaximumGitHubQueries?: number;
     discoveryMaximumGitHubRepositories?: number;
     discoveryMaximumGitHubThreadDrill?: number;
+    discoveryYoutubeDepth?: "quick" | "default" | "deep";
     communitySignalRuleVersion?: string;
     developerSignalRuleVersion?: string;
+    videoSignalRuleVersion?: string;
+    specializedSignalRuleVersion?: string;
+    specializedContextRuleVersion?: string;
+    specializedCoverageVersion?: string;
+    specializedRegistryVersion?: string;
     hiringSignalRuleVersion?: string;
     hiringTaxonomyVersion?: string;
     hiringTechnologyLexiconVersion?: string;
@@ -166,10 +178,18 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
     this.#discoveryMaximumGitHubQueries = input.discoveryMaximumGitHubQueries ?? 4;
     this.#discoveryMaximumGitHubRepositories = input.discoveryMaximumGitHubRepositories ?? 8;
     this.#discoveryMaximumGitHubThreadDrill = input.discoveryMaximumGitHubThreadDrill ?? 5;
+    this.#discoveryYoutubeDepth = input.discoveryYoutubeDepth ?? "default";
     this.#communitySignalRuleVersion =
       input.communitySignalRuleVersion ?? "community_signals@1.0.0";
     this.#developerSignalRuleVersion =
       input.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1";
+    this.#videoSignalRuleVersion = input.videoSignalRuleVersion ?? "c1-j4.video-signals.v1";
+    this.#specializedSignalRuleVersion =
+      input.specializedSignalRuleVersion ?? "c1-j5.specialized-signals.v1";
+    this.#specializedContextRuleVersion =
+      input.specializedContextRuleVersion ?? "c1-j5.specialized-context.v1";
+    this.#specializedCoverageVersion = input.specializedCoverageVersion ?? "c1-j5.coverage.v1";
+    this.#specializedRegistryVersion = input.specializedRegistryVersion ?? "c1-j5.0";
     this.#hiringSignalRuleVersion = input.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
     this.#hiringTaxonomyVersion = input.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
     this.#hiringTechnologyLexiconVersion =
@@ -226,8 +246,11 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       discoveryMaximumGitHubQueries: this.#discoveryMaximumGitHubQueries,
       discoveryMaximumGitHubRepositories: this.#discoveryMaximumGitHubRepositories,
       discoveryMaximumGitHubThreadDrill: this.#discoveryMaximumGitHubThreadDrill,
+      discoveryYoutubeDepth: this.#discoveryYoutubeDepth,
       communitySignalRuleVersion: this.#communitySignalRuleVersion,
       developerSignalRuleVersion: this.#developerSignalRuleVersion,
+      videoSignalRuleVersion: this.#videoSignalRuleVersion,
+      specializedSignalRuleVersion: this.#specializedSignalRuleVersion,
       hiringSignalRuleVersion: this.#hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.#hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.#hiringTechnologyLexiconVersion,
@@ -413,15 +436,22 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       discoveryMaximumGitHubQueries: this.#discoveryMaximumGitHubQueries,
       discoveryMaximumGitHubRepositories: this.#discoveryMaximumGitHubRepositories,
       discoveryMaximumGitHubThreadDrill: this.#discoveryMaximumGitHubThreadDrill,
+      discoveryYoutubeDepth: this.#discoveryYoutubeDepth,
       communitySignalRuleVersion: this.#communitySignalRuleVersion,
       developerSignalRuleVersion: this.#developerSignalRuleVersion,
+      videoSignalRuleVersion: this.#videoSignalRuleVersion,
+      specializedSignalRuleVersion: this.#specializedSignalRuleVersion,
+      specializedContextRuleVersion: this.#specializedContextRuleVersion,
+      specializedCoverageVersion: this.#specializedCoverageVersion,
+      specializedRegistryVersion: this.#specializedRegistryVersion,
       capabilities: {
         localEngine: true,
         missionCompiler: false,
         webSearch: this.#discoveryProviderMode === "live_search",
         webFetch: this.#discoveryExtractionMode === "selected_public_pages",
         enrichment: false,
-        youtube: false,
+        youtube: true,
+        specializedSources: true,
         outreach: false,
       },
       warnings: [
@@ -478,8 +508,14 @@ export class LocalCluvviApplicationService implements CluvviApplicationService {
       discoveryMaximumGitHubQueries: this.#discoveryMaximumGitHubQueries,
       discoveryMaximumGitHubRepositories: this.#discoveryMaximumGitHubRepositories,
       discoveryMaximumGitHubThreadDrill: this.#discoveryMaximumGitHubThreadDrill,
+      discoveryYoutubeDepth: this.#discoveryYoutubeDepth,
       communitySignalRuleVersion: this.#communitySignalRuleVersion,
       developerSignalRuleVersion: this.#developerSignalRuleVersion,
+      videoSignalRuleVersion: this.#videoSignalRuleVersion,
+      specializedSignalRuleVersion: this.#specializedSignalRuleVersion,
+      specializedContextRuleVersion: this.#specializedContextRuleVersion,
+      specializedCoverageVersion: this.#specializedCoverageVersion,
+      specializedRegistryVersion: this.#specializedRegistryVersion,
       runner: { available, heartbeat },
     };
   }

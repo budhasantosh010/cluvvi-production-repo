@@ -42,6 +42,32 @@ export const BuyerHypothesisV1Schema = z
       })
       .strict()
       .optional(),
+    videoIdentityEvidence: z
+      .object({
+        observedVideoFindingIds: z.array(z.string().min(1)),
+        observedTranscriptFindingIds: z.array(z.string().min(1)),
+        observedCommentFindingIds: z.array(z.string().min(1)),
+        inferredSignalFindingIds: z.array(z.string().min(1)),
+        confidence: z.enum(["low", "medium", "high"]),
+        conservativeMatch: z.literal(true),
+        creatorIdentityUsed: z.literal(false),
+        commentAuthorIdentityUsed: z.literal(false),
+        limitations: z.array(z.string().min(1)).min(1),
+      })
+      .strict()
+      .optional(),
+    specializedIdentityEvidence: z
+      .object({
+        observedFindingIds: z.array(z.string().min(1)),
+        inferredSignalFindingIds: z.array(z.string().min(1)),
+        observedSourceDomains: z.array(z.string().min(1)),
+        confidence: z.enum(["low", "medium", "high"]),
+        conservativeMatch: z.literal(true),
+        publisherIdentityUsed: z.literal(false),
+        limitations: z.array(z.string().min(1)).min(1),
+      })
+      .strict()
+      .optional(),
     communityIdentityEvidence: z
       .object({
         observedThreadFindingIds: z.array(z.string().min(1)),

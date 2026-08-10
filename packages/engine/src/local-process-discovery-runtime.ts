@@ -12,7 +12,9 @@ import {
   type ValidatedCommunityArtifactSet,
   type ValidatedDeveloperArtifactSet,
   type ValidatedExtractionArtifactSet,
+  type ValidatedSpecializedArtifactSet,
   type ValidatedStructuredContentArtifactSet,
+  type ValidatedVideoArtifactSet,
 } from "@cluvvi/core";
 import type { ValidatedHiringArtifactSet } from "@cluvvi/core/hiring-validation";
 import { createHash, randomUUID } from "node:crypto";
@@ -54,6 +56,22 @@ import {
   readValidatedDeveloperThreads,
 } from "./developer-artifact-reader";
 import { readValidatedStructuredContentArtifactSet } from "./structured-content-artifact-reader";
+import {
+  readValidatedVideoAnalysis,
+  readValidatedVideoArtifactSet,
+  readValidatedVideoCollection,
+  readValidatedVideoComments,
+  readValidatedVideoPlan,
+  readValidatedVideoTranscripts,
+} from "./video-artifact-reader";
+import {
+  readValidatedSpecializedAnalysis,
+  readValidatedSpecializedArtifactSet,
+  readValidatedSpecializedCandidates,
+  readValidatedSpecializedContext,
+  readValidatedSpecializedFindings,
+  readValidatedSpecializedPlan,
+} from "./specialized-artifact-reader";
 
 interface ChildOutcome {
   exitCode: number | null;
@@ -535,7 +553,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumStructuredResources: number;
   readonly maximumDocumentResources: number;
   readonly sourceAdapterMode: "none" | "selected_sources";
-  readonly sourceFamilies: readonly ("hiring" | "community" | "developer")[];
+  readonly sourceFamilies: readonly (
+    "hiring" | "community" | "developer" | "video" | "specialized"
+  )[];
   readonly maximumHiringTargets: number;
   readonly maximumHiringBoardsPerTarget: number;
   readonly maximumHiringJobsPerBoard: number;
@@ -549,8 +569,11 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly maximumGitHubQueries: number;
   readonly maximumGitHubRepositories: number;
   readonly maximumGitHubThreadDrill: number;
+  readonly youtubeDepth: "quick" | "default" | "deep";
   readonly communitySignalRuleVersion: string;
   readonly developerSignalRuleVersion: string;
+  readonly videoSignalRuleVersion: string;
+  readonly specializedSignalRuleVersion: string;
   readonly hiringSignalRuleVersion: string;
   readonly hiringTaxonomyVersion: string;
   readonly hiringTechnologyLexiconVersion: string;
@@ -566,6 +589,8 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
   readonly sourceAdapterConfigurationFingerprint: string;
   readonly communityConfigurationFingerprint: string;
   readonly developerConfigurationFingerprint: string;
+  readonly videoConfigurationFingerprint: string;
+  readonly specializedConfigurationFingerprint: string;
   readonly #config: LocalDiscoveryEngineConfig;
   readonly #runsDirectory: string;
   readonly #now: () => string;
@@ -607,10 +632,14 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     this.maximumGitHubThreadDrill =
       this.#config.maximumGitHubThreadDrill ??
       (this.githubDepth === "quick" ? 3 : this.githubDepth === "deep" ? 8 : 5);
+    this.youtubeDepth = this.#config.youtubeDepth ?? "default";
     this.communitySignalRuleVersion =
       this.#config.communitySignalRuleVersion ?? "community_signals@1.0.0";
     this.developerSignalRuleVersion =
       this.#config.developerSignalRuleVersion ?? "c1-j3.developer-signals.v1";
+    this.videoSignalRuleVersion = this.#config.videoSignalRuleVersion ?? "c1-j4.video-signals.v1";
+    this.specializedSignalRuleVersion =
+      this.#config.specializedSignalRuleVersion ?? "c1-j5.specialized-signals.v1";
     this.hiringSignalRuleVersion = this.#config.hiringSignalRuleVersion ?? "hiring_signals@1.0.0";
     this.hiringTaxonomyVersion = this.#config.hiringTaxonomyVersion ?? "hiring_taxonomy@1.0.0";
     this.hiringTechnologyLexiconVersion =
@@ -640,6 +669,8 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     const hiringEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_HIRING_");
     const redditEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_REDDIT_");
     const githubEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_GITHUB_");
+    const youtubeEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_YOUTUBE_");
+    const specializedEnvironmentKey = (key: string) => key.startsWith("DISCOVERY_SPECIALIZED_");
     const providerEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(
         ([key]) =>
@@ -647,7 +678,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
           !structuredEnvironmentKey(key) &&
           !hiringEnvironmentKey(key) &&
           !redditEnvironmentKey(key) &&
-          !githubEnvironmentKey(key),
+          !githubEnvironmentKey(key) &&
+          !youtubeEnvironmentKey(key) &&
+          !specializedEnvironmentKey(key),
       ),
     );
     const extractionEnvironment = Object.fromEntries(
@@ -664,6 +697,12 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     );
     const githubEnvironment = Object.fromEntries(
       Object.entries(publicEnvironment).filter(([key]) => githubEnvironmentKey(key)),
+    );
+    const youtubeEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => youtubeEnvironmentKey(key)),
+    );
+    const specializedEnvironment = Object.fromEntries(
+      Object.entries(publicEnvironment).filter(([key]) => specializedEnvironmentKey(key)),
     );
     this.providerConfigurationFingerprint = createHash("sha256")
       .update(
@@ -751,6 +790,29 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
           maximumGitHubThreadDrill: this.maximumGitHubThreadDrill,
           developerSignalRuleVersion: this.developerSignalRuleVersion,
           githubEnvironment,
+        }),
+      )
+      .digest("hex");
+    this.videoConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          sourceAdapterMode: this.sourceAdapterMode,
+          videoEnabled: this.sourceFamilies.includes("video"),
+          youtubeDepth: this.youtubeDepth,
+          videoSignalRuleVersion: this.videoSignalRuleVersion,
+          youtubeEnvironment,
+        }),
+      )
+      .digest("hex");
+    this.specializedConfigurationFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          runtimeMode: this.mode,
+          sourceAdapterMode: this.sourceAdapterMode,
+          specializedEnabled: this.sourceFamilies.includes("specialized"),
+          specializedSignalRuleVersion: this.specializedSignalRuleVersion,
+          specializedEnvironment,
         }),
       )
       .digest("hex");
@@ -927,6 +989,111 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
     });
   }
 
+  async readVideoPlan(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedVideoPlan({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readVideoCollection(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedVideoCollection({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readVideoTranscripts(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedVideoTranscripts({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readVideoComments(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedVideoComments({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readVideoAnalysis(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedVideoAnalysis({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readVideoArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedVideoArtifactSet> {
+    return readValidatedVideoArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readSpecializedContext(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedSpecializedContext({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readSpecializedCandidates(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }) {
+    return readValidatedSpecializedCandidates({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readSpecializedPlan(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedSpecializedPlan({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readSpecializedFindings(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedSpecializedFindings({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readSpecializedAnalysis(input: { runId: string; searchResults: SearchResultsArtifactV2 }) {
+    return readValidatedSpecializedAnalysis({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
+  async readSpecializedArtifactSet(input: {
+    runId: string;
+    searchResults: SearchResultsArtifactV2;
+  }): Promise<ValidatedSpecializedArtifactSet> {
+    return readValidatedSpecializedArtifactSet({
+      runsDirectory: this.#runsDirectory,
+      runId: input.runId,
+      searchResults: input.searchResults,
+    });
+  }
+
   async readHiringArtifactSet(input: {
     runId: string;
     searchResults: SearchResultsArtifactV2;
@@ -1024,6 +1191,9 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
                   "--github-max-thread-drill",
                   String(this.maximumGitHubThreadDrill),
                 ]
+              : []),
+            ...(this.sourceFamilies.includes("video")
+              ? ["--youtube-depth", this.youtubeDepth]
               : []),
           ]
         : []),
@@ -1516,8 +1686,11 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       maximumGitHubQueries: this.maximumGitHubQueries,
       maximumGitHubRepositories: this.maximumGitHubRepositories,
       maximumGitHubThreadDrill: this.maximumGitHubThreadDrill,
+      youtubeDepth: this.youtubeDepth,
       communitySignalRuleVersion: this.communitySignalRuleVersion,
       developerSignalRuleVersion: this.developerSignalRuleVersion,
+      videoSignalRuleVersion: this.videoSignalRuleVersion,
+      specializedSignalRuleVersion: this.specializedSignalRuleVersion,
       hiringSignalRuleVersion: this.hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
@@ -1650,6 +1823,57 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             developerSignalsImported: false,
             developerSourceTelemetryImported: false,
           }),
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("video")
+        ? {
+            videoSourcePlanPath: paths.videoSourcePlanPath,
+            videoSourcePlanImported: false,
+            videoCollectionPath: paths.videoCollectionPath,
+            videoCollectionImported: false,
+            transcriptManifestPath: paths.transcriptManifestPath,
+            transcriptManifestImported: false,
+            videoCommentManifestPath: paths.videoCommentManifestPath,
+            videoCommentManifestImported: false,
+            videoSignalsPath: paths.videoSignalsPath,
+            videoSignalsImported: false,
+            videoSourceTelemetryPath: paths.videoSourceTelemetryPath,
+            videoSourceTelemetryImported: false,
+            videoTranscriptsDirectory: paths.videoTranscriptsDirectory,
+            videoCommentsDirectory: paths.videoCommentsDirectory,
+            videoConfigurationFingerprint: this.videoConfigurationFingerprint,
+          }
+        : {
+            videoSourcePlanImported: false,
+            videoCollectionImported: false,
+            transcriptManifestImported: false,
+            videoCommentManifestImported: false,
+            videoSignalsImported: false,
+            videoSourceTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources" &&
+      this.sourceFamilies.includes("specialized")
+        ? {
+            specializedSourceContextPath: paths.specializedSourceContextPath,
+            specializedSourceContextImported: false,
+            specializedSourceCandidatesPath: paths.specializedSourceCandidatesPath,
+            specializedSourceCandidatesImported: false,
+            specializedSourcePlanPath: paths.specializedSourcePlanPath,
+            specializedSourcePlanImported: false,
+            specializedFindingsPath: paths.specializedFindingsPath,
+            specializedFindingsImported: false,
+            specializedSignalsPath: paths.specializedSignalsPath,
+            specializedSignalsImported: false,
+            specializedSourceTelemetryPath: paths.specializedSourceTelemetryPath,
+            specializedSourceTelemetryImported: false,
+            specializedConfigurationFingerprint: this.specializedConfigurationFingerprint,
+          }
+        : {
+            specializedSourceContextImported: false,
+            specializedSourceCandidatesImported: false,
+            specializedSourcePlanImported: false,
+            specializedFindingsImported: false,
+            specializedSignalsImported: false,
+            specializedSourceTelemetryImported: false,
+          }),
       providerIds,
       success: true,
     });
@@ -1728,8 +1952,11 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
       maximumGitHubQueries: this.maximumGitHubQueries,
       maximumGitHubRepositories: this.maximumGitHubRepositories,
       maximumGitHubThreadDrill: this.maximumGitHubThreadDrill,
+      youtubeDepth: this.youtubeDepth,
       communitySignalRuleVersion: this.communitySignalRuleVersion,
       developerSignalRuleVersion: this.developerSignalRuleVersion,
+      videoSignalRuleVersion: this.videoSignalRuleVersion,
+      specializedSignalRuleVersion: this.specializedSignalRuleVersion,
       hiringSignalRuleVersion: this.hiringSignalRuleVersion,
       hiringTaxonomyVersion: this.hiringTaxonomyVersion,
       hiringTechnologyLexiconVersion: this.hiringTechnologyLexiconVersion,
@@ -1859,6 +2086,57 @@ export class LocalProcessDiscoveryRuntime implements DiscoveryRuntime {
             developerCommentMetadataImported: false,
             developerSignalsImported: false,
             developerSourceTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources" && this.sourceFamilies.includes("video")
+        ? {
+            videoSourcePlanPath: input.paths.videoSourcePlanPath,
+            videoSourcePlanImported: false,
+            videoCollectionPath: input.paths.videoCollectionPath,
+            videoCollectionImported: false,
+            transcriptManifestPath: input.paths.transcriptManifestPath,
+            transcriptManifestImported: false,
+            videoCommentManifestPath: input.paths.videoCommentManifestPath,
+            videoCommentManifestImported: false,
+            videoSignalsPath: input.paths.videoSignalsPath,
+            videoSignalsImported: false,
+            videoSourceTelemetryPath: input.paths.videoSourceTelemetryPath,
+            videoSourceTelemetryImported: false,
+            videoTranscriptsDirectory: input.paths.videoTranscriptsDirectory,
+            videoCommentsDirectory: input.paths.videoCommentsDirectory,
+            videoConfigurationFingerprint: this.videoConfigurationFingerprint,
+          }
+        : {
+            videoSourcePlanImported: false,
+            videoCollectionImported: false,
+            transcriptManifestImported: false,
+            videoCommentManifestImported: false,
+            videoSignalsImported: false,
+            videoSourceTelemetryImported: false,
+          }),
+      ...(this.sourceAdapterMode === "selected_sources" &&
+      this.sourceFamilies.includes("specialized")
+        ? {
+            specializedSourceContextPath: input.paths.specializedSourceContextPath,
+            specializedSourceContextImported: false,
+            specializedSourceCandidatesPath: input.paths.specializedSourceCandidatesPath,
+            specializedSourceCandidatesImported: false,
+            specializedSourcePlanPath: input.paths.specializedSourcePlanPath,
+            specializedSourcePlanImported: false,
+            specializedFindingsPath: input.paths.specializedFindingsPath,
+            specializedFindingsImported: false,
+            specializedSignalsPath: input.paths.specializedSignalsPath,
+            specializedSignalsImported: false,
+            specializedSourceTelemetryPath: input.paths.specializedSourceTelemetryPath,
+            specializedSourceTelemetryImported: false,
+            specializedConfigurationFingerprint: this.specializedConfigurationFingerprint,
+          }
+        : {
+            specializedSourceContextImported: false,
+            specializedSourceCandidatesImported: false,
+            specializedSourcePlanImported: false,
+            specializedFindingsImported: false,
+            specializedSignalsImported: false,
+            specializedSourceTelemetryImported: false,
           }),
       success: false,
       errorCode: input.code,

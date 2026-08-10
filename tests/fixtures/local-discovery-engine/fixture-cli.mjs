@@ -4,6 +4,10 @@ import { writeControlledExtractionSidecars } from "./extraction-sidecars.mjs";
 import { writeControlledHiringSidecars } from "./hiring-sidecars.mjs";
 import { writeControlledCommunitySidecars } from "./community-sidecars.mjs";
 import { writeControlledDeveloperSidecars } from "./developer-sidecars.mjs";
+import {
+  writeControlledSpecializedSidecars,
+  writeControlledVideoSidecars,
+} from "./video-specialized-sidecars.mjs";
 import { writeControlledStructuredSidecars } from "./structured-sidecars.mjs";
 
 const args = process.argv.slice(2);
@@ -29,6 +33,7 @@ const githubDepthIndex = args.indexOf("--github-depth");
 const maximumGitHubQueriesIndex = args.indexOf("--github-max-queries");
 const maximumGitHubRepositoriesIndex = args.indexOf("--github-max-repositories");
 const maximumGitHubThreadDrillIndex = args.indexOf("--github-max-thread-drill");
+const youtubeDepthIndex = args.indexOf("--youtube-depth");
 const outputIndex = args.indexOf("--output");
 const providerMode = providerModeIndex >= 0 ? args[providerModeIndex + 1] : "fixture_only";
 const providerPolicy = providerPolicyIndex >= 0 ? args[providerPolicyIndex + 1] : "free_only";
@@ -83,6 +88,7 @@ const maximumGitHubThreadDrill =
       : githubDepth === "deep"
         ? 8
         : 5;
+const youtubeDepth = youtubeDepthIndex >= 0 ? args[youtubeDepthIndex + 1] : "default";
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
 if (
   !requestPath ||
@@ -102,7 +108,12 @@ if (
   maximumDocumentResources > maximumStructuredResources ||
   !["none", "selected_sources"].includes(sourceAdapterMode) ||
   sourceFamilies.some(
-    (family) => family !== "hiring" && family !== "community" && family !== "developer",
+    (family) =>
+      family !== "hiring" &&
+      family !== "community" &&
+      family !== "developer" &&
+      family !== "video" &&
+      family !== "specialized",
   ) ||
   (sourceAdapterMode === "selected_sources" && sourceFamilies.length === 0) ||
   !Number.isInteger(maximumHiringTargets) ||
@@ -138,6 +149,7 @@ if (
   !Number.isInteger(maximumGitHubThreadDrill) ||
   maximumGitHubThreadDrill < 1 ||
   maximumGitHubThreadDrill > 8 ||
+  !["quick", "default", "deep"].includes(youtubeDepth) ||
   (structuredContentMode === "selected_resources" && extractionMode !== "selected_public_pages")
 ) {
   console.error(
@@ -170,21 +182,22 @@ const templatePath = resolve(
 const template = JSON.parse(await readFile(templatePath, "utf8"));
 
 if (providerMode === "fixture_only") {
-  const communityResults =
-    sourceFamilies.includes("community") || sourceFamilies.includes("developer")
-      ? template.results.map((result, index) =>
-          index === 0
-            ? {
-                ...result,
-                title: "Fixture Frame Studio public workflow page",
-                url: "https://frame-studio.invalid/workflow",
-                domain: "frame-studio.invalid",
-                authorOrCompany: "Fixture Frame Studio",
-                credibility: "official",
-              }
-            : result,
-        )
-      : template.results;
+  const communityResults = sourceFamilies.some((family) =>
+    ["community", "developer", "video", "specialized"].includes(family),
+  )
+    ? template.results.map((result, index) =>
+        index === 0
+          ? {
+              ...result,
+              title: "Fixture Frame Studio public workflow page",
+              url: "https://frame-studio.invalid/workflow",
+              domain: "frame-studio.invalid",
+              authorOrCompany: "Fixture Frame Studio",
+              credibility: "official",
+            }
+          : result,
+      )
+    : template.results;
   const artifact = {
     ...template,
     requestId: request.requestId,
@@ -243,6 +256,21 @@ if (providerMode === "fixture_only") {
     maximumGitHubQueries,
     maximumGitHubRepositories,
     maximumGitHubThreadDrill,
+  });
+  await writeControlledVideoSidecars({
+    outputPath,
+    searchResults: artifact,
+    behavior,
+    sourceAdapterMode,
+    sourceFamilies,
+    youtubeDepth,
+  });
+  await writeControlledSpecializedSidecars({
+    outputPath,
+    searchResults: artifact,
+    behavior,
+    sourceAdapterMode,
+    sourceFamilies,
   });
   console.log(`Wrote fixture search_results.v2 for ${request.requestId}.`);
   process.exit(0);

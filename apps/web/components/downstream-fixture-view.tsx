@@ -88,6 +88,17 @@ export function DownstreamFixtureView({
   const hiringEvidence = evidence.evidenceSourceMode.includes("hiring_intelligence");
   const communityEvidence = evidence.evidenceSourceMode.includes("community_intelligence");
   const developerEvidence = evidence.evidenceSourceMode.includes("developer_intelligence");
+  const videoEvidence =
+    evidence.evidenceSourceMode.includes("video_intelligence") ||
+    evidence.materials.some(
+      (material) => material.kind === "video_signal" || material.kind.startsWith("youtube_"),
+    );
+  const specializedEvidence =
+    evidence.evidenceSourceMode.includes("specialized_intelligence") ||
+    evidence.materials.some(
+      (material) =>
+        material.kind === "specialized_finding" || material.kind === "specialized_signal",
+    );
   const localDiscovery = discoveryRuntimeMode === "local_discovery_engine";
   const liveDiscovery = discoveryProviderMode === "live_search";
   const rankingByEntity = new Map(
@@ -242,6 +253,22 @@ export function DownstreamFixtureView({
             <dt>Developer signal citations</dt>
             <dd>{buyerMap.summary.developerSignalCitationCount}</dd>
           </div>
+          <div className="metric-card" data-testid="buyer-map-video-count">
+            <dt>Video citations</dt>
+            <dd>{buyerMap.summary.videoCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-video-signal-count">
+            <dt>Video signal citations</dt>
+            <dd>{buyerMap.summary.videoSignalCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-specialized-finding-count">
+            <dt>Specialized finding citations</dt>
+            <dd>{buyerMap.summary.specializedFindingCitationCount}</dd>
+          </div>
+          <div className="metric-card" data-testid="buyer-map-specialized-signal-count">
+            <dt>Specialized signal citations</dt>
+            <dd>{buyerMap.summary.specializedSignalCitationCount}</dd>
+          </div>
         </dl>
 
         <section aria-labelledby="ranked-fixture-opportunities-heading">
@@ -380,6 +407,38 @@ export function DownstreamFixtureView({
                               {ranking.developerContribution.independentRepositoryCount} independent
                               repo(s) · {ranking.developerContribution.independentThreadCount}{" "}
                               independent thread(s) · maximum 8% of positive score
+                            </p>
+                          </div>
+                        )}
+                        {ranking !== undefined && videoEvidence && (
+                          <div
+                            className="mt-2 rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-3 text-xs leading-5 text-fuchsia-950"
+                            data-testid="buyer-map-video-ranking"
+                          >
+                            <strong>
+                              Video contribution: +{ranking.videoContribution.points} / 1 max
+                            </strong>
+                            <p className="mt-1">{ranking.videoContribution.rationale}</p>
+                            <p className="mt-1 text-fuchsia-700">
+                              {ranking.videoContribution.independentVideoCount} independent video(s)
+                              · {ranking.videoContribution.independentChannelCount} independent
+                              channel(s) · maximum 8% of positive score
+                            </p>
+                          </div>
+                        )}
+                        {ranking !== undefined && specializedEvidence && (
+                          <div
+                            className="mt-2 rounded-xl border border-teal-200 bg-teal-50 p-3 text-xs leading-5 text-teal-950"
+                            data-testid="buyer-map-specialized-ranking"
+                          >
+                            <strong>
+                              Specialized contribution: +{ranking.specializedContribution.points} /
+                              1 max
+                            </strong>
+                            <p className="mt-1">{ranking.specializedContribution.rationale}</p>
+                            <p className="mt-1 text-teal-700">
+                              {ranking.specializedContribution.independentSourceCount} independent
+                              source(s) · maximum 8% of positive score
                             </p>
                           </div>
                         )}
