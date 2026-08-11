@@ -351,7 +351,7 @@ describe("LocalProcessDiscoveryRuntime", () => {
       resolve(exchange, "search-results.v2.json"),
     ]);
     expect(execution.providerIds).toEqual(["fixture_test_provider"]);
-  });
+  }, 15_000);
 
   it("records selected extraction configuration and sidecar paths on successful discovery", async () => {
     const { projectPath, runsDirectory } = await fakeProject();

@@ -107,6 +107,8 @@ The operations UI exposes mode/budgets/rule versions/registry version but never 
 
 Controlled Project B tests cover exact missing/invalid sidecar stages, known and dynamic source provenance, zero-paid telemetry, downstream evidence/identity/ranking, and same-run repair/reuse. The final focused bridge/runtime matrix passed 36/36. The dedicated browser suite rebuilt the production Next.js app and passed 2/2 while capturing inspected desktop and 390px mobile Visual-QA screenshots with no horizontal overflow.
 
+The final Project B aggregate `pnpm check` gate passed formatting, zero-warning lint, all workspace typechecks, 238 controlled tests with 9 intentionally gated live tests skipped, and all production builds. A legacy process-spawning bridge test was given a bounded 15-second test allowance after it proved to be a full-suite machine-load timing flake; its behavior still completes in about one second when isolated and remained green under the aggregate gate.
+
 The env-gated real Project A → Project B suite pins Project A to the SHA above and passed 2/2: one real public YouTube + Tech/AI specialized run and one free-only non-tech UK HR/compliance coverage-gap run. Both preserved zero paid requests/credits, and the non-tech proof ran with `DISCOVERY_SPECIALIZED_SOURCE_REGISTRY_PATH` blocked from Project B forwarding.
 
 ## Scope stop
